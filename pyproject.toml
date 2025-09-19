@@ -3,7 +3,7 @@ name = "data-harvesting"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "gradysim>=0.7.3",
     "gymnasium>=1.2.0",
@@ -12,4 +12,5 @@ dependencies = [
     "torch>=2.8.0",
     "torchrl>=0.10.0",
     "torchvision>=0.23.0",
+    "tqdm>=4.67.1",
 ]
