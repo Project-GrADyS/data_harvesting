@@ -1,4 +1,5 @@
 import dataclasses
+import enum
 import math
 import random
 from time import sleep
@@ -147,6 +148,12 @@ class GrADySEnvironmentConfig:
     reward: Literal['punish', 'time-reward', 'reward'] = 'punish'
     speed_action: bool = True
     end_when_all_collected: bool = True
+
+class EndCause(enum.Enum):
+    NONE = 0
+    TIMEOUT = 1
+    ALL_COLLECTED = 2
+    STALLED = 3
 
 class GrADySEnvironment(ParallelEnv):
     simulator: Simulator
@@ -454,6 +461,21 @@ class GrADySEnvironment(ParallelEnv):
 
     def detect_out_of_bounds_agent(self, agent: Node) -> bool:
         return abs(agent.position[0]) > self.scenario_size or abs(agent.position[1]) > self.scenario_size
+    
+    def blank_info(self):
+        return {
+            agent: {
+                "avg_reward": 0,
+                "max_reward": 0,
+                "sum_reward": 0,
+                "avg_collection_time": 0,
+                "episode_duration": 0,
+                "completion_time": 0,
+                "all_collected": 0,
+                "num_collected": 0,
+                "cause": EndCause.NONE.value
+            } for agent in self.agents
+        }
 
     def reset(self, seed=None, options=None):
         """
@@ -554,7 +576,7 @@ class GrADySEnvironment(ParallelEnv):
         self.sensors_collected = 0
         self.collection_times = [self.max_episode_length for _ in range(self.num_sensors)]
 
-        return self.observe_simulation(), {agent: {} for agent in self.agents}
+        return self.observe_simulation(), self.blank_info()
 
     def step(self, actions):
         """
@@ -598,7 +620,7 @@ class GrADySEnvironment(ParallelEnv):
 
             simulation_ongoing = self.simulator.step_simulation()
             if not simulation_ongoing:
-                end_cause = "time_limit_exceeded"
+                end_cause = EndCause.TIMEOUT.value
                 break
 
         sensor_is_collected = [
@@ -620,12 +642,12 @@ class GrADySEnvironment(ParallelEnv):
 
         if self.stall_duration > self.max_seconds_stalled:
             simulation_ongoing = False
-            end_cause = f"stalled ({sum(sensor_is_collected)}/{self.num_sensors})"
+            end_cause = EndCause.STALLED.value
 
         all_sensors_collected = sum(sensor_is_collected) == self.num_sensors
 
         if all_sensors_collected:
-            end_cause = "all_sensors_collected"
+            end_cause = EndCause.ALL_COLLECTED.value
 
         # Calculating reward
         reward = 0
@@ -665,7 +687,7 @@ class GrADySEnvironment(ParallelEnv):
 
         # typically there won't be any information in the infos, but there must
         # still be an entry for each agent
-        infos = {}
+        infos = self.blank_info()
 
         if not simulation_ongoing or all_sensors_collected:
             infos = {
@@ -677,6 +699,7 @@ class GrADySEnvironment(ParallelEnv):
                     "episode_duration": self.episode_duration,
                     "completion_time": self.max_episode_length if not all_sensors_collected else self.simulator._current_timestamp,
                     "all_collected": all_sensors_collected,
+                    "num_collected": sum(sensor_is_collected),
                     "cause": end_cause
                 } for agent in self.agents
             }

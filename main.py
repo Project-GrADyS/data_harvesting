@@ -5,6 +5,7 @@ from data_harvesting.actor import create_actor, create_exploratory_actor
 from data_harvesting.environment import make_env
 from data_harvesting.critic import create_critic
 from data_harvesting.collector import create_collector
+from data_harvesting.metrics import MetricCollector
 from data_harvesting.replay import create_replay_buffer
 from data_harvesting.optimization import create_loss, create_optimizers, create_updater
 from tqdm import tqdm
@@ -52,14 +53,12 @@ def main():
     n_optimiser_steps = config["optimization"]["num_optimizer_steps"]
     grad_clip = config["optimization"]["grad_clip"]
 
-    pbar = tqdm(
-        total=n_iterations,
-        desc=f"episode_reward_mean = 0"
-    )
-    episode_reward_mean_list = []
+    pbar = tqdm(total=n_iterations)
 
     with Live() as live:
         live.log_params(config)
+
+        metrics_logger = MetricCollector(live)
 
         # Training/collection iterations
         for iteration, batch in enumerate(collector):
@@ -90,19 +89,8 @@ def main():
             exploration_noise.step(current_frames)
 
             # Logging
-            episode_reward_mean = (
-                batch.get(("next", "agents", "episode_reward"))[
-                    batch.get(("next", "agents", "done"))
-                ]
-                .mean()
-                .item()
-            )
-            episode_reward_mean_list.append(episode_reward_mean)
+            metrics_logger.log_metrics(batch)
 
-            pbar.set_description(f"episode_reward_mean ={episode_reward_mean_list[-1]}",
-                                 refresh=False,
-                                 )
-            live.log_metric("episode_reward_mean", episode_reward_mean_list[-1])
             pbar.update()
             live.next_step()
 
