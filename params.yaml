@@ -20,7 +20,7 @@ environment:
   # Number of closest drones to include in the state.
   state_num_closest_drones: 2
   # State representation mode. Options: "all_positions", "absolute", "relative", "distance_angle", "angle"
-  state_mode: "relative"
+  state_mode: relative
   # Whether to include agent IDs in the state.
   id_on_state: true
   # Minimum priority value for sensors.
@@ -30,7 +30,7 @@ environment:
   # If true, drone positions are fully randomized at start.
   full_random_drone_position: false
   # Reward function type. Options: "punish", "time-reward", "reward"
-  reward: "punish"
+  reward: punish
   # If true, agents can control their speed.
   speed_action: true
   # If true, episode ends when all sensors are collected.
@@ -44,13 +44,13 @@ actor:
   # Network width (number of neurons per hidden layer).
   network_width: 256
   # Activation function for hidden layers. Options: "Tanh", "ReLU", "LeakyReLU".
-  activation_function: "Tanh"
+  activation_function: Tanh
   # Whether to use a centralized policy (for multi-agent setups).
   centralized: false
 
 training:
   # Total number of training timesteps.
-  total_timesteps: 1_000_000
+  total_timesteps: 10000
   # Initial sigma for exploration noise (AdditiveGaussianModule).
   exploration_sigma_init: 0.9
   # Final sigma for exploration noise (AdditiveGaussianModule).
@@ -66,7 +66,7 @@ critic:
   # Number of neurons per hidden layer.
   network_width: 256
   # Activation function for hidden layers. Options: "Tanh", "ReLU", "LeakyReLU".
-  activation_function: "Tanh"
+  activation_function: Tanh
   # Whether to share parameters across agents.
   share_parameters: true
   # Whether the critic is centralized.
@@ -86,7 +86,7 @@ replay_buffer:
   # Number of batches to prefetch asynchronously (0 disables prefetching).
   prefetch: 0
   # Device to store the buffer on ("cpu" or "cuda").
-  buffer_device: "cpu"
+  buffer_device: cpu
 
 optimization:
   # Discount factor for future rewards.

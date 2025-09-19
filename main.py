@@ -126,7 +126,7 @@ def main():
             pbar.set_description(f"episode_reward_mean ={episode_reward_mean_list[-1]}",
                                  refresh=False,
                                  )
-            live.log("episode_reward_mean", episode_reward_mean_list[-1])
+            live.log_metric("episode_reward_mean", episode_reward_mean_list[-1])
             pbar.update()
             live.next_step()
 
