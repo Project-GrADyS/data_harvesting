@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "dvc>=3.63.0",
     "dvclive>=3.48.5",
     "gradysim>=0.7.3",
     "gymnasium>=1.2.0",
