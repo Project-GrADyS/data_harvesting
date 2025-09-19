@@ -1,3 +1,4 @@
+import dataclasses
 import math
 import random
 from time import sleep
@@ -21,6 +22,7 @@ from gradysim.simulator.node import Node
 from gradysim.simulator.simulation import SimulationBuilder, Simulator, SimulationConfiguration
 from gymnasium.spaces import Box
 from pettingzoo import ParallelEnv
+from torchrl.envs import PettingZooWrapper, MarlGroupMapType
 
 StateMode = Literal["all_positions", "absolute", "relative", "distance_angle", "angle"]
 
@@ -125,6 +127,26 @@ class DroneProtocol(IProtocol):
     def finish(self) -> None:
         pass
 
+@dataclasses.dataclass
+class GrADySEnvironmentConfig:
+    render_mode: Optional[Literal["visual", "console"]] = None
+    algorithm_iteration_interval: float = 0.5
+    num_drones: int = 1
+    num_sensors: int = 2
+    scenario_size: float = 100
+    max_episode_length: int = 500
+    max_seconds_stalled: int = 30
+    communication_range: float = 20
+    state_num_closest_sensors: int = 2
+    state_num_closest_drones: int = 2
+    state_mode: StateMode = "relative"
+    id_on_state: bool = True
+    min_sensor_priority: float = 0.1
+    max_sensor_priority: float = 1
+    full_random_drone_position: bool = False
+    reward: Literal['punish', 'time-reward', 'reward'] = 'punish'
+    speed_action: bool = True
+    end_when_all_collected: bool = True
 
 class GrADySEnvironment(ParallelEnv):
     simulator: Simulator
@@ -146,25 +168,7 @@ class GrADySEnvironment(ParallelEnv):
 
     metadata = {"render_modes": ["visual", "console"], "name": "gradys-env"}
 
-    def __init__(self,
-                 render_mode: Optional[Literal["visual", "console"]] = None,
-                 algorithm_iteration_interval: float = 0.5,
-                 num_drones: int = 1,
-                 num_sensors: int = 2,
-                 scenario_size: float = 100,
-                 max_episode_length: float = 500,
-                 max_seconds_stalled: int = 30,
-                 communication_range: float = 20,
-                 state_num_closest_sensors: int = 2,
-                 state_num_closest_drones: int = 2,
-                 state_mode: StateMode = "relative",
-                 id_on_state: bool = True,
-                 min_sensor_priority: float = 0.1,
-                 max_sensor_priority: float = 1,
-                 full_random_drone_position: bool = False,
-                 reward: Literal['punish', 'time-reward', 'reward'] = 'punish',
-                 speed_action: bool = True,
-                 end_when_all_collected: bool = True):
+    def __init__(self, config: GrADySEnvironmentConfig) -> None:
         """
         The init method takes in environment arguments and should define the following attributes:
         - possible_agents
@@ -176,27 +180,27 @@ class GrADySEnvironment(ParallelEnv):
 
         These attributes should not be changed after initialization.
         """
-        self.render_mode = render_mode
+        self.render_mode = config.render_mode
 
-        self.algorithm_iteration_interval = algorithm_iteration_interval
+        self.algorithm_iteration_interval = config.algorithm_iteration_interval
 
-        self.num_sensors = num_sensors
-        self.num_drones = num_drones
-        self.possible_agents = [f"drone{i}" for i in range(num_drones)]
-        self.max_episode_length = max_episode_length
-        self.max_seconds_stalled = max_seconds_stalled
-        self.scenario_size = scenario_size
-        self.communication_range = communication_range
-        self.state_num_closest_sensors = state_num_closest_sensors
-        self.state_num_closest_drones = state_num_closest_drones
-        self.state_mode = state_mode
-        self.id_on_state = id_on_state
-        self.min_sensor_priority = min_sensor_priority
-        self.max_sensor_priority = max_sensor_priority
-        self.full_random_drone_position = full_random_drone_position
-        self.reward = reward
-        self.speed_action = speed_action
-        self.end_when_all_collected = end_when_all_collected
+        self.num_sensors = config.num_sensors
+        self.num_drones = config.num_drones
+        self.possible_agents = [f"drone{i}" for i in range(config.num_drones)]
+        self.max_episode_length = config.max_episode_length
+        self.max_seconds_stalled = config.max_seconds_stalled
+        self.scenario_size = config.scenario_size
+        self.communication_range = config.communication_range
+        self.state_num_closest_sensors = config.state_num_closest_sensors
+        self.state_num_closest_drones = config.state_num_closest_drones
+        self.state_mode = config.state_mode
+        self.id_on_state = config.id_on_state
+        self.min_sensor_priority = config.min_sensor_priority
+        self.max_sensor_priority = config.max_sensor_priority
+        self.full_random_drone_position = config.full_random_drone_position
+        self.reward = config.reward
+        self.speed_action = config.speed_action
+        self.end_when_all_collected = config.end_when_all_collected
 
     def observation_space(self, agent):
         agent_id = 1 if self.id_on_state else 0
@@ -678,3 +682,16 @@ class GrADySEnvironment(ParallelEnv):
             }
 
         return observations, rewards, terminations, truncations, infos
+
+def make_env(config: dict) -> PettingZooWrapper:
+    """
+    Creates a torchrl wrapped GrADySEnvironment with the given configuration.
+    :param config: GrADySEnvironmentConfig object containing environment configuration
+    :return: GrADySEnvironment instance
+    """
+    env_config = GrADySEnvironmentConfig(**config["environment"])
+    return PettingZooWrapper(
+        GrADySEnvironment(env_config),
+        categorical_actions=False,
+        group_map=MarlGroupMapType.ALL_IN_ONE_GROUP
+    )
