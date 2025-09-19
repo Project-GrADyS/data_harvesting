@@ -10,7 +10,7 @@ from data_harvesting.replay import create_replay_buffer
 from data_harvesting.optimization import create_loss, create_optimizers, create_updater
 from tensordict import TensorDictBase
 from tqdm import tqdm
-
+from dvclive import Live
 
 def main():
     with open("params.toml", "rb") as f:
@@ -82,48 +82,53 @@ def main():
     )
     episode_reward_mean_list = []
 
-    # Training/collection iterations
-    for iteration, batch in enumerate(collector):
-        current_frames = batch.numel()
-        batch = process_batch(batch)  # Util to expand done keys if needed
-        replay_buffer.extend(batch)
+    with Live() as live:
+        live.log_params(config)
 
-        for _ in range(n_optimiser_steps):
-            subdata = replay_buffer.sample()
-            loss_vals = loss_module(subdata)
-            for loss_name in ["loss_actor", "loss_value"]:
-                loss = loss_vals[loss_name]
-                optimiser = optimizers[loss_name]
+        # Training/collection iterations
+        for iteration, batch in enumerate(collector):
+            current_frames = batch.numel()
+            batch = process_batch(batch)  # Util to expand done keys if needed
+            replay_buffer.extend(batch)
 
-                loss.backward()
+            for _ in range(n_optimiser_steps):
+                subdata = replay_buffer.sample()
+                loss_vals = loss_module(subdata)
+                for loss_name in ["loss_actor", "loss_value"]:
+                    loss = loss_vals[loss_name]
+                    optimiser = optimizers[loss_name]
 
-                # Optional
-                # params = optimiser.param_groups[0]["params"]
-                # torch.nn.utils.clip_grad_norm_(params, max_grad_norm)
+                    loss.backward()
 
-                optimiser.step()
-                optimiser.zero_grad()
+                    # Optional
+                    # params = optimiser.param_groups[0]["params"]
+                    # torch.nn.utils.clip_grad_norm_(params, max_grad_norm)
 
-            # Soft-update the target network
-            target_updater.step()
+                    optimiser.step()
+                    optimiser.zero_grad()
 
-        # Exploration sigma anneal update
-        exploration_noise.step(current_frames)
+                # Soft-update the target network
+                target_updater.step()
 
-        # Logging
-        episode_reward_mean = (
-            batch.get(("next", "agents", "episode_reward"))[
-                batch.get(("next", "agents", "done"))
-            ]
-            .mean()
-            .item()
-        )
-        episode_reward_mean_list.append(episode_reward_mean)
+            # Exploration sigma anneal update
+            exploration_noise.step(current_frames)
 
-        pbar.set_description(f"episode_reward_mean ={episode_reward_mean_list[-1]}",
-                             refresh=False,
-                             )
-        pbar.update()
+            # Logging
+            episode_reward_mean = (
+                batch.get(("next", "agents", "episode_reward"))[
+                    batch.get(("next", "agents", "done"))
+                ]
+                .mean()
+                .item()
+            )
+            episode_reward_mean_list.append(episode_reward_mean)
+
+            pbar.set_description(f"episode_reward_mean ={episode_reward_mean_list[-1]}",
+                                 refresh=False,
+                                 )
+            live.log("episode_reward_mean", episode_reward_mean_list[-1])
+            pbar.update()
+            live.next_step()
 
 if __name__ == "__main__":
     main()
