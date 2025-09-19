@@ -1,14 +1,12 @@
-# Converted from params.toml
-
 environment:
   # Time between iterations of the algorithm in seconds. Agents will make observations and take actions at this interval.
-  algorithm_iteration_interval: 0.5
+  algorithm_iteration_interval: 2.0
   # Number of drone agents in the simulation.
   num_drones: 4
   # Number of sensor nodes in the simulation.
-  num_sensors: 24
+  num_sensors: 36
   # Size of the scenario (side length of the square area).
-  scenario_size: 100.0
+  scenario_size: 100
   # Maximum number of steps per episode.
   max_episode_length: 500
   # Maximum seconds a drone can be stalled before episode ends.
@@ -16,15 +14,15 @@ environment:
   # Maximum communication range for drones and sensors.
   communication_range: 20.0
   # Number of closest sensors to include in the state.
-  state_num_closest_sensors: 2
+  state_num_closest_sensors: 12
   # Number of closest drones to include in the state.
-  state_num_closest_drones: 2
+  state_num_closest_drones: 3
   # State representation mode. Options: "all_positions", "absolute", "relative", "distance_angle", "angle"
   state_mode: relative
   # Whether to include agent IDs in the state.
   id_on_state: true
   # Minimum priority value for sensors.
-  min_sensor_priority: 0.1
+  min_sensor_priority: 1.0
   # Maximum priority value for sensors.
   max_sensor_priority: 1.0
   # If true, drone positions are fully randomized at start.
@@ -34,7 +32,7 @@ environment:
   # If true, agents can control their speed.
   speed_action: true
   # If true, episode ends when all sensors are collected.
-  end_when_all_collected: true
+  end_when_all_collected: false
 
 actor:
   # All actor networks will share the same parameters if true.
@@ -50,9 +48,9 @@ actor:
 
 training:
   # Total number of training timesteps.
-  total_timesteps: 10000
+  total_timesteps: 50000000
   # Initial sigma for exploration noise (AdditiveGaussianModule).
-  exploration_sigma_init: 0.9
+  exploration_sigma_init: 0.1
   # Final sigma for exploration noise (AdditiveGaussianModule).
   exploration_sigma_end: 0.1
   # Number of steps to anneal sigma from init to end (AdditiveGaussianModule).
@@ -64,7 +62,7 @@ critic:
   # Number of hidden layers in the critic MLP.
   network_depth: 2
   # Number of neurons per hidden layer.
-  network_width: 256
+  network_width: 512
   # Activation function for hidden layers. Options: "Tanh", "ReLU", "LeakyReLU".
   activation_function: Tanh
   # Whether to share parameters across agents.
@@ -82,9 +80,9 @@ collector:
 
 replay_buffer:
   # Size of the replay buffer (number of transitions it can store).
-  buffer_size: 1_000_000
+  buffer_size: 1000000
   # Number of batches to prefetch asynchronously (0 disables prefetching).
-  prefetch: 0
+  prefetch: 12
   # Device to store the buffer on ("cpu" or "cuda").
   buffer_device: cpu
 
@@ -92,11 +90,11 @@ optimization:
   # Discount factor for future rewards.
   gamma: 0.99
   # Learning rate for optimizers.
-  lr: 0.0003
+  lr: 0.00001
   # Tau for the soft-update of the target network.
   tau: 0.005
   # Number of optimizer steps per batch.
-  num_optimizer_steps: 5
+  num_optimizer_steps: 1
   # Gradient clipping value (0 disables clipping).
   grad_clip: 0
 
