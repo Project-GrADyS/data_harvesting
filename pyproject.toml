@@ -10,6 +10,7 @@ dependencies = [
     "gymnasium>=1.2.0",
     "numpy>=2.2.6",
     "pettingzoo==1.24.3",
+    "pyyaml>=6.0.2",
     "torch>=2.8.0",
     "torchrl>=0.10.0",
     "torchvision>=0.23.0",

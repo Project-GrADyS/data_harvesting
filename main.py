@@ -1,6 +1,5 @@
 import torch
 from torchrl.envs import check_env_specs, TransformedEnv, RewardSum
-import tomllib
 
 from data_harvesting.actor import create_actor, create_exploratory_actor
 from data_harvesting.environment import make_env
@@ -11,10 +10,11 @@ from data_harvesting.optimization import create_loss, create_optimizers, create_
 from tensordict import TensorDictBase
 from tqdm import tqdm
 from dvclive import Live
+import yaml
 
 def main():
-    with open("params.toml", "rb") as f:
-        config = tomllib.load(f)
+    with open("params.yaml", "rb") as f:
+        config = yaml.safe_load(f)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
