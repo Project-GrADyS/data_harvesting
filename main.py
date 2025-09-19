@@ -7,7 +7,6 @@ from data_harvesting.critic import create_critic
 from data_harvesting.collector import create_collector
 from data_harvesting.replay import create_replay_buffer
 from data_harvesting.optimization import create_loss, create_optimizers, create_updater
-from tensordict import TensorDictBase
 from tqdm import tqdm
 from dvclive import Live
 import yaml
@@ -51,6 +50,7 @@ def main():
     frames_per_step = config["collector"]["frames_per_batch"]
     n_iterations = total_steps // frames_per_step
     n_optimiser_steps = config["optimization"]["num_optimizer_steps"]
+    grad_clip = config["optimization"]["grad_clip"]
 
     pbar = tqdm(
         total=n_iterations,
@@ -76,8 +76,9 @@ def main():
                     loss.backward()
 
                     # Optional
-                    # params = optimiser.param_groups[0]["params"]
-                    # torch.nn.utils.clip_grad_norm_(params, max_grad_norm)
+                    if grad_clip > 0:
+                        params = optimiser.param_groups[0]["params"]
+                        torch.nn.utils.clip_grad_norm_(params, grad_clip)
 
                     optimiser.step()
                     optimiser.zero_grad()

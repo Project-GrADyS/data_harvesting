@@ -97,4 +97,6 @@ optimization:
   tau: 0.005
   # Number of optimizer steps per batch.
   num_optimizer_steps: 5
+  # Gradient clipping value (0 disables clipping).
+  grad_clip: 0
 
