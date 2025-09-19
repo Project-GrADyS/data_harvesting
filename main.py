@@ -47,30 +47,6 @@ def main():
     optimizers = create_optimizers(loss_module, config)
     target_updater = create_updater(loss_module, config)
 
-    def process_batch(batch: TensorDictBase) -> TensorDictBase:
-        """
-        If the `(group, "terminated")` and `(group, "done")` keys are not present, create them by expanding
-        `"terminated"` and `"done"`.
-        This is needed to present them with the same shape as the reward to the loss.
-        """
-        keys = list(batch.keys(True, True))
-        group_shape = batch.get_item_shape("agents")
-        nested_done_key = ("next", "agents", "done")
-        nested_terminated_key = ("next", "agents", "terminated")
-        if nested_done_key not in keys:
-            batch.set(
-                nested_done_key,
-                batch.get(("next", "done")).unsqueeze(-1).expand((*group_shape, 1)),
-            )
-        if nested_terminated_key not in keys:
-            batch.set(
-                nested_terminated_key,
-                batch.get(("next", "terminated"))
-                .unsqueeze(-1)
-                .expand((*group_shape, 1)),
-            )
-        return batch
-
     total_steps = config["training"]["total_timesteps"]
     frames_per_step = config["collector"]["frames_per_batch"]
     n_iterations = total_steps // frames_per_step
@@ -88,7 +64,6 @@ def main():
         # Training/collection iterations
         for iteration, batch in enumerate(collector):
             current_frames = batch.numel()
-            batch = process_batch(batch)  # Util to expand done keys if needed
             replay_buffer.extend(batch)
 
             for _ in range(n_optimiser_steps):
