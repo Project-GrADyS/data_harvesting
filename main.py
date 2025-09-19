@@ -71,7 +71,7 @@ def main():
                 loss_vals = loss_module(subdata)
                 for loss_name in ["loss_actor", "loss_value"]:
                     loss = loss_vals[loss_name]
-                    optimiser = optimizers[loss_name]
+                    optimiser: torch.optim.Optimizer = optimizers[loss_name]
 
                     loss.backward()
 

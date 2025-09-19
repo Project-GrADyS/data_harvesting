@@ -1,5 +1,5 @@
 import torch
-from typing import Any, Dict
+from typing import Any, Dict, TypedDict
 from torchrl.objectives import DDPGLoss, ValueEstimators, SoftUpdate
 
 def create_loss(policy: torch.nn.Module, critic: torch.nn.Module, config: Dict[str, Any]) -> DDPGLoss:
@@ -28,7 +28,9 @@ def create_loss(policy: torch.nn.Module, critic: torch.nn.Module, config: Dict[s
     loss_module.make_value_estimator(ValueEstimators.TD0, gamma=gamma)
     return loss_module
 
-def create_optimizers(loss_module: DDPGLoss, config: Dict[str, Any]) -> dict:
+OptimizerDict = TypedDict("OptimizerDict", {"loss_actor": torch.optim.Optimizer, "loss_value": torch.optim.Optimizer})
+
+def create_optimizers(loss_module: DDPGLoss, config: Dict[str, Any]) -> OptimizerDict:
     """
     Creates optimizers for the actor and critic using parameters from config.
     Args:
