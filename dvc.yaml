@@ -9,3 +9,10 @@ stages:
     - data_harvesting/optimization.py
     - data_harvesting/replay.py
     - main.py
+params:
+- dvclive/params.yaml
+metrics:
+- dvclive/metrics.json
+plots:
+- dvclive/plots/metrics:
+    x: step
