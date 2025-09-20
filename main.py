@@ -49,11 +49,10 @@ def main():
 
     total_steps = config["training"]["total_timesteps"]
     frames_per_step = config["collector"]["frames_per_batch"]
-    n_iterations = total_steps // frames_per_step
     n_optimiser_steps = config["optimization"]["num_optimizer_steps"]
     grad_clip = config["optimization"]["grad_clip"]
 
-    pbar = tqdm(total=n_iterations)
+    pbar = tqdm(total=total_steps)
 
     with Live() as live:
         live.log_params(config)
@@ -95,7 +94,7 @@ def main():
             metrics_logger.log_metrics(batch)
             learning_logger.log_metrics()
 
-            pbar.update()
+            pbar.update(current_frames)
             live.next_step()
 
 if __name__ == "__main__":
