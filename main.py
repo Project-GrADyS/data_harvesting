@@ -5,7 +5,7 @@ from data_harvesting.actor import create_actor, create_exploratory_actor
 from data_harvesting.environment import make_env
 from data_harvesting.critic import create_critic
 from data_harvesting.collector import create_collector
-from data_harvesting.metrics import MetricCollector
+from data_harvesting.metrics import EnvironmentMetricsCollector, LearningMetricsCollector
 from data_harvesting.replay import create_replay_buffer
 from data_harvesting.optimization import create_loss, create_optimizers, create_updater
 from tqdm import tqdm
@@ -58,7 +58,8 @@ def main():
     with Live() as live:
         live.log_params(config)
 
-        metrics_logger = MetricCollector(live)
+        metrics_logger = EnvironmentMetricsCollector(live)
+        learning_logger = LearningMetricsCollector(live)
 
         # Training/collection iterations
         for iteration, batch in enumerate(collector):
@@ -82,6 +83,8 @@ def main():
                     optimiser.step()
                     optimiser.zero_grad()
 
+                    learning_logger.report_loss(loss_name, loss.item())
+
                 # Soft-update the target network
                 target_updater.step()
 
@@ -90,6 +93,7 @@ def main():
 
             # Logging
             metrics_logger.log_metrics(batch)
+            learning_logger.log_metrics()
 
             pbar.update()
             live.next_step()

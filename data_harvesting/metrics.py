@@ -1,9 +1,10 @@
+import time
 from dvclive import Live
 from tensordict import TensorDictBase
 
 from data_harvesting.environment import EndCause
 
-class MetricCollector:
+class EnvironmentMetricsCollector:
     def __init__(self, live: Live):
         self.live = live
         self.trajectories = 0
@@ -69,3 +70,29 @@ class MetricCollector:
         for cause, count in self.end_cause_counts.items():
             cause_enum = EndCause(cause)
             self.live.log_metric(f"end_cause_{cause_enum.name}", count)
+
+class LearningMetricsCollector:
+    def __init__(self, live: Live):
+        self.live = live
+        self.losses: dict[str, list[float]] = {}
+        self.start_time: float | None = None
+
+    def report_loss(self, loss_name: str, loss_value: float):
+        if loss_name not in self.losses:
+            self.losses[loss_name] = []
+        self.losses[loss_name].append(loss_value)
+
+        if self.start_time is None:
+            self.start_time = time.time()
+
+    def log_metrics(self):
+        for loss_name, values in self.losses.items():
+            if len(values) > 0:
+                avg_loss = sum(values) / len(values)
+                self.live.log_metric(f"loss_{loss_name}", avg_loss)
+
+        if self.start_time is not None:
+            elapsed_time = time.time() - self.start_time
+            sps = 1 / elapsed_time if elapsed_time > 0 else 0
+            self.live.log_metric("sps", sps)
+        self.losses.clear()
