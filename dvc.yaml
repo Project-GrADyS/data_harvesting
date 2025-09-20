@@ -6,6 +6,7 @@ stages:
     - data_harvesting/collector.py
     - data_harvesting/critic.py
     - data_harvesting/environment.py
+    - data_harvesting/metrics.py
     - data_harvesting/optimization.py
     - data_harvesting/replay.py
     - main.py
