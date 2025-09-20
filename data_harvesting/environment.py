@@ -348,6 +348,8 @@ class GrADySEnvironment(ParallelEnv):
 
         agent_nodes = np.array([self.simulator.get_node(agent_id).position[:2] for agent_id in self.agent_node_ids])
 
+        max_distance = self.scenario_size * 2
+
         state = {}
         for agent_index in range(self.num_drones):
             agent_position = agent_nodes[agent_index]
@@ -374,9 +376,9 @@ class GrADySEnvironment(ParallelEnv):
 
             # Normalize the positions
             closest_agents[:len(sorted_agent_indices) - 1] = (agent_position - closest_agents[:len(
-                sorted_agent_indices) - 1] + self.scenario_size) / (self.scenario_size * 2)
+                sorted_agent_indices) - 1] + max_distance) / (max_distance * 2)
             closest_unvisited_sensors[:len(sorted_sensor_indices)] = (agent_position - closest_unvisited_sensors[:len(
-                sorted_sensor_indices)] + self.scenario_size) / (self.scenario_size * 2)
+                sorted_sensor_indices)] + max_distance) / (max_distance * 2)
 
             state[f"drone{agent_index}"] = np.concatenate([
                 closest_agents.flatten(),
@@ -465,14 +467,14 @@ class GrADySEnvironment(ParallelEnv):
     def blank_info(self):
         return {
             agent: {
-                "avg_reward": 0,
-                "max_reward": 0,
-                "sum_reward": 0,
-                "avg_collection_time": 0,
-                "episode_duration": 0,
-                "completion_time": 0,
+                "avg_reward": 0.0,
+                "max_reward": 0.0,
+                "sum_reward": 0.0,
+                "avg_collection_time": 0.0,
+                "episode_duration": 0.0,
+                "completion_time": 0.0,
                 "all_collected": 0,
-                "num_collected": 0,
+                "num_collected": 0.0,
                 "cause": EndCause.NONE.value
             } for agent in self.agents
         }
@@ -698,7 +700,7 @@ class GrADySEnvironment(ParallelEnv):
                     "avg_collection_time": sum(self.collection_times) / self.num_sensors,
                     "episode_duration": self.episode_duration,
                     "completion_time": self.max_episode_length if not all_sensors_collected else self.simulator._current_timestamp,
-                    "all_collected": all_sensors_collected,
+                    "all_collected": int(all_sensors_collected),
                     "num_collected": sum(sensor_is_collected),
                     "cause": end_cause
                 } for agent in self.agents
