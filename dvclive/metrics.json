@@ -1,4 +1,15 @@
 {
-    "episode_reward_mean": -44.56769561767578,
-    "step": 9
+    "avg_reward": 0.0650984901567932,
+    "max_reward": 10.579195976803051,
+    "sum_reward": 2.2013330323068785,
+    "avg_collection_time": 413.78914949040313,
+    "episode_duration": 20.140053277205908,
+    "completion_time": 500.0,
+    "all_collected": 0.0,
+    "num_collected": 2.0967211497352585,
+    "end_cause_NONE": 0,
+    "end_cause_TIMEOUT": 0,
+    "end_cause_ALL_COLLECTED": 0,
+    "end_cause_STALLED": 152035,
+    "step": 3061
 }

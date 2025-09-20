@@ -1,21 +1,21 @@
 environment:
-  algorithm_iteration_interval: 0.5
-  num_drones: 4
-  num_sensors: 24
-  scenario_size: 100.0
+  algorithm_iteration_interval: 2.0
+  num_drones: 2
+  num_sensors: 12
+  scenario_size: 100
   max_episode_length: 500
   max_seconds_stalled: 30
   communication_range: 20.0
-  state_num_closest_sensors: 2
-  state_num_closest_drones: 2
+  state_num_closest_sensors: 12
+  state_num_closest_drones: 1
   state_mode: relative
   id_on_state: true
-  min_sensor_priority: 0.1
+  min_sensor_priority: 1.0
   max_sensor_priority: 1.0
   full_random_drone_position: false
   reward: punish
   speed_action: true
-  end_when_all_collected: true
+  end_when_all_collected: false
 actor:
   share_parameters: true
   network_depth: 2
@@ -23,14 +23,14 @@ actor:
   activation_function: Tanh
   centralized: false
 training:
-  total_timesteps: 10000
-  exploration_sigma_init: 0.9
+  total_timesteps: 50000000
+  exploration_sigma_init: 0.1
   exploration_sigma_end: 0.1
   exploration_annealing_steps: 500000
   batch_size: 256
 critic:
   network_depth: 2
-  network_width: 256
+  network_width: 512
   activation_function: Tanh
   share_parameters: true
   centralized: true
@@ -40,10 +40,11 @@ collector:
   async_collector: true
 replay_buffer:
   buffer_size: 1000000
-  prefetch: 0
-  buffer_device: cpu
+  prefetch: 12
+  buffer_device: gpu
 optimization:
   gamma: 0.99
-  lr: 0.0003
+  lr: 1e-05
   tau: 0.005
-  num_optimizer_steps: 5
+  num_optimizer_steps: 1
+  grad_clip: 0
