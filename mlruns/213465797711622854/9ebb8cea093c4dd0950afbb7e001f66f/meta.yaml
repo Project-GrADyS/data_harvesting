@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/213465797711622854/9ebb8cea093c4dd0950afbb7e001f66f/artifacts
+end_time: 1758569024468
+entry_point_name: ''
+experiment_id: '213465797711622854'
+lifecycle_stage: active
+run_id: 9ebb8cea093c4dd0950afbb7e001f66f
+run_name: orderly-hawk-482
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758569021291
+status: 3
+tags: []
+user_id: thlamz

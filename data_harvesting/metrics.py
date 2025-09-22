@@ -1,36 +1,12 @@
 import time
+import mlflow
 import torch
-from dvclive import Live
 from tensordict import TensorDictBase
 
 from data_harvesting.environment import EndCause
 
-class LiveSwitch:
-    def __init__(self, enabled: bool = True, *args, **kwargs):
-        self.live = Live(*args, **kwargs) if enabled else None
-
-    def __enter__(self):
-        if self.live:
-            self.live.__enter__()
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        if self.live:
-            self.live.__exit__(exc_type, exc_value, traceback)
-
-    def __getattr__(self, name):
-        if self.live:
-            return getattr(self.live, name)
-        else:
-            def noop(*args, **kwargs):
-                pass
-            return noop
-
-    
-
 class EnvironmentMetricsCollector:
-    def __init__(self, live: Live):
-        self.live = live
+    def __init__(self):
         self.trajectories = 0
 
         self.sum_avg_reward = 0.0
@@ -69,7 +45,7 @@ class EnvironmentMetricsCollector:
         self.sum_all_collected += metric_sums["all_collected"].item()
         self.sum_num_collected += metric_sums["num_collected"].item()
 
-    def log_metrics(self, batch: TensorDictBase):
+    def log_metrics(self, batch: TensorDictBase, step: int):
         self._accumulate_metrics(batch)
         
         if self.trajectories == 0:
@@ -84,22 +60,21 @@ class EnvironmentMetricsCollector:
         all_collected = self.sum_all_collected / self.trajectories
         num_collected = self.sum_num_collected / self.trajectories
 
-        self.live.log_metric("avg_reward", avg_reward)
-        self.live.log_metric("max_reward", max_reward)
-        self.live.log_metric("sum_reward", sum_reward)
-        self.live.log_metric("avg_collection_time", avg_collection_time)
-        self.live.log_metric("episode_duration", episode_duration)
-        self.live.log_metric("completion_time", completion_time)
-        self.live.log_metric("all_collected", all_collected)
-        self.live.log_metric("num_collected", num_collected)
+        # mlflow.log_metric("avg_reward", avg_reward, step)
+        # mlflow.log_metric("max_reward", max_reward, step)
+        # mlflow.log_metric("sum_reward", sum_reward, step)
+        # mlflow.log_metric("avg_collection_time", avg_collection_time, step)
+        # mlflow.log_metric("episode_duration", episode_duration, step)
+        # mlflow.log_metric("completion_time", completion_time, step)
+        # mlflow.log_metric("all_collected", all_collected, step)
+        # mlflow.log_metric("num_collected", num_collected, step)
 
         for cause, count in self.end_cause_counts.items():
             cause_enum = EndCause(cause)
-            self.live.log_metric(f"end_cause_{cause_enum.name}", count)
+            # mlflow.log_metric(f"end_cause_{cause_enum.name}", count, step)
 
 class LearningMetricsCollector:
-    def __init__(self, live: Live):
-        self.live = live
+    def __init__(self):
         self.losses: dict[str, list[float]] = {}
         self.start_time: float | None = None
 
@@ -111,14 +86,14 @@ class LearningMetricsCollector:
         if self.start_time is None:
             self.start_time = time.time()
 
-    def log_metrics(self):
+    def log_metrics(self, step: int):
         for loss_name, values in self.losses.items():
             if len(values) > 0:
                 avg_loss = sum(values) / len(values)
-                self.live.log_metric(f"loss_{loss_name}", avg_loss)
+                # mlflow.log_metric(f"loss_{loss_name}", avg_loss, step)
 
         if self.start_time is not None:
             elapsed_time = time.time() - self.start_time
             sps = 1 / elapsed_time if elapsed_time > 0 else 0
-            self.live.log_metric("sps", sps)
+            # mlflow.log_metric("sps", sps, step)
         self.losses.clear()

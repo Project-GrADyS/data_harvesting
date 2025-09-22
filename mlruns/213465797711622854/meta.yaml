@@ -1,0 +1,6 @@
+artifact_location: file:///home/thlamz/data_harvesting/mlruns/213465797711622854
+creation_time: 1758568885981
+experiment_id: '213465797711622854'
+last_update_time: 1758568885981
+lifecycle_stage: active
+name: maddpg_mlflow-test
