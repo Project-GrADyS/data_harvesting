@@ -23,12 +23,12 @@ actor:
   activation_function: Tanh
   centralized: false
 training:
-  total_timesteps: 50000
+  total_timesteps: 100
   exploration_sigma_init: 0.1
   exploration_sigma_end: 0.1
   exploration_annealing_steps: 500000
   batch_size: 256
-  algorithm: mappo
+  algorithm: maddpg
 critic:
   network_depth: 2
   network_width: 512
@@ -36,9 +36,9 @@ critic:
   share_parameters: true
   centralized: true
 collector:
-  num_collectors: 8
-  frames_per_batch: 4096
-  async_collector: true
+  num_collectors: 1
+  frames_per_batch: 1
+  async_collector: false
 replay_buffer:
   buffer_size: 1000000
   prefetch: 12

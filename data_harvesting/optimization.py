@@ -18,6 +18,7 @@ def create_loss(policy: torch.nn.Module, critic: torch.nn.Module, config: Dict[s
         actor_network=policy,
         value_network=critic,
         delay_value=True,
+        delay_actor=True,
         loss_function="l2",
     )
     loss_module.set_keys(

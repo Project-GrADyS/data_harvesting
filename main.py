@@ -1,14 +1,11 @@
 import torch
 from torchrl.envs import check_env_specs, TransformedEnv, RewardSum
 
-from data_harvesting.actor import create_actor, create_exploratory_actor
 from data_harvesting.environment import make_env
-from data_harvesting.critic import create_critic
 from data_harvesting.collector import create_collector
-from data_harvesting.metrics import EnvironmentMetricsCollector, LearningMetricsCollector
+from data_harvesting.metrics import EnvironmentMetricsCollector, LearningMetricsCollector, LiveSwitch
 from data_harvesting.algorithm import MADDPGAlgorithm, MAPPOAlgorithm
 from tqdm import tqdm
-from dvclive import Live
 import yaml
 
 def main():
@@ -41,7 +38,7 @@ def main():
 
     pbar = tqdm(total=total_steps)
 
-    with Live() as live:
+    with LiveSwitch(enabled=config["metrics"]["enabled"]) as live:
         live.log_params(config)
 
         metrics_logger = EnvironmentMetricsCollector(live)

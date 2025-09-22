@@ -1,8 +1,32 @@
 import time
+import torch
 from dvclive import Live
 from tensordict import TensorDictBase
 
 from data_harvesting.environment import EndCause
+
+class LiveSwitch:
+    def __init__(self, enabled: bool = True, *args, **kwargs):
+        self.live = Live(*args, **kwargs) if enabled else None
+
+    def __enter__(self):
+        if self.live:
+            self.live.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if self.live:
+            self.live.__exit__(exc_type, exc_value, traceback)
+
+    def __getattr__(self, name):
+        if self.live:
+            return getattr(self.live, name)
+        else:
+            def noop(*args, **kwargs):
+                pass
+            return noop
+
+    
 
 class EnvironmentMetricsCollector:
     def __init__(self, live: Live):
@@ -22,26 +46,28 @@ class EnvironmentMetricsCollector:
         }
 
     def _accumulate_metrics(self, batch: TensorDictBase):
-        done_steps = batch[batch.get(("next", "agents", "done"))[:, -1].reshape(-1)]
+        # Compute mask of episodes that terminated at the last step (batch dimension)
+        done_last = batch.get(("next", "agents", "done"))[:, -1]
+        mask = done_last.reshape(-1).to(torch.bool)
 
-        self.trajectories += done_steps.shape[0]
+        # Fast path: nothing to accumulate this call
+        n_done = int(mask.sum().item())
+        if n_done == 0:
+            return
 
-        self.sum_avg_reward += done_steps.get(("next", "agents", "info", "avg_reward"))[:, -1].sum().item()
-        self.sum_max_reward += done_steps.get(("next", "agents", "info", "max_reward"))[:, -1].sum().item()
-        self.sum_sum_reward += done_steps.get(("next", "agents", "info", "sum_reward"))[:, -1].sum().item()
-        self.sum_avg_collection_time += done_steps.get(("next", "agents", "info", "avg_collection_time"))[:, -1].sum().item()
-        self.sum_episode_duration += done_steps.get(("next", "agents", "info", "episode_duration"))[:, -1].sum().item()
-        self.sum_completion_time += done_steps.get(("next", "agents", "info", "completion_time"))[:, -1].sum().item()
-        self.sum_all_collected += done_steps.get(("next", "agents", "info", "all_collected"))[:, -1].sum().item()
-        self.sum_num_collected += done_steps.get(("next", "agents", "info", "num_collected"))[:, -1].sum().item()
+        self.trajectories += n_done
 
-        # Update end cause counts
-        causes = done_steps.get(("next", "agents", "info", "cause"))[:, -1].flatten().tolist()
-        for cause in causes:
-            if cause in self.end_cause_counts:
-                self.end_cause_counts[cause] += 1
-            else:
-                self.end_cause_counts[cause] = 1
+        info = batch.get(("next", "agents", "info"))[mask, 0]
+        metric_sums = info.sum().cpu()
+
+        self.sum_avg_reward += metric_sums["avg_reward"].item()
+        self.sum_max_reward += metric_sums["max_reward"].item()
+        self.sum_sum_reward += metric_sums["sum_reward"].item()
+        self.sum_avg_collection_time += metric_sums["avg_collection_time"].item()
+        self.sum_episode_duration += metric_sums["episode_duration"].item()
+        self.sum_completion_time += metric_sums["completion_time"].item()
+        self.sum_all_collected += metric_sums["all_collected"].item()
+        self.sum_num_collected += metric_sums["num_collected"].item()
 
     def log_metrics(self, batch: TensorDictBase):
         self._accumulate_metrics(batch)

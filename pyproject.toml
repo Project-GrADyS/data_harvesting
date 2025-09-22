@@ -10,6 +10,7 @@ dependencies = [
     "gradysim>=0.7.3",
     "gymnasium>=1.2.0",
     "jupyter>=1.1.1",
+    "line-profiler>=5.0.0",
     "matplotlib>=3.10.6",
     "numpy>=2.2.6",
     "pettingzoo==1.24.3",
