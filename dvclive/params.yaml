@@ -23,7 +23,11 @@ actor:
   activation_function: Tanh
   centralized: false
 training:
+<<<<<<< Updated upstream
   total_timesteps: 50000000
+=======
+  total_timesteps: 50000
+>>>>>>> Stashed changes
   exploration_sigma_init: 0.1
   exploration_sigma_end: 0.1
   exploration_annealing_steps: 500000
@@ -35,8 +39,13 @@ critic:
   share_parameters: true
   centralized: true
 collector:
+<<<<<<< Updated upstream
   num_collectors: 4
   frames_per_batch: 1000
+=======
+  num_collectors: 1
+  frames_per_batch: 1
+>>>>>>> Stashed changes
   async_collector: true
 replay_buffer:
   buffer_size: 1000000

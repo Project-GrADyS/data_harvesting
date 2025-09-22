@@ -99,7 +99,7 @@ def create_collector(
     Returns:
         An instance of aSyncDataCollector, MultiaSyncDataCollector, SyncDataCollector, or MultiSyncDataCollector.
     """
-    async_collector = config["collector"].get("async_collector", True)
+    async_collector = config["collector"]["async_collector"]
     if async_collector:
         return _create_async_collector(exploratory_policy, device, config, env_creator)
     else:

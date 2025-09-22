@@ -6,8 +6,7 @@ from data_harvesting.environment import make_env
 from data_harvesting.critic import create_critic
 from data_harvesting.collector import create_collector
 from data_harvesting.metrics import EnvironmentMetricsCollector, LearningMetricsCollector
-from data_harvesting.replay import create_replay_buffer
-from data_harvesting.optimization import create_loss, create_optimizers, create_updater
+from data_harvesting.algorithm import MADDPGAlgorithm, MAPPOAlgorithm
 from tqdm import tqdm
 from dvclive import Live
 import yaml
@@ -32,21 +31,12 @@ def main():
         return env
 
     sample_env = transformed_env(True)
-
-    policy = create_actor(sample_env, device, config)
-
-    exploratory_policy, exploration_noise = create_exploratory_actor(policy, device, config)
-
-    critic = create_critic(sample_env, device, config)
-
-    collector = create_collector(exploratory_policy, device, transformed_env, config)
-
-    replay_buffer = create_replay_buffer(config, device)
-
-    loss_module = create_loss(policy, critic, config)
-    optimizers = create_optimizers(loss_module, config)
-    target_updater = create_updater(loss_module, config)
-
+    algo_name = config["training"]["algorithm"].lower()
+    if algo_name == "mappo":
+        algorithm = MAPPOAlgorithm(sample_env, device, config)
+    else:
+        algorithm = MADDPGAlgorithm(sample_env, device, config)
+    collector = create_collector(algorithm.exploratory_policy, device, transformed_env, config)
     total_steps = config["training"]["total_timesteps"]
     frames_per_step = config["collector"]["frames_per_batch"]
     n_optimiser_steps = config["optimization"]["num_optimizer_steps"]

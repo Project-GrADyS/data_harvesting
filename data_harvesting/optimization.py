@@ -1,6 +1,7 @@
 import torch
 from typing import Any, Dict, TypedDict
 from torchrl.objectives import DDPGLoss, ValueEstimators, SoftUpdate
+from torchrl.objectives.ppo import ClipPPOLoss
 
 def create_loss(policy: torch.nn.Module, critic: torch.nn.Module, config: Dict[str, Any]) -> DDPGLoss:
     """
@@ -61,4 +62,44 @@ def create_updater(loss_module: DDPGLoss, config: Dict[str, Any]) -> SoftUpdate:
     """
     tau = config["optimization"]["tau"]
     return SoftUpdate(loss_module, tau=tau)
+
+
+def create_ppo_loss(policy: torch.nn.Module, value_net: torch.nn.Module, config: Dict[str, Any]) -> ClipPPOLoss:
+    """Create a PPO loss with GAE value estimator and proper key bindings."""
+    ppo_cfg = config["ppo"]
+    clip_epsilon = ppo_cfg["clip_epsilon"]
+    entropy_coef = ppo_cfg["entropy_coef"]
+    value_coef = ppo_cfg["value_coef"]
+
+    loss_module = ClipPPOLoss(
+        actor_network=policy,
+        critic_network=value_net,
+        clip_epsilon=clip_epsilon,
+        entropy_coef=entropy_coef,
+        critic_coef=value_coef,
+    )
+    loss_module.set_keys(
+        action=("agents", "action"),
+        sample_log_prob=("agents", "sample_log_prob"),
+        value=("agents", "state_value"),
+        reward=("agents", "reward"),
+        done=("agents", "done"),
+        terminated=("agents", "terminated"),
+    )
+
+    # Value estimator (GAE)
+    gamma = config["optimization"]["gamma"]
+    gae_lambda = ppo_cfg["gae_lambda"]
+    loss_module.make_value_estimator(ValueEstimators.GAE, gamma=gamma, lmbda=gae_lambda)
+    return loss_module
+
+
+PPOOptimizerDict = TypedDict("PPOOptimizerDict", {"loss_policy": torch.optim.Optimizer, "loss_value": torch.optim.Optimizer})
+
+def create_ppo_optimizers(loss_module: ClipPPOLoss, config: Dict[str, Any]) -> PPOOptimizerDict:
+    lr = config["optimization"]["lr"]
+    return {
+        "loss_policy": torch.optim.Adam(loss_module.actor_network_params.flatten_keys().values(), lr=lr),
+        "loss_value": torch.optim.Adam(loss_module.critic_network_params.flatten_keys().values(), lr=lr),
+    }
 

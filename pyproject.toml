@@ -9,6 +9,8 @@ dependencies = [
     "dvclive>=3.48.5",
     "gradysim>=0.7.3",
     "gymnasium>=1.2.0",
+    "jupyter>=1.1.1",
+    "matplotlib>=3.10.6",
     "numpy>=2.2.6",
     "pettingzoo==1.24.3",
     "pyyaml>=6.0.2",
@@ -16,4 +18,5 @@ dependencies = [
     "torchrl>=0.10.0",
     "torchvision>=0.23.0",
     "tqdm>=4.67.1",
+    "vmas>=1.5.0",
 ]

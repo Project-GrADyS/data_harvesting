@@ -1,4 +1,5 @@
 {
+<<<<<<< Updated upstream
     "avg_reward": 0.0650984901567932,
     "max_reward": 10.579195976803051,
     "sum_reward": 2.2013330323068785,
@@ -12,4 +13,22 @@
     "end_cause_ALL_COLLECTED": 0,
     "end_cause_STALLED": 152035,
     "step": 3061
+=======
+    "loss_loss_actor": 2.8571529388427734,
+    "loss_loss_value": 9.742820739746094,
+    "sps": 3.9836036428483944e-05,
+    "step": 40852,
+    "avg_reward": 0.13517612690831346,
+    "max_reward": 11.287291878346396,
+    "sum_reward": 3.784361215891216,
+    "avg_collection_time": 406.60652404069657,
+    "episode_duration": 20.822120285423036,
+    "completion_time": 500.0,
+    "all_collected": 0.0,
+    "num_collected": 2.27420998980632,
+    "end_cause_NONE": 0,
+    "end_cause_TIMEOUT": 0,
+    "end_cause_ALL_COLLECTED": 0,
+    "end_cause_STALLED": 1962
+>>>>>>> Stashed changes
 }

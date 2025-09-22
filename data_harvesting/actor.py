@@ -1,7 +1,13 @@
 import torch
 from tensordict.nn import TensorDictModule, TensorDictSequential
 from torchrl.envs import EnvBase
-from torchrl.modules import ProbabilisticActor, MultiAgentMLP, AdditiveGaussianModule
+from torchrl.modules import (
+    ProbabilisticActor,
+    MultiAgentMLP,
+    AdditiveGaussianModule,
+    NormalParamWrapper,
+)
+from torchrl.modules.distributions import TanhNormal
 
 
 def get_activation_class(name):
@@ -26,7 +32,7 @@ def create_actor(
     :param config: Configuration dictionary.
     :return: The actor as a TensorDictModule.
     """
-    activation_class = get_activation_class(config["actor"].get("activation_function", "Tanh"))
+    activation_class = get_activation_class(config["actor"]["activation_function"])
     policy_net = MultiAgentMLP(
         n_agent_inputs=env.observation_spec[("agents", "observation")].shape[-1],
         n_agent_outputs=env.full_action_spec[("agents", "action")].shape[-1],
@@ -86,3 +92,54 @@ def create_exploratory_actor(
         actor,
         exploration_noise
     ), exploration_noise
+
+
+def create_ppo_actor(
+        env: EnvBase,
+        device: torch.device,
+        config: dict) -> TensorDictModule:
+    """
+    Creates a multi-agent PPO actor with a squashed Gaussian policy.
+    Outputs actions in the env's action bounds and stores sample_log_prob for PPO.
+    """
+    activation_class = get_activation_class(config["actor"]["activation_function"])
+    action_dim = env.full_action_spec[("agents", "action")].shape[-1]
+
+    # Policy backbone produces concatenated normal params (mean, std) per action dim
+    policy_backbone = MultiAgentMLP(
+        n_agent_inputs=env.observation_spec[("agents", "observation")].shape[-1],
+        n_agent_outputs=action_dim * 2,
+        n_agents=config["environment"]["num_drones"],
+        centralised=config["actor"]["centralized"],
+        share_params=config["actor"]["share_parameters"],
+        device=device,
+        depth=config["actor"]["network_depth"],
+        num_cells=config["actor"]["network_width"],
+        activation_class=activation_class,
+    )
+
+    base_module = TensorDictModule(
+        policy_backbone,
+        in_keys=[("agents", "observation")],
+        out_keys=[("agents", "param")],
+    )
+
+    # Wrap to split into (loc, scale) and ensure positive std
+    param_wrapped = NormalParamWrapper(
+        base_module,
+        in_keys=[("agents", "param")],
+        out_keys=[("agents", "loc"), ("agents", "scale")],
+    )
+
+    # Squashed Gaussian policy with log-prob output
+    policy = ProbabilisticActor(
+        module=param_wrapped,
+        in_keys=[("agents", "loc"), ("agents", "scale")],
+        out_keys=[("agents", "action")],
+        spec=env.full_action_spec[("agents", "action")],
+        distribution_class=TanhNormal,
+        # TanhNormal will be created from loc/scale; env spec handles bounds
+        return_log_prob=True,
+        log_prob_key=("agents", "sample_log_prob"),
+    )
+    return policy
