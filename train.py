@@ -34,11 +34,12 @@ def train(config: dict):
         algorithm = MADDPGAlgorithm(sample_env, device, config)
     collector = create_collector(algorithm.exploratory_policy, device, transformed_env, config)
     total_steps = config["training"]["total_timesteps"]
+    log_every_n_steps = config["metrics"]["log_every_n_steps"]
 
     pbar = tqdm(total=total_steps)
 
     with mlflow.start_run():
-        # mlflow.log_params(config)
+        mlflow.log_params(config)
 
         metrics_logger = EnvironmentMetricsCollector()
         learning_logger = LearningMetricsCollector()
@@ -51,10 +52,11 @@ def train(config: dict):
             losses = algorithm.learn(batch)
             for loss_name, loss_value in losses.items():
                 learning_logger.report_loss(loss_name, loss_value)
+            metrics_logger.report_metrics(batch)
             
-
             # Logging
-            metrics_logger.log_metrics(batch, iteration)
-            learning_logger.log_metrics(iteration)
+            if iteration % log_every_n_steps == 0:
+                learning_logger.log_metrics(iteration)
+                metrics_logger.log_metrics(iteration)
 
             pbar.update(current_frames)

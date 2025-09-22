@@ -48,7 +48,7 @@ actor:
 
 training:
   # Total number of training timesteps.
-  total_timesteps: 100
+  total_timesteps: 5000000
   # Initial sigma for exploration noise (AdditiveGaussianModule).
   exploration_sigma_init: 0.1
   # Final sigma for exploration noise (AdditiveGaussianModule).
@@ -84,7 +84,7 @@ replay_buffer:
   # Size of the replay buffer (number of transitions it can store).
   buffer_size: 1000000
   # Number of batches to prefetch asynchronously (0 disables prefetching).
-  prefetch: 12
+  prefetch: 32
   # Device to store the buffer on ("cpu" or "cuda").
   buffer_device: cuda
 
@@ -118,3 +118,4 @@ ppo:
 metrics:
   # If true, metrics are logged.
   enabled: false
+  log_every_n_steps: 100
