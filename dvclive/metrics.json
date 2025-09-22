@@ -1,1 +1,17 @@
-{}
+{
+    "loss_policy": "nan",
+    "loss_value": "nan",
+    "avg_reward": -0.5213664067934637,
+    "max_reward": 3.682312596526288,
+    "sum_reward": -5.231365981551546,
+    "avg_collection_time": 439.0271297089041,
+    "episode_duration": 21.44480257856567,
+    "completion_time": 500.0,
+    "all_collected": 0.0,
+    "num_collected": 1.5261885576148269,
+    "end_cause_NONE": 0,
+    "end_cause_TIMEOUT": 0,
+    "end_cause_ALL_COLLECTED": 0,
+    "end_cause_STALLED": 2482,
+    "step": 12
+}
