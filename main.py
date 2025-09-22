@@ -38,9 +38,6 @@ def main():
         algorithm = MADDPGAlgorithm(sample_env, device, config)
     collector = create_collector(algorithm.exploratory_policy, device, transformed_env, config)
     total_steps = config["training"]["total_timesteps"]
-    frames_per_step = config["collector"]["frames_per_batch"]
-    n_optimiser_steps = config["optimization"]["num_optimizer_steps"]
-    grad_clip = config["optimization"]["grad_clip"]
 
     pbar = tqdm(total=total_steps)
 
@@ -53,32 +50,12 @@ def main():
         # Training/collection iterations
         for iteration, batch in enumerate(collector):
             current_frames = batch.numel()
-            replay_buffer.extend(batch)
+            
+            # Learning step
+            losses = algorithm.learn(batch)
 
-            for _ in range(n_optimiser_steps):
-                subdata = replay_buffer.sample()
-                loss_vals = loss_module(subdata)
-                for loss_name in ["loss_actor", "loss_value"]:
-                    loss = loss_vals[loss_name]
-                    optimiser: torch.optim.Optimizer = optimizers[loss_name]
-
-                    loss.backward()
-
-                    # Optional
-                    if grad_clip > 0:
-                        params = optimiser.param_groups[0]["params"]
-                        torch.nn.utils.clip_grad_norm_(params, grad_clip)
-
-                    optimiser.step()
-                    optimiser.zero_grad()
-
-                    learning_logger.report_loss(loss_name, loss.item())
-
-                # Soft-update the target network
-                target_updater.step()
-
-            # Exploration sigma anneal update
-            exploration_noise.step(current_frames)
+            for loss_name, loss_value in losses.items():
+                live.log_metric(loss_name, loss_value)
 
             # Logging
             metrics_logger.log_metrics(batch)

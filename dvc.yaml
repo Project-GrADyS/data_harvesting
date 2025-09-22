@@ -12,8 +12,3 @@ stages:
     - main.py
 params:
 - dvclive/params.yaml
-metrics:
-- dvclive/metrics.json
-plots:
-- dvclive/plots/metrics:
-    x: step

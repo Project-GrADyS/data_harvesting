@@ -48,7 +48,7 @@ actor:
 
 training:
   # Total number of training timesteps.
-  total_timesteps: 50000000
+  total_timesteps: 50000
   # Initial sigma for exploration noise (AdditiveGaussianModule).
   exploration_sigma_init: 0.1
   # Final sigma for exploration noise (AdditiveGaussianModule).
@@ -57,6 +57,8 @@ training:
   exploration_annealing_steps: 500_000
   # Batch size for training updates.
   batch_size: 256
+  # Algorithm to use. Options: "maddpg", "mappo"
+  algorithm: mappo
 
 critic:
   # Number of hidden layers in the critic MLP.
@@ -72,11 +74,10 @@ critic:
 
 collector:
   # Number of parallel environment instances.
-  num_collectors: 4
+  num_collectors: 8
   # Number of frames collected per batch.
-  frames_per_batch: 1000
+  frames_per_batch: 4096
   # Whether to use async collectors
-  async_collector: true
   async_collector: true
 
 replay_buffer:
@@ -85,7 +86,7 @@ replay_buffer:
   # Number of batches to prefetch asynchronously (0 disables prefetching).
   prefetch: 12
   # Device to store the buffer on ("cpu" or "cuda").
-  buffer_device: cpu
+  buffer_device: cuda
 
 optimization:
   # Discount factor for future rewards.
