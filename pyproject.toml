@@ -10,6 +10,7 @@ dependencies = [
     "dvclive>=3.48.5",
     "gradysim>=0.7.3",
     "gymnasium>=1.2.0",
+    "hyperopt>=0.2.7",
     "jupyter>=1.1.1",
     "line-profiler>=5.0.0",
     "matplotlib>=3.10.6",

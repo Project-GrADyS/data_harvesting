@@ -1,0 +1,8 @@
+artifact_location: file:///home/thlamz/data_harvesting/mlruns/920334921806168645
+creation_time: 1758753282394
+experiment_id: '920334921806168645'
+last_update_time: 1758756461981
+lifecycle_stage: deleted
+name: batch_maddpg_trial
+tags:
+  mlflow.experimentKind: custom_model_development

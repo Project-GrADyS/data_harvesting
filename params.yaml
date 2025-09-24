@@ -48,7 +48,7 @@ actor:
 
 training:
   # Total number of training timesteps.
-  total_timesteps: 5000000
+  total_timesteps: 300000
   # Initial sigma for exploration noise (AdditiveGaussianModule).
   exploration_sigma_init: 0.1
   # Final sigma for exploration noise (AdditiveGaussianModule).
@@ -74,7 +74,7 @@ critic:
 
 collector:
   # Number of parallel environment instances.
-  num_collectors: 4
+  num_collectors: 8
   # Number of frames collected per batch.
   frames_per_batch: 256
   # Whether to use async collectors
@@ -118,4 +118,4 @@ ppo:
 metrics:
   # If true, metrics are logged.
   enabled: false
-  log_every_n_steps: 5000
+  log_every_n_steps: 20000

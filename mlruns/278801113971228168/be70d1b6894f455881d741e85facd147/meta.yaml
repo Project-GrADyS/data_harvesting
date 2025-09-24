@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/278801113971228168/be70d1b6894f455881d741e85facd147/artifacts
+deleted_time: 1758741843869
+end_time: 1758741814010
+entry_point_name: ''
+experiment_id: '278801113971228168'
+lifecycle_stage: deleted
+run_id: be70d1b6894f455881d741e85facd147
+run_name: peaceful-perch-801
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1758741778818
+status: 4
+tags: []
+user_id: thlamz

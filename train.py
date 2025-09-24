@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 mlflow.set_tracking_uri("file:./mlruns")
 
-def train(config: dict):
+def train(config: dict, run_name: str | None = None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def transformed_env(check: bool = False) -> TransformedEnv:
@@ -38,7 +38,7 @@ def train(config: dict):
 
     pbar = tqdm(total=total_steps)
 
-    with mlflow.start_run():
+    with mlflow.start_run(run_name=run_name):
         mlflow.log_params(config)
 
         metrics_logger = EnvironmentMetricsCollector()
@@ -65,3 +65,12 @@ def train(config: dict):
 
             pbar.update(current_frames)
             experience_steps += current_frames
+        
+        # Logging metrics at the end of training
+        learning_logger.log_metrics(experience_steps)
+        metrics_logger.log_metrics(experience_steps)
+
+        # Returning the final average reward as a simple measure of performance
+        # Useful for hyperparameter tuning
+        avg_reward = metrics_logger.sum_avg_reward / metrics_logger.trajectories
+        return avg_reward
