@@ -82,8 +82,7 @@ class LearningMetricsCollector:
             self.losses[loss_name] = 0
         self.losses[loss_name] += loss_value
 
-        if self.start_time is None:
-            self.start_time = time.time()
+        self.start_time = time.time()
 
         self.iterations += 1
 
