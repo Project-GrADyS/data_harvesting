@@ -57,19 +57,22 @@ class EnvironmentMetricsCollector:
         completion_time = self.sum_completion_time / self.trajectories
         all_collected = self.sum_all_collected / self.trajectories
         num_collected = self.sum_num_collected / self.trajectories
-        timestamp = time.time()
-        mlflow.log_metric("avg_reward", avg_reward, step, timestamp=timestamp)
-        mlflow.log_metric("max_reward", max_reward, step, timestamp=timestamp)
-        mlflow.log_metric("sum_reward", sum_reward, step, timestamp=timestamp)
-        mlflow.log_metric("avg_collection_time", avg_collection_time, step, timestamp=timestamp)
-        mlflow.log_metric("episode_duration", episode_duration, step, timestamp=timestamp)
-        mlflow.log_metric("completion_time", completion_time, step, timestamp=timestamp)
-        mlflow.log_metric("all_collected", all_collected, step, timestamp=timestamp)
-        mlflow.log_metric("num_collected", num_collected, step, timestamp=timestamp)
-
+        # Batch all metrics in a single call for performance
+        metrics = {
+            "avg_reward": avg_reward,
+            "max_reward": max_reward,
+            "sum_reward": sum_reward,
+            "avg_collection_time": avg_collection_time,
+            "episode_duration": episode_duration,
+            "completion_time": completion_time,
+            "all_collected": all_collected,
+            "num_collected": num_collected,
+        }
+        # Include end-cause counters
         for cause, count in self.end_cause_counts.items():
-            cause_enum = EndCause(cause)
-            mlflow.log_metric(f"end_cause_{cause_enum.name}", count, step, timestamp=timestamp)
+            metrics[f"end_cause_{cause.name}"] = count
+
+        mlflow.log_metrics(metrics, step=step)
 
 class LearningMetricsCollector:
     def __init__(self):
@@ -87,13 +90,17 @@ class LearningMetricsCollector:
         self.iterations += 1
 
     def log_metrics(self, step: int):
-        timestamp = time.time()
+        # Batch all learning metrics in a single call
+        metrics: dict[str, float] = {}
         for loss_name, loss_value in self.losses.items():
             avg_loss = loss_value / self.iterations
-            mlflow.log_metric(f"loss_{loss_name}", avg_loss, step, timestamp=timestamp)
+            metrics[f"loss_{loss_name}"] = avg_loss
 
         if self.start_time is not None:
             elapsed_time = time.time() - self.start_time
             sps = 1 / elapsed_time if elapsed_time > 0 else 0
-            mlflow.log_metric("sps", sps, step, timestamp=timestamp)
+            metrics["sps"] = sps
+
+        if metrics:
+            mlflow.log_metrics(metrics, step=step)
         self.losses.clear()
