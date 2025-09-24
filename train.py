@@ -44,6 +44,9 @@ def train(config: dict):
         metrics_logger = EnvironmentMetricsCollector()
         learning_logger = LearningMetricsCollector()
 
+        experience_steps = 0
+        last_metric_log = 0
+
         # Training/collection iterations
         for iteration, batch in enumerate(collector):
             current_frames = batch.numel()
@@ -55,8 +58,10 @@ def train(config: dict):
             metrics_logger.report_metrics(batch)
             
             # Logging
-            if iteration % log_every_n_steps == 0:
-                learning_logger.log_metrics(iteration)
-                metrics_logger.log_metrics(iteration)
+            if experience_steps - last_metric_log > log_every_n_steps:
+                learning_logger.log_metrics(experience_steps)
+                metrics_logger.log_metrics(experience_steps)
+                last_metric_log = experience_steps
 
             pbar.update(current_frames)
+            experience_steps += current_frames
