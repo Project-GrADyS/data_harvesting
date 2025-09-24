@@ -74,11 +74,11 @@ critic:
 
 collector:
   # Number of parallel environment instances.
-  num_collectors: 1
+  num_collectors: 4
   # Number of frames collected per batch.
-  frames_per_batch: 1
+  frames_per_batch: 256
   # Whether to use async collectors
-  async_collector: false
+  async_collector: true
 
 replay_buffer:
   # Size of the replay buffer (number of transitions it can store).
@@ -118,4 +118,4 @@ ppo:
 metrics:
   # If true, metrics are logged.
   enabled: false
-  log_every_n_steps: 100
+  log_every_n_steps: 5000
