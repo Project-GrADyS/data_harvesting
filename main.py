@@ -36,14 +36,14 @@ if __name__ == "__main__":
         lr = run_config['optimization']['lr']
         num_optimizer_steps = run_config['optimization']['num_optimizer_steps']
         grad_clip = run_config['optimization']['grad_clip']
-        return train(run_config, 
-                     run_name=f"lr_{lr}_steps_{num_optimizer_steps}_clip_{grad_clip}")
+        return -train(run_config, 
+                      run_name=f"lr_{lr}_steps_{num_optimizer_steps}_clip_{grad_clip}")
 
     best = fmin(
         fn=tune,
         space=space,
         algo=tpe.suggest,
-        max_evals=10,
+        max_evals=20,
         show_progressbar=False
     )
     print("Best hyperparameters found:")
