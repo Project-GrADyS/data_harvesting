@@ -48,7 +48,7 @@ actor:
 
 training:
   # Total number of training timesteps.
-  total_timesteps: 1000000
+  total_timesteps: 5000000
   # Initial sigma for exploration noise (AdditiveGaussianModule).
   exploration_sigma_init: 0.1
   # Final sigma for exploration noise (AdditiveGaussianModule).
@@ -92,13 +92,13 @@ optimization:
   # Discount factor for future rewards.
   gamma: 0.99
   # Learning rate for optimizers.
-  lr: 0.0008
+  lr: 0.003
   # Tau for the soft-update of the target network.
   tau: 0.005
   # Number of optimizer steps per batch.
-  num_optimizer_steps: 2
+  num_optimizer_steps: 10
   # Gradient clipping value (0 disables clipping).
-  grad_clip: 3
+  grad_clip: 0
 
 # PPO-specific configuration (used when training.algorithm: mappo)
 ppo:
@@ -118,4 +118,4 @@ ppo:
 metrics:
   # If true, metrics are logged.
   enabled: false
-  log_every_n_steps: 20000
+  log_every_n_steps: 5000

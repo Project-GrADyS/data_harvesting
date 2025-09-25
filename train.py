@@ -8,8 +8,6 @@ from data_harvesting.metrics import EnvironmentMetricsCollector, LearningMetrics
 from data_harvesting.algorithm import MADDPGAlgorithm, MAPPOAlgorithm
 from tqdm import tqdm
 
-mlflow.set_tracking_uri("file:./mlruns")
-
 def train(config: dict, run_name: str | None = None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
