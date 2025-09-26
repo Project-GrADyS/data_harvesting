@@ -48,7 +48,7 @@ actor:
 
 training:
   # Total number of training timesteps.
-  total_timesteps: 5000000
+  total_timesteps: 300000
   # Initial sigma for exploration noise (AdditiveGaussianModule).
   exploration_sigma_init: 0.1
   # Final sigma for exploration noise (AdditiveGaussianModule).
@@ -56,7 +56,7 @@ training:
   # Number of steps to anneal sigma from init to end (AdditiveGaussianModule).
   exploration_annealing_steps: 500_000
   # Batch size for training updates.
-  batch_size: 256
+  batch_size: 2048
   # Algorithm to use. Options: "maddpg", "mappo"
   algorithm: maddpg
 
@@ -76,7 +76,7 @@ collector:
   # Number of parallel environment instances.
   num_collectors: 4
   # Number of frames collected per batch.
-  frames_per_batch: 256
+  frames_per_batch: 1024
   # Whether to use async collectors
   async_collector: true
 
