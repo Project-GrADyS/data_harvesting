@@ -3,8 +3,10 @@ environment:
   algorithm_iteration_interval: 2.0
   # Number of drone agents in the simulation.
   num_drones: 2
-  # Number of sensor nodes in the simulation.
-  num_sensors: 12
+  # Minimum number of sensor nodes in the simulation.
+  min_num_sensors: 12
+  # Maximum number of sensor nodes in the simulation.
+  max_num_sensors: 36
   # Size of the scenario (side length of the square area).
   scenario_size: 100
   # Maximum number of steps per episode.
@@ -17,8 +19,6 @@ environment:
   state_num_closest_sensors: 12
   # Number of closest drones to include in the state.
   state_num_closest_drones: 1
-  # State representation mode. Options: "all_positions", "absolute", "relative", "distance_angle", "angle"
-  state_mode: relative
   # Whether to include agent IDs in the state.
   id_on_state: true
   # Minimum priority value for sensors.

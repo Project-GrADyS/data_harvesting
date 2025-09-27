@@ -3,7 +3,7 @@ import enum
 import math
 import random
 from time import sleep
-from typing import List, Optional, Literal
+from typing import List, Optional
 
 import gymnasium
 import numpy as np
@@ -24,8 +24,6 @@ from gradysim.simulator.simulation import SimulationBuilder, Simulator, Simulati
 from gymnasium.spaces import Box
 from pettingzoo import ParallelEnv
 from torchrl.envs import PettingZooWrapper, MarlGroupMapType
-
-StateMode = Literal["all_positions", "absolute", "relative", "distance_angle", "angle"]
 
 
 class SensorProtocol(IProtocol):
@@ -130,22 +128,25 @@ class DroneProtocol(IProtocol):
 
 @dataclasses.dataclass
 class GrADySEnvironmentConfig:
-    render_mode: Optional[Literal["visual", "console"]] = None
+    """Configuration for GrADyS environment (only 'relative' observation mode retained)."""
+    render_mode: Optional[str] = None  # "visual" | "console"
     algorithm_iteration_interval: float = 0.5
     num_drones: int = 1
-    num_sensors: int = 2
+    # Number of sensors is always sampled each reset from [min_num_sensors, max_num_sensors].
+    # To fix the number, set min_num_sensors == max_num_sensors.
+    min_num_sensors: int = 2
+    max_num_sensors: int = 2
     scenario_size: float = 100
     max_episode_length: int = 500
     max_seconds_stalled: int = 30
     communication_range: float = 20
     state_num_closest_sensors: int = 2
     state_num_closest_drones: int = 2
-    state_mode: StateMode = "relative"
     id_on_state: bool = True
     min_sensor_priority: float = 0.1
     max_sensor_priority: float = 1
     full_random_drone_position: bool = False
-    reward: Literal['punish', 'time-reward', 'reward'] = 'punish'
+    reward: str = 'punish'  # 'punish' | 'time-reward' | 'reward'
     speed_action: bool = True
     end_when_all_collected: bool = True
 
@@ -191,7 +192,13 @@ class GrADySEnvironment(ParallelEnv):
 
         self.algorithm_iteration_interval = config.algorithm_iteration_interval
 
-        self.num_sensors = config.num_sensors
+        # Store sensor sampling bounds
+        if config.min_num_sensors > config.max_num_sensors:
+            raise ValueError("min_num_sensors cannot be greater than max_num_sensors.")
+        self.min_num_sensors = config.min_num_sensors
+        self.max_num_sensors = config.max_num_sensors
+        # Active number of sensors set at reset
+        self.active_num_sensors: int = -1
         self.num_drones = config.num_drones
         self.possible_agents = [f"drone{i}" for i in range(config.num_drones)]
         self.max_episode_length = config.max_episode_length
@@ -200,7 +207,6 @@ class GrADySEnvironment(ParallelEnv):
         self.communication_range = config.communication_range
         self.state_num_closest_sensors = config.state_num_closest_sensors
         self.state_num_closest_drones = config.state_num_closest_drones
-        self.state_mode = config.state_mode
         self.id_on_state = config.id_on_state
         self.min_sensor_priority = config.min_sensor_priority
         self.max_sensor_priority = config.max_sensor_priority
@@ -210,31 +216,18 @@ class GrADySEnvironment(ParallelEnv):
         self.end_when_all_collected = config.end_when_all_collected
 
     def observation_space(self, agent):
+        """Observation space for the retained 'relative' mode.
+
+        State layout per agent:
+        - Closest other drones (state_num_closest_drones * 2) relative-normalized positions
+        - Closest unvisited sensors (state_num_closest_sensors * 2) relative-normalized positions
+        - Optional agent id (1)
+        Range: [-1, 1]
+        """
         agent_id = 1 if self.id_on_state else 0
-        if self.state_mode == "absolute":
-            self_position = 2
-            agent_positions = self.state_num_closest_drones * 2
-            sensor_positions = self.state_num_closest_sensors * 2
-
-            return Box(0, 1, shape=(self_position + agent_positions + sensor_positions + agent_id,))
-        elif self.state_mode == "distance_angle" or self.state_mode == "relative":
-            agent_positions = self.state_num_closest_drones * 2
-            sensor_positions = self.state_num_closest_sensors * 2
-
-            return Box(-1, 1, shape=(agent_positions + sensor_positions + agent_id,))
-        elif self.state_mode == "angle":
-            agent_positions = self.state_num_closest_drones * 1
-            sensor_positions = self.state_num_closest_sensors * 1
-
-            return Box(0, 1, shape=(agent_positions + sensor_positions + agent_id,))
-        elif self.state_mode == "all_positions":
-            # Observe locations of all agents
-            agent_positions = self.num_drones * 2
-            agent_index = 1
-            sensor_positions = self.num_sensors * 2
-            sensor_visited = self.num_sensors
-
-            return Box(0, 1, shape=(agent_positions + agent_index + sensor_positions + sensor_visited + agent_id,))
+        agent_positions = self.state_num_closest_drones * 2
+        sensor_positions = self.state_num_closest_sensors * 2
+        return Box(-1, 1, shape=(agent_positions + sensor_positions + agent_id,))
 
     def action_space(self, agent):
         # Drone can move in any direction
@@ -265,80 +258,7 @@ class GrADySEnvironment(ParallelEnv):
         # Closing the simulator
         self.simulator._finalize_simulation()
 
-    def observe_simulation_angle_distance(self):
-        sensor_nodes = [self.simulator.get_node(sensor_id) for sensor_id in self.sensor_node_ids]
-        unvisited_sensor_nodes = [sensor_node for sensor_node in sensor_nodes
-                                  if not sensor_node.protocol_encapsulator.protocol.has_collected]
-
-        agent_nodes = [self.simulator.get_node(agent_id) for agent_id in self.agent_node_ids]
-
-        state = {}
-        for agent_index in range(self.num_drones):
-            agent_position = agent_nodes[agent_index].position
-
-            closest_unvisited_sensors = np.zeros((self.state_num_closest_sensors, 2))
-
-            sorted_unvisited_sensors = sorted(unvisited_sensor_nodes, key=lambda sensor_node: squared_distance(sensor_node.position, agent_position))
-
-            for i, sensor_node in enumerate(sorted_unvisited_sensors[:self.state_num_closest_sensors]):
-                angle = np.arctan2(sensor_node.position[1] - agent_position[1], sensor_node.position[0] - agent_position[0])
-                distance = np.linalg.norm(np.array(sensor_node.position[:2]) - np.array(agent_position[:2]))
-                closest_unvisited_sensors[i, 0] = angle / np.pi
-                closest_unvisited_sensors[i, 1] = distance / self.scenario_size
-
-            closest_agents = np.zeros((self.state_num_closest_drones, 2))
-
-            sorted_agents = sorted(agent_nodes, key=lambda agent_node: squared_distance(agent_node.position, agent_position))
-
-            for i, agent_node in enumerate(sorted_agents[1:self.state_num_closest_drones + 1]):
-                angle = np.arctan2(agent_node.position[1] - agent_position[1], agent_node.position[0] - agent_position[0])
-                distance = np.linalg.norm(np.array(agent_node.position[:2]) - np.array(agent_position[:2]))
-                closest_agents[i, 0] = angle / np.pi
-                closest_agents[i, 1] = distance / self.scenario_size
-
-
-            state[f"drone{agent_index}"] = np.concatenate([
-                closest_agents.flatten(),
-                closest_unvisited_sensors.flatten(),
-                np.array(agent_index).flatten() / self.num_drones if self.id_on_state else []
-            ])
-        return state
-
-    def observe_simulation_angle(self):
-        sensor_nodes = [self.simulator.get_node(sensor_id) for sensor_id in self.sensor_node_ids]
-        unvisited_sensor_nodes = [sensor_node for sensor_node in sensor_nodes
-                                  if not sensor_node.protocol_encapsulator.protocol.has_collected]
-
-        agent_nodes = [self.simulator.get_node(agent_id) for agent_id in self.agent_node_ids]
-
-        state = {}
-        for agent_index in range(self.num_drones):
-            agent_position = agent_nodes[agent_index].position
-
-            closest_unvisited_sensors = np.zeros((self.state_num_closest_sensors,))
-
-            sorted_unvisited_sensors = sorted(unvisited_sensor_nodes, key=lambda sensor_node: squared_distance(sensor_node.position, agent_position))
-
-            for i, sensor_node in enumerate(sorted_unvisited_sensors[:self.state_num_closest_sensors]):
-                angle = np.arctan2(sensor_node.position[1] - agent_position[1], sensor_node.position[0] - agent_position[0])
-                closest_unvisited_sensors[i] = angle / np.pi
-
-            closest_agents = np.zeros((self.state_num_closest_drones,))
-
-            sorted_agents = sorted(agent_nodes, key=lambda agent_node: squared_distance(agent_node.position, agent_position))
-
-            for i, agent_node in enumerate(sorted_agents[1:self.state_num_closest_drones + 1]):
-                angle = np.arctan2(agent_node.position[1] - agent_position[1], agent_node.position[0] - agent_position[0])
-                closest_agents[i] = angle / np.pi
-
-
-            state[f"drone{agent_index}"] = np.concatenate([
-                closest_agents,
-                closest_unvisited_sensors,
-                np.array(agent_index).flatten() / self.num_drones if self.id_on_state else []
-            ])
-        return state
-
+    # Removed other observation modes; only relative retained
     def observe_simulation_relative_positions(self):
         sensor_nodes = np.array([self.simulator.get_node(sensor_id).position[:2] for sensor_id in self.sensor_node_ids])
         unvisited_sensor_mask = np.array(
@@ -387,79 +307,9 @@ class GrADySEnvironment(ParallelEnv):
             ])
         return state
 
-    def observe_simulation_absolute_positions(self):
-        sensor_nodes = [self.simulator.get_node(sensor_id) for sensor_id in self.sensor_node_ids]
-        unvisited_sensor_nodes = [sensor_node for sensor_node in sensor_nodes
-                                  if not sensor_node.protocol_encapsulator.protocol.has_collected]
-
-        agent_nodes = [self.simulator.get_node(agent_id) for agent_id in self.agent_node_ids]
-
-        state = {}
-        for agent_index in range(self.num_drones):
-            agent_position = agent_nodes[agent_index].position
-
-            closest_unvisited_sensors = np.zeros((self.state_num_closest_sensors, 2))
-
-            sorted_unvisited_sensors = sorted(unvisited_sensor_nodes, key=lambda sensor_node: squared_distance(sensor_node.position, agent_position))
-
-            for i, sensor_node in enumerate(sorted_unvisited_sensors[:self.state_num_closest_sensors]):
-                closest_unvisited_sensors[i] = sensor_node.position[:2]
-
-            closest_agents = np.zeros((self.state_num_closest_drones, 2))
-
-            sorted_agents = sorted(agent_nodes, key=lambda agent_node: squared_distance(agent_node.position, agent_position))
-
-            for i, agent_node in enumerate(sorted_agents[1:self.state_num_closest_drones + 1]):
-                closest_agents[i] = agent_node.position[:2]
-
-
-            state[f"drone{agent_index}"] = np.concatenate([
-                np.array(agent_position[:2]) / self.scenario_size,
-                closest_agents.flatten() / self.scenario_size,
-                closest_unvisited_sensors.flatten() / self.scenario_size,
-                np.array(agent_index).flatten() / self.num_drones if self.id_on_state else []
-            ])
-        return state
-
-
-    def observe_simulation_all_positions(self):
-        sensor_locations = np.zeros(self.num_sensors * 2)
-        sensor_visited = np.zeros(self.num_sensors)
-        for i in range(self.num_sensors):
-            sensor_node = self.simulator.get_node(self.sensor_node_ids[i])
-            sensor_locations[i * 2] = sensor_node.position[0] / self.scenario_size
-            sensor_locations[i * 2 + 1] = sensor_node.position[1] / self.scenario_size
-
-            sensor_visited[i] = int(sensor_node.protocol_encapsulator.protocol.has_collected)
-
-        agent_positions = np.zeros(self.num_drones * 2)
-        for i in range(self.num_drones):
-            agent_node = self.simulator.get_node(self.agent_node_ids[i])
-            agent_positions[i * 2] = agent_node.position[0] / self.scenario_size
-            agent_positions[i * 2 + 1] = agent_node.position[1] / self.scenario_size
-
-        general_observations = np.concatenate([sensor_locations, sensor_visited, agent_positions])
-
-        state = {}
-        for agent_index in range(self.num_drones):
-            # General observations and agent index
-            state[f"drone{agent_index}"] = np.concatenate([
-                general_observations,
-                np.array(agent_index).flatten() / self.num_drones if self.id_on_state else []
-            ])
-        return state
-
     def observe_simulation(self):
-        if self.state_mode == "relative":
-            return self.observe_simulation_relative_positions()
-        elif self.state_mode == "distance_angle":
-            return self.observe_simulation_angle_distance()
-        elif self.state_mode == "angle":
-            return self.observe_simulation_angle()
-        elif self.state_mode == "absolute":
-            return self.observe_simulation_absolute_positions()
-        elif self.state_mode == "all_positions":
-            return self.observe_simulation_all_positions()
+        """Return current observation dictionary (relative mode only)."""
+        return self.observe_simulation_relative_positions()
 
     def detect_out_of_bounds_agent(self, agent: Node) -> bool:
         return abs(agent.position[0]) > self.scenario_size or abs(agent.position[1]) > self.scenario_size
@@ -539,7 +389,10 @@ class GrADySEnvironment(ParallelEnv):
         SensorProtocol.min_priority = self.min_sensor_priority
         SensorProtocol.max_priority = self.max_sensor_priority
 
-        for i in range(self.num_sensors):
+        # Sample uniformly (inclusive) number of sensors for this episode
+        self.active_num_sensors = random.randint(self.min_num_sensors, self.max_num_sensors)
+
+        for i in range(self.active_num_sensors):
             self.sensor_node_ids.append(builder.add_node(SensorProtocol, (
                 random.uniform(-self.scenario_size, self.scenario_size),
                 random.uniform(-self.scenario_size, self.scenario_size),
@@ -576,7 +429,7 @@ class GrADySEnvironment(ParallelEnv):
         self.reward_sum = 0
         self.max_reward = -math.inf
         self.sensors_collected = 0
-        self.collection_times = [self.max_episode_length for _ in range(self.num_sensors)]
+        self.collection_times = [self.max_episode_length for _ in range(self.active_num_sensors)]
 
         return self.observe_simulation(), self.blank_info()
 
@@ -646,7 +499,7 @@ class GrADySEnvironment(ParallelEnv):
             simulation_ongoing = False
             end_cause = EndCause.STALLED.value
 
-        all_sensors_collected = sum(sensor_is_collected) == self.num_sensors
+        all_sensors_collected = sum(sensor_is_collected) == self.active_num_sensors
 
         if all_sensors_collected:
             end_cause = EndCause.ALL_COLLECTED.value
@@ -659,7 +512,8 @@ class GrADySEnvironment(ParallelEnv):
             if after > before:
                 reward = (after - before) * 10
             else:
-                reward = -(self.num_sensors - sum(sensor_is_collected)) / self.num_sensors
+                remaining = self.active_num_sensors - sum(sensor_is_collected)
+                reward = -(remaining) / self.active_num_sensors
         if self.reward == 'reward':
             reward = sum(sensor_is_collected) - sum(sensor_is_collected_before)
 
@@ -671,9 +525,7 @@ class GrADySEnvironment(ParallelEnv):
                     priority = self.simulator.get_node(sensor_id).protocol_encapsulator.protocol.priority
                     reward += priority * (1 - current_timestamp / self.max_episode_length)
 
-        rewards = {
-            agent: reward for agent in self.agents
-        }
+        rewards = {agent: reward for agent in self.agents}
         self.sensors_collected = sum(sensor_is_collected)
 
         self.reward_sum += rewards[self.agents[0]]
@@ -697,7 +549,7 @@ class GrADySEnvironment(ParallelEnv):
                     "avg_reward": self.reward_sum / self.episode_duration,
                     "max_reward": self.max_reward,
                     "sum_reward": self.reward_sum,
-                    "avg_collection_time": sum(self.collection_times) / self.num_sensors,
+                    "avg_collection_time": sum(self.collection_times) / self.active_num_sensors if self.active_num_sensors > 0 else 0.0,
                     "episode_duration": self.episode_duration,
                     "completion_time": self.max_episode_length if not all_sensors_collected else self.simulator._current_timestamp,
                     "all_collected": int(all_sensors_collected),
@@ -710,10 +562,9 @@ class GrADySEnvironment(ParallelEnv):
 
 def make_env(config: dict) -> PettingZooWrapper:
     """
-    Creates a torchrl wrapped GrADySEnvironment with the given configuration.
-    :param config: GrADySEnvironmentConfig object containing environment configuration
-    :return: GrADySEnvironment instance
+    Create a torchrl-wrapped GrADySEnvironment.
     """
+    # Pass through directly; GrADySEnvironmentConfig handles validation and sampling
     env_config = GrADySEnvironmentConfig(**config["environment"])
     return PettingZooWrapper(
         GrADySEnvironment(env_config),
