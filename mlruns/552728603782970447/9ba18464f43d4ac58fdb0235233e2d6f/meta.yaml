@@ -1,8 +1,9 @@
 artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/9ba18464f43d4ac58fdb0235233e2d6f/artifacts
+deleted_time: 1759325258205
 end_time: 1759325188726
 entry_point_name: ''
 experiment_id: '552728603782970447'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: 9ba18464f43d4ac58fdb0235233e2d6f
 run_name: angry-calf-168
 source_name: ''
