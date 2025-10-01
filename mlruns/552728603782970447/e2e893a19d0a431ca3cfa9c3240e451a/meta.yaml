@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/e2e893a19d0a431ca3cfa9c3240e451a/artifacts
+deleted_time: 1759286195559
+end_time: 1759286175185
+entry_point_name: ''
+experiment_id: '552728603782970447'
+lifecycle_stage: deleted
+run_id: e2e893a19d0a431ca3cfa9c3240e451a
+run_name: flawless-gnat-919
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1759286132238
+status: 4
+tags: []
+user_id: thlamz
