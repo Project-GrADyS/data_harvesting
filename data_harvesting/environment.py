@@ -21,7 +21,7 @@ from gradysim.simulator.handler.visualization import VisualizationHandler, Visua
 from gradysim.simulator.extension.visualization_controller import VisualizationController
 from gradysim.simulator.node import Node
 from gradysim.simulator.simulation import SimulationBuilder, Simulator, SimulationConfiguration
-from gymnasium.spaces import Box
+from gymnasium.spaces import Box, Dict
 from pettingzoo import ParallelEnv
 from torchrl.envs import PettingZooWrapper, MarlGroupMapType
 
@@ -129,6 +129,7 @@ class DroneProtocol(IProtocol):
 @dataclasses.dataclass
 class GrADySEnvironmentConfig:
     """Configuration for GrADyS environment (only 'relative' observation mode retained)."""
+
     render_mode: Optional[str] = None  # "visual" | "console"
     algorithm_iteration_interval: float = 0.5
     num_drones: int = 1
@@ -225,9 +226,14 @@ class GrADySEnvironment(ParallelEnv):
         Range: [-1, 1]
         """
         agent_id = 1 if self.id_on_state else 0
-        agent_positions = self.state_num_closest_drones * 2
-        sensor_positions = self.state_num_closest_sensors * 2
-        return Box(-1, 1, shape=(agent_positions + sensor_positions + agent_id,))
+        agent_positions_size = 2
+        sensor_positions_size = 2
+
+        return Dict({
+            "sensors": Box(-1, 1, shape=(self.state_num_closest_sensors, sensor_positions_size,)),
+            "drones": Box(-1, 1, shape=(self.state_num_closest_drones, agent_positions_size,)),
+            "agent_id": Box(0, 1, shape=(agent_id,)) if self.id_on_state else Box(0, 1, shape=(0,))
+        })
 
     def action_space(self, agent):
         # Drone can move in any direction
@@ -300,11 +306,12 @@ class GrADySEnvironment(ParallelEnv):
             closest_unvisited_sensors[:len(sorted_sensor_indices)] = (agent_position - closest_unvisited_sensors[:len(
                 sorted_sensor_indices)] + max_distance) / (max_distance * 2)
 
-            state[f"drone{agent_index}"] = np.concatenate([
-                closest_agents.flatten(),
-                closest_unvisited_sensors.flatten(),
-                np.array([agent_index / self.num_drones]) if self.id_on_state else []
-            ])
+            state[f"drone{agent_index}"] = {
+                "drones": closest_agents,
+                "sensors": closest_unvisited_sensors,
+            }
+            if self.id_on_state:
+                state[f"drone{agent_index}"]["agent_id"] = np.array([agent_index / (self.num_drones - 1) if self.num_drones > 1 else 0])
         return state
 
     def observe_simulation(self):
@@ -564,10 +571,29 @@ def make_env(config: dict) -> PettingZooWrapper:
     """
     Create a torchrl-wrapped GrADySEnvironment.
     """
+    env_config = config["environment"].copy()
+    is_sequential = env_config.pop('sequential_obs')
+
     # Pass through directly; GrADySEnvironmentConfig handles validation and sampling
-    env_config = GrADySEnvironmentConfig(**config["environment"])
-    return PettingZooWrapper(
-        GrADySEnvironment(env_config),
+    gradys_config = GrADySEnvironmentConfig(**env_config)
+    env = PettingZooWrapper(
+        GrADySEnvironment(gradys_config),
         categorical_actions=False,
         group_map=MarlGroupMapType.ALL_IN_ONE_GROUP
     )
+
+    # If the environment is not sequential, we flatten and concatenate the observation components
+    if not is_sequential:
+        from torchrl.envs.transforms import CatTensors, FlattenObservation
+        env = env.append_transform(FlattenObservation(
+            first_dim=-2,
+            last_dim=-1,
+            in_keys=[("agents", "observation", "sensors"), ("agents", "observation", "drones")],
+            out_keys=[("agents", "observation_flat", "sensors"), ("agents", "observation_flat", "drones")],
+        ))
+        env = env.append_transform(CatTensors(
+            in_keys=[("agents", "observation_flat", "sensors"), ("agents", "observation_flat", "drones"), ("agents", "observation", "agent_id")],
+            out_key=("agents", "observation"),
+            del_keys=False
+        ))
+    return env
