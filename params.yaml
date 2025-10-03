@@ -143,12 +143,12 @@ flex_encoder:
   # tensor shape is (batch, n_agents, input_dim) (no temporal dimension).
   flat_heads:
     embed_dim: 128                  # Output embedding size of this flat head
-    depth: 2                        # Hidden layer count inside this head MLP
+    depth: 1                        # Hidden layer count inside this head MLP
     num_cells: 128                  # Hidden layer width
     activation_function: Tanh       # One of: Tanh, ReLU, LeakyReLU
 
   # Final mixing MLP that fuses ALL head outputs per-agent (or centrally) into
   # a unified embedding of size output_dim below.
-  mix_layer_depth: 2                  # Hidden layer count of mixing MLP
+  mix_layer_depth: 1                  # Hidden layer count of mixing MLP
   mix_layer_num_cells: 256            # Hidden layer width of mixing MLP
   mix_activation_function: Tanh       # Activation for mixing MLP
