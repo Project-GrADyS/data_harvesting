@@ -51,7 +51,7 @@ class MADDPGAlgorithm:
                     torch.nn.utils.clip_grad_norm_(params, self.grad_clip)
 
                 optimiser.step()
-                optimiser.zero_grad()
+                optimiser.zero_grad(set_to_none=True)
 
                 loss_sums[loss_name] += loss.item()
 
