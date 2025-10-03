@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/0778cb3781194a37bdace0ac2c9c7dc2/artifacts
+deleted_time: 1759463521053
+end_time: 1759463021528
+entry_point_name: ''
+experiment_id: '552728603782970447'
+lifecycle_stage: deleted
+run_id: 0778cb3781194a37bdace0ac2c9c7dc2
+run_name: industrious-ray-374
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1759463014668
+status: 4
+tags: []
+user_id: thlamz

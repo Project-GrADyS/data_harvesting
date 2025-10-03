@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/6668cfca3d564ac39f3884da51f3d7ee/artifacts
+deleted_time: 1759463521059
+end_time: 1759462566962
+entry_point_name: ''
+experiment_id: '552728603782970447'
+lifecycle_stage: deleted
+run_id: 6668cfca3d564ac39f3884da51f3d7ee
+run_name: sincere-fly-157
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1759462560006
+status: 4
+tags: []
+user_id: thlamz

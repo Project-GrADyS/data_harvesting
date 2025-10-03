@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/e2b7004033a343c1bfbd1289c78f5bb2/artifacts
+deleted_time: 1759463521050
+end_time: 1759463410456
+entry_point_name: ''
+experiment_id: '552728603782970447'
+lifecycle_stage: deleted
+run_id: e2b7004033a343c1bfbd1289c78f5bb2
+run_name: respected-moth-477
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1759463404563
+status: 4
+tags: []
+user_id: thlamz

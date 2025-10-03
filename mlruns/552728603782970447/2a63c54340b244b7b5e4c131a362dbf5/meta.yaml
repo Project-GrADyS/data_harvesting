@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/2a63c54340b244b7b5e4c131a362dbf5/artifacts
+deleted_time: 1759463521057
+end_time: 1759462811793
+entry_point_name: ''
+experiment_id: '552728603782970447'
+lifecycle_stage: deleted
+run_id: 2a63c54340b244b7b5e4c131a362dbf5
+run_name: big-koi-594
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1759462805038
+status: 4
+tags: []
+user_id: thlamz
