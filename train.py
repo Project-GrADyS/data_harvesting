@@ -30,13 +30,16 @@ def train(config: dict, run_name: str | None = None):
         algorithm = MAPPOAlgorithm(sample_env, device, config)
     else:
         algorithm = MADDPGAlgorithm(sample_env, device, config)
-    collector = create_collector(algorithm.exploratory_policy, device, transformed_env, config)
+
     total_steps = config["training"]["total_timesteps"]
     log_every_n_steps = config["metrics"]["log_every_n_steps"]
 
     pbar = tqdm(total=total_steps)
 
-    with mlflow.start_run(run_name=run_name):
+    with (
+        mlflow.start_run(run_name=run_name), 
+        create_collector(algorithm.exploratory_policy, device, transformed_env, config) as collector
+    ):
         mlflow.log_params(config)
 
         metrics_logger = EnvironmentMetricsCollector()
@@ -68,7 +71,7 @@ def train(config: dict, run_name: str | None = None):
         learning_logger.log_metrics(experience_steps)
         metrics_logger.log_metrics(experience_steps)
 
-        # Returning the final average reward as a simple measure of performance
-        # Useful for hyperparameter tuning
-        avg_reward = metrics_logger.sum_avg_reward / metrics_logger.trajectories
-        return avg_reward
+    # Returning the final average reward as a simple measure of performance
+    # Useful for hyperparameter tuning
+    avg_reward = metrics_logger.sum_avg_reward / metrics_logger.trajectories
+    return avg_reward

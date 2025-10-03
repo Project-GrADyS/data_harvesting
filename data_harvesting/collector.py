@@ -1,6 +1,7 @@
+from contextlib import contextmanager
 import torch
 from typing import Callable, Any, Dict
-from torchrl.collectors import MultiaSyncDataCollector, aSyncDataCollector, SyncDataCollector, MultiSyncDataCollector
+from torchrl.collectors import DataCollectorBase, MultiaSyncDataCollector, aSyncDataCollector, SyncDataCollector, MultiSyncDataCollector
 from tensordict.nn import TensorDictModule
 
 def _create_async_collector(
@@ -83,12 +84,13 @@ def _create_sync_collector(
             frames_per_batch=frames_per_batch,
         )
 
+@contextmanager
 def create_collector(
     exploratory_policy: TensorDictModule,
     device: torch.device,
     env_creator: Callable[[], Any],
     config: Dict[str, Any]
-) -> Any:
+):
     """
     Creates a data collector for RL training, choosing async or sync and single or multi based on config.
     Args:
@@ -101,6 +103,12 @@ def create_collector(
     """
     async_collector = config["collector"]["async_collector"]
     if async_collector:
-        return _create_async_collector(exploratory_policy, device, config, env_creator)
+        collector = _create_async_collector(exploratory_policy, device, config, env_creator)
     else:
-        return _create_sync_collector(exploratory_policy, device, config, env_creator)
+        collector = _create_sync_collector(exploratory_policy, device, config, env_creator)
+    
+    try:
+        yield collector
+    finally:
+        if async_collector:
+            collector.shutdown()
