@@ -34,7 +34,7 @@ class EnvironmentMetricsCollector:
         self.trajectories += n_done
 
         info = batch.get(("next", "agents", "info"))[mask, 0]
-        metric_sums = info.sum().cpu()
+        metric_sums = info.sum().detach().cpu()
 
         self.sum_avg_reward += metric_sums["avg_reward"].item()
         self.sum_max_reward += metric_sums["max_reward"].item()

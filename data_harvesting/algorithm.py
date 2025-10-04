@@ -53,7 +53,7 @@ class MADDPGAlgorithm:
                 optimiser.step()
                 optimiser.zero_grad(set_to_none=True)
 
-                loss_sums[loss_name] += loss.item()
+                loss_sums[loss_name] += loss.detach().item()
 
             self.target_updater.step()
 
@@ -122,8 +122,8 @@ class MAPPOAlgorithm:
                 self.optimizers["loss_value"].step()
                 self.optimizers["loss_value"].zero_grad(set_to_none=True)
 
-                loss_sums["loss_policy"] += policy_loss.item()
-                loss_sums["loss_value"] += value_loss.item()
+                loss_sums["loss_policy"] += policy_loss.detach().item()
+                loss_sums["loss_value"] += value_loss.detach().item()
                 n_steps += 1
 
         if n_steps == 0:
