@@ -82,18 +82,18 @@ def create_flex_policy_module(env: EnvBase, config: Dict[str, Any], device: torc
         )
         in_keys["sensors"] = ("agents", "observation", "sensors")
         if config["environment"]["id_on_state"]:
-            # Flat config for the actor_id part of the observation
+            # Flat config for the agent_id part of the observation
             flat_configs.append(
                 FlatConfig(
-                    key="actor_id",
-                    obs_size=env.observation_spec[("agents", "observation","actor_id")].shape[-1],
+                    key="agent_id",
+                    obs_size=env.observation_spec[("agents", "observation","agent_id")].shape[-1],
                     embed_dim=flat_heads_cfg["embed_dim"],
                     depth=flat_heads_cfg["depth"],
                     num_cells=flat_heads_cfg["num_cells"],
                     activation_class=get_activation_class(flat_heads_cfg["activation_function"])
                 )
             )
-            in_keys["actor_id"] = ("agents", "observation", "actor_id")
+            in_keys["agent_id"] = ("agents", "observation", "agent_id")
     else:
         # Flat config for the entire observation when not sequential
         flat_configs.append(
