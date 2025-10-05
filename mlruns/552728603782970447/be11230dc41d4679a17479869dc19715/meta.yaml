@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/be11230dc41d4679a17479869dc19715/artifacts
+deleted_time: 1759705809723
+end_time: 1759681428010
+entry_point_name: ''
+experiment_id: '552728603782970447'
+lifecycle_stage: deleted
+run_id: be11230dc41d4679a17479869dc19715
+run_name: lyrical-gnat-750
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1759681424861
+status: 4
+tags: []
+user_id: thlamz

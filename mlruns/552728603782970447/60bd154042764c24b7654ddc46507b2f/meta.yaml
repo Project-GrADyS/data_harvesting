@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/60bd154042764c24b7654ddc46507b2f/artifacts
+deleted_time: 1759705809706
+end_time: 1759704216992
+entry_point_name: ''
+experiment_id: '552728603782970447'
+lifecycle_stage: deleted
+run_id: 60bd154042764c24b7654ddc46507b2f
+run_name: bemused-wolf-541
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1759691916023
+status: 4
+tags: []
+user_id: thlamz

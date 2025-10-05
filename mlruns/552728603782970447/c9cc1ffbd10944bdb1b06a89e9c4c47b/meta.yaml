@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/c9cc1ffbd10944bdb1b06a89e9c4c47b/artifacts
+deleted_time: 1759705809701
+end_time: 1759704613010
+entry_point_name: ''
+experiment_id: '552728603782970447'
+lifecycle_stage: deleted
+run_id: c9cc1ffbd10944bdb1b06a89e9c4c47b
+run_name: mercurial-kit-177
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1759704596652
+status: 4
+tags: []
+user_id: thlamz

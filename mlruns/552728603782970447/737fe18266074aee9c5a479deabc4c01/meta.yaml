@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/737fe18266074aee9c5a479deabc4c01/artifacts
+deleted_time: 1759705809840
+end_time: 1759704585366
+entry_point_name: ''
+experiment_id: '552728603782970447'
+lifecycle_stage: deleted
+run_id: 737fe18266074aee9c5a479deabc4c01
+run_name: adaptable-calf-34
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1759704559311
+status: 4
+tags: []
+user_id: thlamz
