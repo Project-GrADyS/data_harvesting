@@ -118,8 +118,7 @@ ppo:
   minibatch_size: 1024
 
 metrics:
-  # If true, metrics are logged.
-  enabled: false
+  # Log training metrics every N steps
   log_every_n_steps: 5000
 
 # Flexible multi-head encoder configuration (optional replacement for MultiAgentMLP)
