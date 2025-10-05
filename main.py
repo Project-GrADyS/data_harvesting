@@ -15,7 +15,6 @@ if __name__ == "__main__":
     with open("params.yaml", "r") as f:
         config: dict = yaml.safe_load(f)
     
-    if args.experiment_name:
-        mlflow.set_experiment(args.experiment_name)
+    mlflow.set_experiment(args.experiment_name if args.experiment_name else "default")
 
     train(config)
