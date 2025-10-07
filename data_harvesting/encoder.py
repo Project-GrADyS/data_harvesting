@@ -40,21 +40,120 @@ class FlatConfig:
     num_cells: int
     activation_class: type[nn.Module]
 
+class AgentSequentialHead(nn.Module):
+    """
+    A Transformer-based head for processing a single sequential observation key for one agent.
+    """
+    def __init__(self, 
+                 config: SequentialConfig,
+                 device: DEVICE_TYPING | None = None):
+        """Initialize the sequential head.
+
+        Args:
+            config: Configuration for the sequential head.
+            device: Device to place the modules on. Defaults to CPU when ``None``.
+        """
+        super().__init__()
+        self.config = config
+
+        self.obs_embedder = nn.Linear(config.obs_size, config.embed_dim, device=device)
+
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=config.embed_dim,
+            nhead=config.num_heads,
+            dim_feedforward=config.ff_dim,
+            dropout=config.dropout,
+            batch_first=True,
+            device=device
+        )
+
+        self.transformer = nn.TransformerEncoder(
+            encoder_layer=encoder_layer,
+            num_layers=config.depth,
+            enable_nested_tensor=True
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Process a sequential observation for one agent.
+
+        Args:
+            x: Input tensor of shape (*B, seq_len, input_dim).
+            src_key_padding_mask: Optional mask of shape (*B, seq_len) where ``True`` indicates
+                padding positions that should be ignored by the attention mechanism.
+
+        Returns:
+            torch.Tensor: Output tensor of shape (*B, embed_dim).
+        """
+
+        # Observations where all features are -1 are padding and should be ignored by the
+        # attention mechanism. Create a mask that marks these timesteps so the attention
+        # layers do not attend to them. 
+        padded_inputs = torch.all(x == -1, dim=-1)
+
+        embed_output = self.obs_embedder(x)
+        seq_output = self.transformer(embed_output, src_key_padding_mask=padded_inputs)
+        #  Aggregate the temporal dimension so every head contributes a fixed-size vector.
+        seq_output = seq_output.mean(dim=-2)
+        return seq_output
+    
+class AgentFlatHead(nn.Module):
+    """
+    An MLP-based head for processing a single flat observation key for one agent.
+    """
+    def __init__(self, 
+                 config: FlatConfig,
+                 centralized: bool,
+                 n_agents: int,
+                 device: DEVICE_TYPING | None = None):
+        """Initialize the flat head.
+
+        Args:
+            config: Configuration for the flat head.
+            centralized: When ``True``, the head processes concatenated observations from all agents.
+            n_agents: Total number of agents in the environment.
+            device: Device to place the modules on. Defaults to CPU when ``None``.
+        """
+        super().__init__()
+        self.config = config
+        self.centralized = centralized
+
+        input_dim = config.obs_size
+        if self.centralized:
+            input_dim *= n_agents
+        self.mlp = MLP(
+            in_features=input_dim,
+            out_features=config.embed_dim,
+            depth=config.depth,
+            num_cells=config.num_cells,
+            activation_class=config.activation_class,
+            device=device
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Process a flat observation for one agent.
+
+        Args:
+            x: Input tensor of shape (*B, input_dim) if decentralized or (*B, n_agents * input_dim)
+                if centralized.
+
+        Returns:
+            torch.Tensor: Output tensor of shape (*B, embed_dim).
+        """
+        return self.mlp(x)
 
 class AgentBlock(nn.Module):
     """Container module for per-agent processing stack.
 
     Holds:
-        seq_nets: ModuleDict of Transformer-based sequential heads
-        flat_nets: ModuleDict of MLP-based flat heads
+        seq_heads: ModuleDict of Transformer-based sequential heads
+        flat_heads: ModuleDict of MLP-based flat heads
         mix_layer: Final MLP that fuses head outputs
     """
-    def __init__(self, embed_nets: dict[str, nn.Module], seq_nets: dict[str, nn.Module], 
-                 flat_nets: dict[str, nn.Module], mix_layer: nn.Module):
+    def __init__(self, seq_heads: dict[str, AgentSequentialHead], 
+                 flat_heads: dict[str, AgentFlatHead], mix_layer: nn.Module):
         super().__init__()
-        self.embed_nets = nn.ModuleDict(embed_nets)
-        self.seq_nets = nn.ModuleDict(seq_nets)
-        self.flat_nets = nn.ModuleDict(flat_nets)
+        self.seq_heads = nn.ModuleDict(seq_heads)
+        self.flat_heads = nn.ModuleDict(flat_heads)
         self.mix_layer = mix_layer
 
 @torch.compile(dynamic=True)
@@ -130,7 +229,13 @@ class MultiAgentFlexEncoder(nn.Module):
         self.mix_activation_class = mix_activation_class if mix_activation_class is not None else nn.Tanh
         self.n_agents = n_agents
         self.centralized = centralized if centralized is not None else False
-        self.share_params = share_params if share_params is not None else (True if centralized else False)
+        self.share_params = share_params
+        # Centralized networks always share parameters.
+        if self.centralized:
+            self.share_params = True
+        else:
+            self.share_params = share_params if share_params is not None else False
+
         self.device = torch.device(device) if device is not None else torch.device("cpu")
 
         self.agent_networks = nn.ModuleList(
@@ -174,56 +279,27 @@ class MultiAgentFlexEncoder(nn.Module):
             if tensor.shape[0] != batch_dim:
                 raise ValueError(f"All input tensors must have the same batch size. Tensor '{key}' has batch size {tensor.shape[0]}, expected {batch_dim}.")
     
-    def _build_sequence_net(self, config: SequentialConfig, device):
+    def _build_sequence_head(self, config: SequentialConfig, device) -> AgentSequentialHead:
         """Instantiate the Transformer block stack that processes a sequential observation key."""
+        return AgentSequentialHead(config, device=device)
 
-        embedder = nn.Linear(config.obs_size, config.embed_dim, device=device)
-
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=config.embed_dim,
-            nhead=config.num_heads,
-            dim_feedforward=config.ff_dim,
-            dropout=config.dropout,
-            batch_first=True,
-            device=device
-        )
-
-        transformer = nn.TransformerEncoder(
-            encoder_layer=encoder_layer,
-            num_layers=config.depth,
-            enable_nested_tensor=True
-        )
-
-        return embedder, transformer
-
-    def _build_flat_net(self, config: FlatConfig, device):
+    def _build_flat_head(self, config: FlatConfig, device) -> AgentFlatHead:
         """Instantiate the MLP head that processes a flat observation key."""
-        input_dim = config.obs_size
-        if self.centralized:
-            input_dim *= self.n_agents
-        return MLP(
-            in_features=input_dim,
-            out_features=config.embed_dim,
-            depth=config.depth,
-            num_cells=config.num_cells,
-            activation_class=config.activation_class,
-            device=device
-        )
+        return AgentFlatHead(config, self.centralized, self.n_agents, device=device)
     
     def _build_agent_network(self) -> nn.Module:
         """Assemble and register the per-agent processing stacks.
 
         Returns:
-            nn.Module: container with attributes ``seq_nets``, ``flat_nets`` and ``mix_layer``.
+            nn.Module: container with attributes ``seq_heads``, ``flat_heads`` and ``mix_layer``.
         """
-        embed_nets: dict[str, nn.Module] = {}
-        seq_nets: dict[str, nn.Module] = {}
+        seq_heads: dict[str, nn.Module] = {}
         for cfg in self.sequential_configs:
-            embed_nets[cfg.key], seq_nets[cfg.key] = self._build_sequence_net(cfg, self.device)
+            seq_heads[cfg.key] = self._build_sequence_head(cfg, self.device)
 
-        flat_nets: dict[str, nn.Module] = {}
+        flat_heads: dict[str, nn.Module] = {}
         for cfg in self.flat_configs:
-            flat_nets[cfg.key] = self._build_flat_net(cfg, self.device)
+            flat_heads[cfg.key] = self._build_flat_head(cfg, self.device)
 
         mix_input_dim = (
             sum(cfg.embed_dim for cfg in self.sequential_configs)
@@ -237,7 +313,7 @@ class MultiAgentFlexEncoder(nn.Module):
             activation_class=self.mix_activation_class,
             device=self.device,
         )
-        return AgentBlock(embed_nets, seq_nets, flat_nets, mix_layer)
+        return AgentBlock(seq_heads, flat_heads, mix_layer)
 
     def forward(self, **observation: torch.Tensor) -> torch.Tensor:
         """Encode multi-agent observations into per-agent embeddings.
@@ -257,10 +333,9 @@ class MultiAgentFlexEncoder(nn.Module):
 
         all_agent_outputs = []
         for agent_idx in range(num_agents):
-            block = self.agent_networks[0] if self.share_params else self.agent_networks[agent_idx]
-            embed_nets = block.embed_nets
-            seq_nets = block.seq_nets
-            flat_nets = block.flat_nets
+            block: AgentBlock = self.agent_networks[0] if self.share_params else self.agent_networks[agent_idx]
+            seq_heads = block.seq_heads
+            flat_heads = block.flat_heads
             mix_layer = block.mix_layer
 
             head_outputs = []
@@ -276,15 +351,8 @@ class MultiAgentFlexEncoder(nn.Module):
                     # number of leading batch dimensions. Result keeps shape (..., seq_len, feature).
                     seq_input = seq_input.select(dim=-3, index=agent_idx)
 
-                # Observations where all features are -1 are padding and should be ignored by the
-                # attention mechanism. Create a mask that marks these timesteps so the attention
-                # layers do not attend to them. 
-                padded_inputs = torch.all(seq_input == -1, dim=-1)
+                seq_output = seq_heads[config.key](seq_input)
 
-                embed_output = embed_nets[config.key](seq_input)
-                seq_output = seq_nets[config.key](embed_output, src_key_padding_mask=padded_inputs)
-                #  Aggregate the temporal dimension so every head contributes a fixed-size vector.
-                seq_output = seq_output.mean(dim=-2)
                 head_outputs.append(seq_output)
 
             for config in self.flat_configs:
@@ -295,7 +363,7 @@ class MultiAgentFlexEncoder(nn.Module):
                 else:
                     # Select specific agent slice
                     flat_input = flat_input.select(dim=-2, index=agent_idx)
-                flat_output = flat_nets[config.key](flat_input)
+                flat_output = flat_heads[config.key](flat_input)
                 head_outputs.append(flat_output)
 
             # Fuse the contributions from every head and record the per-agent output.
