@@ -50,7 +50,7 @@ actor:
 
 training:
   # Total number of training timesteps.
-  total_timesteps: 300000
+  total_timesteps: 5000000
   # Initial sigma for exploration noise (AdditiveGaussianModule).
   exploration_sigma_init: 0.1
   # Final sigma for exploration noise (AdditiveGaussianModule).
@@ -88,13 +88,13 @@ replay_buffer:
   # Number of batches to prefetch asynchronously (0 disables prefetching).
   prefetch: 32
   # Device to store the buffer on ("cpu" or "cuda").
-  buffer_device: cuda
+  buffer_device: cpu
 
 optimization:
   # Discount factor for future rewards.
   gamma: 0.99
   # Learning rate for optimizers.
-  lr: 0.0025
+  lr: 0.0015
   # Tau for the soft-update of the target network.
   tau: 0.005
   # Number of optimizer steps per batch.
