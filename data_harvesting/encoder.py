@@ -18,7 +18,6 @@ class SequentialConfig:
 
     obs_size: int
     embed_dim: int
-    head_dim: int
     num_heads: int
     ff_dim: int
     depth: int
@@ -78,12 +77,10 @@ class SequentialHead(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Process a sequential observation for one agent.
+        Process a sequential observation.
 
         Args:
             x: Input tensor of shape (*B, seq_len, input_dim).
-            src_key_padding_mask: Optional mask of shape (*B, seq_len) where ``True`` indicates
-                padding positions that should be ignored by the attention mechanism.
 
         Returns:
             torch.Tensor: Output tensor of shape (*B, embed_dim).
@@ -96,8 +93,18 @@ class SequentialHead(nn.Module):
 
         embed_output = self.obs_embedder(x)
         seq_output = self.transformer(embed_output, src_key_padding_mask=padded_inputs)
-        #  Aggregate the temporal dimension so every head contributes a fixed-size vector.
-        seq_output = seq_output.mean(dim=-2)
+        
+        # The output of the transformer has shape (*B, seq_len, embed_dim). We need to aggregate
+        # across the sequence dimension to produce a single fixed-size embedding. 
+        # We can't do a simple mean because some positions are padding and should be ignored. We
+        # fill the mask with zeros and them divide by the number of non-padded positions, performing
+        # masked mean pooling.
+        non_padded_inputs = ~padded_inputs  # True for valid positions
+        seq_output_masked = seq_output.masked_fill(padded_inputs.unsqueeze(-1), 0.0) # Filling padded positions with 0
+        seq_counts = (non_padded_inputs
+            .sum(dim=-1, keepdim=True) # Number of valid (non-padded) positions
+            .clamp(min=1))  # Avoid division by zero
+        seq_output = seq_output_masked.sum(dim=-2) / seq_counts # Average over valid positions only
         return seq_output
 
 class FlatHead(nn.Module):
@@ -116,8 +123,6 @@ class FlatHead(nn.Module):
 
         Args:
             config: Configuration for the flat head.
-            centralized: When ``True``, the head processes concatenated observations from all agents.
-            n_agents: Total number of agents in the environment.
             device: Device to place the modules on. Defaults to CPU when ``None``.
         """
         super().__init__()
@@ -134,7 +139,7 @@ class FlatHead(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Process a flat observation for one agent.
+        """Process a flat observation.
 
         Args:
             x: Input tensor of shape (*B, input_dim) if decentralized or (*B, n_agents * input_dim)
@@ -201,6 +206,10 @@ class FlexObservationEncoder(nn.Module):
         per-agent processing stacks ahead of time so they can be reused on every forward pass.
         """
         super().__init__()
+        
+        if len(sequential_configs) == 0 and len(flat_configs) == 0:
+            raise ValueError("At least one of `sequential_configs` or `flat_configs` must be non-empty.")
+        
         self.sequential_configs = sequential_configs
         self.flat_configs = flat_configs
         self.output_dim = output_dim
