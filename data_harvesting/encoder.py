@@ -1,5 +1,8 @@
 from dataclasses import dataclass
+from typing import Any, Dict
+from tensordict.nn import TensorDictModule
 import torch
+from torchrl.envs import EnvBase
 from torchrl.modules import MLP
 from torchrl.data.utils import DEVICE_TYPING
 from torch import nn
@@ -157,7 +160,8 @@ class FlexObservationEncoder(nn.Module):
     Each agent's observation can contain multiple keys, some of which are sequential and of variable size (e.g., a buffer of
     messages) and some are flat (e.g., scalar features). The encoder processes sequential keys using Transformer blocks and
     flat keys using MLPs. Sequential keys are transformed into fixed-size embeddings and flat keys are projected into embeddings.
-    The embeddings from each head will be concatenated and passed through a final mixing MLP to produce the final output.
+    Items in the sequence where all values are -1 are treated as padding and ignored by the attention mechanism. The embeddings 
+    from each head will be concatenated and passed through a final mixing MLP to produce the final output.
 
     Inputs should be provided as keyword arguments, where each key corresponds to an observation key and the value is a tensor
     of shape (*B, ...). Sequential keys should have shape (*B, seq_len, input_dim) and flat keys
@@ -323,3 +327,103 @@ class FlexObservationEncoder(nn.Module):
         agent_output = self.mix_layer(agent_input)
 
         return agent_output
+
+
+def create_flex_encoder(env: EnvBase, config: Dict[str, Any], device: torch.device, out_key: tuple[str,...]) -> TensorDictModule:
+    """
+    Creates a flexible multi-agent observation encoder based on the configuration.
+    Supports both sequential and flat observation components.
+    The encoder converts the dynamic-sized observation into a fixed-size embedding.
+    Args:
+        env: TorchRL environment providing observation specs.
+        config: Hierarchical configuration dictionary.
+        device: Target device for modules.
+    Returns:
+        TensorDictModule: Module that encodes observations into fixed-size embeddings.
+    """
+    flex_cfg = config["flex_encoder"]
+    seq_heads_cfg = flex_cfg["sequential_heads"]
+    flat_heads_cfg = flex_cfg["flat_heads"]
+
+    sequential_configs = []
+    flat_configs = []
+    in_keys = {}
+
+    env_is_sequential = config["environment"]["sequential_obs"]
+
+    if env_is_sequential:
+        # Configuration for the drones part of the observation
+        sequential_configs.append(
+            SequentialConfig(
+                key="drones",
+                obs_size=env.observation_spec[("agents", "observation","drones")].shape[-1],
+                embed_dim=seq_heads_cfg["embed_dim"],
+                head_dim=seq_heads_cfg["head_dim"],
+                num_heads=seq_heads_cfg["num_heads"],
+                ff_dim=seq_heads_cfg["ff_dim"],
+                depth=seq_heads_cfg["depth"],
+                dropout=seq_heads_cfg["dropout"]
+            )
+        )
+        in_keys["drones"] = ("agents", "observation", "drones")
+        # Sequential config for the sensors part of the observation
+        sequential_configs.append(
+            SequentialConfig(
+                key="sensors",
+                obs_size=env.observation_spec[("agents", "observation","sensors")].shape[-1],
+                embed_dim=seq_heads_cfg["embed_dim"],
+                head_dim=seq_heads_cfg["head_dim"],
+                num_heads=seq_heads_cfg["num_heads"],
+                ff_dim=seq_heads_cfg["ff_dim"],
+                depth=seq_heads_cfg["depth"],
+                dropout=seq_heads_cfg["dropout"]
+            )
+        )
+        in_keys["sensors"] = ("agents", "observation", "sensors")
+        if config["environment"]["id_on_state"]:
+            # Flat config for the agent_id part of the observation
+            flat_configs.append(
+                FlatConfig(
+                    key="agent_id",
+                    obs_size=env.observation_spec[("agents", "observation","agent_id")].shape[-1],
+                    embed_dim=flat_heads_cfg["embed_dim"],
+                    depth=flat_heads_cfg["depth"],
+                    num_cells=flat_heads_cfg["num_cells"],
+                    activation_class=get_activation_class(flat_heads_cfg["activation_function"])
+                )
+            )
+            in_keys["agent_id"] = ("agents", "observation", "agent_id")
+    else:
+        # Flat config for the entire observation when not sequential
+        flat_configs.append(
+            FlatConfig(
+                key="observation",
+                obs_size=env.observation_spec[("agents", "observation")].shape[-1],
+                embed_dim=flat_heads_cfg["embed_dim"],
+                depth=flat_heads_cfg["depth"],
+                num_cells=flat_heads_cfg["num_cells"],
+                activation_class=get_activation_class(flat_heads_cfg["activation_function"])
+            )
+        )
+        in_keys["observation"] = ("agents", "observation")
+
+    if config["actor"]["centralized"]:
+        raise NotImplementedError("Centralized flex actor not implemented.")
+
+    encoder = FlexObservationEncoder(
+        sequential_configs,
+        flat_configs,
+        flex_cfg["mix_layer_depth"],
+        flex_cfg["mix_layer_num_cells"],
+        get_activation_class(flex_cfg["mix_activation_function"]),
+        flex_cfg["output_dim"],
+        device=device
+    )
+
+    flex_encoder = TensorDictModule(
+        encoder,
+        in_keys=in_keys,
+        out_keys=[out_key],
+        out_to_in_map=True
+    )
+    return flex_encoder

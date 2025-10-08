@@ -2,6 +2,7 @@ import torch
 from tensordict.nn import TensorDictModule, TensorDictSequential
 from torchrl.modules import MultiAgentMLP
 
+from data_harvesting.encoder import create_flex_encoder
 from data_harvesting.utils import get_activation_class
 
 def create_critic(env, device, config):
@@ -10,17 +11,27 @@ def create_critic(env, device, config):
         raise NotImplementedError("MLP Critic not implemented for sequential observations.")
 
     if config["flex_encoder"]["enabled"]:
-        obs_key = ("agents", "encoded_obs")
         obs_size = config["flex_encoder"]["output_dim"]
+
+        encoder = create_flex_encoder(env, config, device, out_key=("agents", "critic_encoded_obs"))
+
+        cat_module = TensorDictSequential(
+            encoder,
+            TensorDictModule(
+                lambda obs, action: torch.cat([obs, action], dim=-1),
+                in_keys=[("agents", "critic_encoded_obs"), ("agents", "action")],
+                out_keys=[("agents", "obs_action")],
+            )
+        )
+
     else:
-        obs_key = ("agents", "observation")
         obs_size = env.observation_spec[("agents", "observation")].shape[-1]
 
-    cat_module = TensorDictModule(
-        lambda obs, action: torch.cat([obs, action], dim=-1),
-        in_keys=[obs_key, ("agents", "action")],
-        out_keys=[("agents", "obs_action")],
-    )
+        cat_module = TensorDictModule(
+            lambda obs, action: torch.cat([obs, action], dim=-1),
+            in_keys=[("agents", "observation"), ("agents", "action")],
+            out_keys=[("agents", "obs_action")],
+        )
 
     critic_params = config["critic"]
     activation_class = get_activation_class(critic_params["activation_function"])
