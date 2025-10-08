@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/68ca099ecc094300a10012060b00a380/artifacts
+deleted_time: 1759891572551
+end_time: 1759891565954
+entry_point_name: ''
+experiment_id: '552728603782970447'
+lifecycle_stage: deleted
+run_id: 68ca099ecc094300a10012060b00a380
+run_name: bouncy-shad-790
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1759890072672
+status: 4
+tags: []
+user_id: thlamz
