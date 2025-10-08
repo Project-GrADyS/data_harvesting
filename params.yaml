@@ -151,3 +151,5 @@ flex_encoder:
   mix_layer_depth: 1                  # Hidden layer count of mixing MLP
   mix_layer_num_cells: 256            # Hidden layer width of mixing MLP
   mix_activation_function: Tanh       # Activation for mixing MLP
+
+  output_dim: 256                     # Final output embedding size

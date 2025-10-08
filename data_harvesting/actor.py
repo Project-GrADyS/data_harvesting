@@ -10,20 +10,31 @@ from torchrl.modules import (
 )
 from torchrl.modules.distributions import TanhNormal
 from data_harvesting.encoder import (
-    MultiAgentFlexEncoder,
+    FlexObservationEncoder,
     SequentialConfig,
     FlatConfig,
 )
 from data_harvesting.utils import get_activation_class
 
 
-def create_mlp_module(env: EnvBase, config: Dict[str, Any], device: torch.device) -> TensorDictModule:
+def create_policy_module(env: EnvBase, config: Dict[str, Any], device: torch.device) -> TensorDictModule:
+    """
+    Creates the policy module for the actor, with optional flex encoder. If flex encoder
+    is enabled, the policy module will use encoded observations as input. Otherwise, it will
+    use raw observations.
+    """
+
     if config["environment"]["sequential_obs"]:
         raise NotImplementedError("MLP Actor not implemented for sequential observations.")
 
     activation_class = get_activation_class(config["actor"]["activation_function"])
+
+    input_dim = (env.observation_spec[("agents", "observation")].shape[-1] 
+                 if not config["flex_encoder"]["enabled"] 
+                 else config["flex_encoder"]["output_dim"])
+
     policy_net = MultiAgentMLP(
-        n_agent_inputs=env.observation_spec[("agents", "observation")].shape[-1],
+        n_agent_inputs=input_dim,
         n_agent_outputs=env.full_action_spec[("agents", "action")].shape[-1],
         n_agents=config["environment"]["num_drones"],
         centralised=config["actor"]["centralized"],
@@ -34,14 +45,36 @@ def create_mlp_module(env: EnvBase, config: Dict[str, Any], device: torch.device
         activation_class=activation_class
     )
 
-    policy_module = TensorDictModule(
-        policy_net,
-        in_keys=[("agents", "observation")],
-        out_keys=[("agents", "param")],
-    )
-    return policy_module
+    # Uses encoded observations as input if flex encoder is enabled
+    if config["flex_encoder"]["enabled"]:
+        flex_encoder = create_flex_encoder(env, config, device)
+        policy_module = TensorDictModule(
+            policy_net,
+            in_keys=[("agents", "encoded_obs")],
+            out_keys=[("agents", "param")],
+        )
+        return TensorDictSequential(flex_encoder, policy_module)
+    # Else, uses raw observations as input
+    else:
+        policy_module = TensorDictModule(
+            policy_net,
+            in_keys=[("agents", "observation")],
+            out_keys=[("agents", "param")],
+        )
+        return policy_module
 
-def create_flex_policy_module(env: EnvBase, config: Dict[str, Any], device: torch.device) -> TensorDictModule:
+def create_flex_encoder(env: EnvBase, config: Dict[str, Any], device: torch.device) -> TensorDictModule:
+    """
+    Creates a flexible multi-agent observation encoder based on the configuration.
+    Supports both sequential and flat observation components.
+    The encoder converts the dynamic-sized observation into a fixed-size embedding.
+    Args:
+        env: TorchRL environment providing observation specs.
+        config: Hierarchical configuration dictionary.
+        device: Target device for modules.
+    Returns:
+        TensorDictModule: Module that encodes observations into fixed-size embeddings.
+    """
     flex_cfg = config["flex_encoder"]
     seq_heads_cfg = flex_cfg["sequential_heads"]
     flat_heads_cfg = flex_cfg["flat_heads"]
@@ -108,26 +141,26 @@ def create_flex_policy_module(env: EnvBase, config: Dict[str, Any], device: torc
         )
         in_keys["observation"] = ("agents", "observation")
 
-    encoder = MultiAgentFlexEncoder(
+    if config["actor"]["centralized"]:
+        raise NotImplementedError("Centralized flex actor not implemented.")
+
+    encoder = FlexObservationEncoder(
         sequential_configs, 
         flat_configs,
         flex_cfg["mix_layer_depth"],
         flex_cfg["mix_layer_num_cells"],
         get_activation_class(flex_cfg["mix_activation_function"]),
-        env.full_action_spec[("agents", "action")].shape[-1],
-        config["environment"]["num_drones"],
-        centralized=config["actor"]["centralized"],
-        share_params=config["actor"]["share_parameters"],
+        flex_cfg["output_dim"],
         device=device
     )
 
-    policy_module = TensorDictModule(
+    flex_encoder = TensorDictModule(
         encoder,
         in_keys=in_keys,
-        out_keys=[("agents", "param")],
+        out_keys=[("agents", "encoded_obs")],
         out_to_in_map=True
     )
-    return policy_module
+    return flex_encoder
 
 def create_actor(
     env: EnvBase,
@@ -144,11 +177,9 @@ def create_actor(
     Returns:
         ProbabilisticActor: Actor producing actions under a TanhDelta distribution.
     """
-    policy_module = (
-        create_flex_policy_module(env, config, device)
-        if config["flex_encoder"]["enabled"]
-        else create_mlp_module(env, config, device)
-    )
+
+
+    policy_module = create_policy_module(env, config, device)
 
     from torchrl.modules import TanhDelta
 
