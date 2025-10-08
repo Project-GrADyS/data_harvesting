@@ -34,7 +34,7 @@ environment:
   # If true, episode ends when all sensors are collected.
   end_when_all_collected: false
   # If true, the observations are shaped as a sequence, if false it is a flat vector.
-  sequential_obs: true
+  sequential_obs: false
 
 actor:
   # All actor networks will share the same parameters if true.
@@ -94,7 +94,7 @@ optimization:
   # Discount factor for future rewards.
   gamma: 0.99
   # Learning rate for optimizers.
-  lr: 0.0015
+  lr: 0.0025
   # Tau for the soft-update of the target network.
   tau: 0.005
   # Number of optimizer steps per batch.
