@@ -1,8 +1,9 @@
 artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/c7d691fc4fa840bda3c383b5233bc442/artifacts
+deleted_time: 1759980786549
 end_time: 1759874529906
 entry_point_name: ''
 experiment_id: '552728603782970447'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: c7d691fc4fa840bda3c383b5233bc442
 run_name: nervous-shark-707
 source_name: ''

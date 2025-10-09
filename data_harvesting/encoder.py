@@ -3,9 +3,6 @@ import torch
 from torchrl.modules import MLP
 from torchrl.data.utils import DEVICE_TYPING
 from torch import nn
-from tensordict.nn import TensorDictModule
-
-from data_harvesting.utils import get_activation_class
 
 @dataclass
 class SequentialConfig:
@@ -24,6 +21,8 @@ class SequentialConfig:
     ff_dim: int
     depth: int
     dropout: float
+    max_num_agents: int
+    agentic_encoding: bool
 
 @dataclass
 class FlatConfig:
@@ -56,7 +55,12 @@ class AgentSequentialHead(nn.Module):
         super().__init__()
         self.config = config
 
-        self.obs_embedder = nn.Linear(config.obs_size, config.embed_dim, device=device)
+        self.obs_encoder = nn.Linear(config.obs_size, config.embed_dim, device=device)
+        self.agent_embedder = nn.Embedding(
+            num_embeddings=config.max_num_agents,
+            embedding_dim=config.embed_dim,
+            device=device
+        ) if config.agentic_encoding else None
 
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=config.embed_dim,
@@ -73,13 +77,13 @@ class AgentSequentialHead(nn.Module):
             enable_nested_tensor=True
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, agent_idx: torch.Tensor) -> torch.Tensor:
         """Process a sequential observation for one agent.
 
         Args:
             x: Input tensor of shape (*B, seq_len, input_dim).
-            src_key_padding_mask: Optional mask of shape (*B, seq_len) where ``True`` indicates
-                padding positions that should be ignored by the attention mechanism.
+            agent_idx: Input tensor of shape (*B, 1) containing the agent index for each batch entry. Will be used for 
+                agentic encoding if it's enabled.
 
         Returns:
             torch.Tensor: Output tensor of shape (*B, embed_dim).
@@ -88,10 +92,15 @@ class AgentSequentialHead(nn.Module):
         # Observations where all features are -1 are padding and should be ignored by the
         # attention mechanism. Create a mask that marks these timesteps so the attention
         # layers do not attend to them. 
-        padded_inputs = torch.all(x == -1, dim=-1)
+        padded_input_mask = torch.all(x == -1, dim=-1)
 
-        embed_output = self.obs_embedder(x)
-        seq_output = self.transformer(embed_output, src_key_padding_mask=padded_inputs)
+        embed_output = self.obs_encoder(x)
+
+        if self.config.agentic_encoding:
+            agent_embeddings = self.agent_embedder(agent_idx).squeeze(dim=-2)
+            embed_output += agent_embeddings
+
+        seq_output = self.transformer(embed_output, src_key_padding_mask=padded_input_mask)
         #  Aggregate the temporal dimension so every head contributes a fixed-size vector.
         seq_output = seq_output.mean(dim=-2)
         return seq_output
@@ -342,16 +351,24 @@ class MultiAgentFlexEncoder(nn.Module):
             for config in self.sequential_configs:
                 seq_input = observation[config.key]
                 if self.centralized:
+                    # The agent dimension of sequential observations will be collapsed into a single sequence of size
+                    # (*B, n_agents * seq_len). The model has no way of knowing which items in the sequence belong to which agent,
+                    # so we provide an agent index tensor that, for each item in the sequence, indicates which agent it came from.
+                    agent_idx_tensor = torch.arange(self.n_agents, device=seq_input.device).repeat_interleave(seq_input.shape[-2])
+                    agent_idx_tensor = agent_idx_tensor.unsqueeze(0).expand(seq_input.shape[0], -1).unsqueeze(-1)
+
                     # Collapse agent and temporal dimensions generically. Assumes trailing dims
                     # are (..., n_agents, seq_len, feature). This supports any (or no) leading
                     # batch dimensions without explicit unpacking.
                     seq_input = seq_input.flatten(start_dim=-3, end_dim=-2)
+                    
                 else:
                     # Select the agent along the -3 (agent) axis without assuming any specific
                     # number of leading batch dimensions. Result keeps shape (..., seq_len, feature).
                     seq_input = seq_input.select(dim=-3, index=agent_idx)
+                    agent_idx_tensor = torch.full_like(seq_input[..., :1, 0:1], agent_idx)
 
-                seq_output = seq_heads[config.key](seq_input)
+                seq_output = seq_heads[config.key](seq_input, agent_idx_tensor)
 
                 head_outputs.append(seq_output)
 

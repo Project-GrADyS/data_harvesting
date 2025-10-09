@@ -68,7 +68,9 @@ def create_flex_critic(env: EnvBase, config: Dict[str, Any], device: torch.devic
                 num_heads=seq_heads_cfg["num_heads"],
                 ff_dim=seq_heads_cfg["ff_dim"],
                 depth=seq_heads_cfg["depth"],
-                dropout=seq_heads_cfg["dropout"]
+                dropout=seq_heads_cfg["dropout"],
+                max_num_agents=config["environment"]["num_drones"],
+                agentic_encoding=seq_heads_cfg["critic_agent_embedding"]
             )
         )
         in_keys["drones"] = ("agents", "observation", "drones")
@@ -82,7 +84,9 @@ def create_flex_critic(env: EnvBase, config: Dict[str, Any], device: torch.devic
                 num_heads=seq_heads_cfg["num_heads"],
                 ff_dim=seq_heads_cfg["ff_dim"],
                 depth=seq_heads_cfg["depth"],
-                dropout=seq_heads_cfg["dropout"]
+                dropout=seq_heads_cfg["dropout"],
+                max_num_agents=config["environment"]["num_drones"],
+                agentic_encoding=seq_heads_cfg["critic_agent_embedding"]
             )
         )
         in_keys["sensors"] = ("agents", "observation", "sensors")

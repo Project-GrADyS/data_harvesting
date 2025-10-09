@@ -63,7 +63,9 @@ def create_flex_policy_module(env: EnvBase, config: Dict[str, Any], device: torc
                 num_heads=seq_heads_cfg["num_heads"],
                 ff_dim=seq_heads_cfg["ff_dim"],
                 depth=seq_heads_cfg["depth"],
-                dropout=seq_heads_cfg["dropout"]
+                dropout=seq_heads_cfg["dropout"],
+                max_num_agents=config["environment"]["num_drones"],
+                agentic_encoding=False
             )
         )
         in_keys["drones"] = ("agents", "observation", "drones")
@@ -77,7 +79,9 @@ def create_flex_policy_module(env: EnvBase, config: Dict[str, Any], device: torc
                 num_heads=seq_heads_cfg["num_heads"],
                 ff_dim=seq_heads_cfg["ff_dim"],
                 depth=seq_heads_cfg["depth"],
-                dropout=seq_heads_cfg["dropout"]
+                dropout=seq_heads_cfg["dropout"],
+                max_num_agents=config["environment"]["num_drones"],
+                agentic_encoding=False
             )
         )
         in_keys["sensors"] = ("agents", "observation", "sensors")

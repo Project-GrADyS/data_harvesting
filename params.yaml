@@ -50,7 +50,7 @@ actor:
 
 training:
   # Total number of training timesteps.
-  total_timesteps: 5000000
+  total_timesteps: 300000
   # Initial sigma for exploration noise (AdditiveGaussianModule).
   exploration_sigma_init: 0.1
   # Final sigma for exploration noise (AdditiveGaussianModule).
@@ -137,6 +137,7 @@ flex_encoder:
     ff_dim: 128                     # Feed-forward (Transformer MLP) inner dim
     depth: 2                        # Number of Transformer layers
     dropout: 0.1                    # Dropout probability inside Transformer
+    critic_agent_embedding: true           # Enrich observation encoding with agent ID embeddings
 
   # MLP-based flat heads. Each entry corresponds to an observation key whose
   # tensor shape is (batch, n_agents, input_dim) (no temporal dimension).
