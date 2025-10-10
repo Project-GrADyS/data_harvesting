@@ -1,0 +1,8 @@
+artifact_location: file:///home/thlamz/data_harvesting/mlruns/343242615256614319
+creation_time: 1759677377371
+experiment_id: '343242615256614319'
+last_update_time: 1760133620978
+lifecycle_stage: deleted
+name: default
+tags:
+  mlflow.experimentKind: custom_model_development
