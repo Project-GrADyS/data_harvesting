@@ -243,7 +243,7 @@ class AgentBlock(nn.Module):
         agent_input = torch.cat(head_outputs, dim=-1)
         return self.mix_layer(agent_input)
 
-@torch.compile(dynamic=True)
+@torch.compile()
 class MultiAgentFlexModule(nn.Module):
     """
     A flexible multi-agent module that can process both sequential and flat observation keys of a dict-like observation space.
