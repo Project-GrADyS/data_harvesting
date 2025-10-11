@@ -5,46 +5,57 @@ from torchrl.data.utils import DEVICE_TYPING
 from torch import nn
 
 @dataclass
-class SequentialConfig:
+class SequentialEncoderConfig:
     """
-    Configuration for a sequential head in the multi-agent network. A sequential head processes a
-    sequential key of the observation using Transformer blocks. The expected input shape is
-    (*B, n_agents, seq_len, input_dim) where *B denotes zero or more leading batch dimensions
-    shared across all observation keys.
+    Configuration for a SequentialEncoder
     """
     key: str
-
-    obs_size: int
+    """The key this encoder processes."""
+    input_size: int
+    """Dimensionality of a single input feature in the sequence"""
     embed_dim: int
+    """Dimensionality of the output embedding produced by this head."""
     head_dim: int
+    """Dimensionality of the output of each attention head."""
     num_heads: int
+    """Number of attention heads in the Transformer blocks."""
     ff_dim: int
+    """Dimensionality of the feedforward layers in the Transformer blocks."""
     depth: int
+    """Number of Transformer blocks in the head."""
     dropout: float
+    """Dropout rate used in the Transformer blocks."""
     max_num_agents: int
+    """Maximum number of agents expected in the environment. Necessary for generating agentic embeddings."""
     agentic_encoding: bool
+    """When ``True``, adds an agent embedding to the input based on the agent index."""
 
 @dataclass
-class FlatConfig:
+class FlatEncoderConfig:
     """
-    Configuration for a flat head in the multi-agent network. A flat head processes a flat key of the
-    observation using an MLP. The expected input shape is (*B, n_agents, input_dim) where *B denotes
-    zero or more leading batch dimensions shared across all observation keys.
+    Configuration for a FlatEncoder
     """
     key: str
-
-    obs_size: int
+    """The key this encoder processes."""
+    input_size: int
+    """Dimensionality of the flat input feature."""
     embed_dim: int
+    """Dimensionality of the output embedding produced by this head."""
     depth: int
+    """Number of hidden layers in the MLP."""
     num_cells: int
+    """Number of cells per hidden layer in the MLP."""
     activation_class: type[nn.Module]
+    """Activation function class used between MLP layers."""
 
-class AgentSequentialHead(nn.Module):
+class SequentialEncoder(nn.Module):
     """
-    A Transformer-based head for processing a single sequential observation key for one agent.
+    A Transformer-based encoder that processes sequential observations. It receives data of shape
+    (*B, seq_len, input_dim) where *B denotes zero or more leading batch dimensions. The output is a tensor of shape
+    (*B, embed_dim) representing an intermediate representation of the input sequence.
     """
     def __init__(self, 
-                 config: SequentialConfig,
+                 config: SequentialEncoderConfig,
                  device: DEVICE_TYPING | None = None):
         """Initialize the sequential head.
 
@@ -55,7 +66,9 @@ class AgentSequentialHead(nn.Module):
         super().__init__()
         self.config = config
 
-        self.obs_encoder = nn.Linear(config.obs_size, config.embed_dim, device=device)
+        # Linear layer to project input features to the embedding dimension
+        self.obs_encoder = nn.Linear(config.input_size, config.embed_dim, device=device)
+        # Embedding layer for agent indices
         self.agent_embedder = nn.Embedding(
             num_embeddings=config.max_num_agents,
             embedding_dim=config.embed_dim,
@@ -96,21 +109,26 @@ class AgentSequentialHead(nn.Module):
 
         embed_output = self.obs_encoder(x)
 
+        # If agentic encoding is enabled, add the agent embedding to every step in the sequence.
         if self.config.agentic_encoding:
             agent_embeddings = self.agent_embedder(agent_idx).squeeze(dim=-2)
             embed_output += agent_embeddings
 
         seq_output = self.transformer(embed_output, src_key_padding_mask=padded_input_mask)
-        #  Aggregate the temporal dimension so every head contributes a fixed-size vector.
+
+        # Aggregate the sequence dimension so every head contributes a fixed-size vector.
         seq_output = seq_output.mean(dim=-2)
+
         return seq_output
     
-class AgentFlatHead(nn.Module):
+class FlatEncoder(nn.Module):
     """
-    An MLP-based head for processing a single flat observation key for one agent.
+    An MLP-based head for processing a single flat observation key for one agent. The input is a tensor of shape
+    (*B, input_dim) where *B denotes zero or more leading batch dimensions. The output is a tensor of shape
+    (*B, embed_dim) representing an intermediate representation of the input.
     """
     def __init__(self, 
-                 config: FlatConfig,
+                 config: FlatEncoderConfig,
                  centralized: bool,
                  n_agents: int,
                  device: DEVICE_TYPING | None = None):
@@ -126,7 +144,8 @@ class AgentFlatHead(nn.Module):
         self.config = config
         self.centralized = centralized
 
-        input_dim = config.obs_size
+        input_dim = config.input_size
+        # If centralized, the input contains observations from all agents concatenated together.
         if self.centralized:
             input_dim *= n_agents
         self.mlp = MLP(
@@ -151,29 +170,88 @@ class AgentFlatHead(nn.Module):
         return self.mlp(x)
 
 class AgentBlock(nn.Module):
-    """Container module for per-agent processing stack.
+    """
+    A container module for the per-agent processing stack. Each agent's inputs are processed by a set of
+    Transformer-based sequential heads and MLP-based flat heads. The outputs from all heads are concatenated
+    and passed through a final mixing MLP to produce the final output.
 
     Holds:
         seq_heads: ModuleDict of Transformer-based sequential heads
         flat_heads: ModuleDict of MLP-based flat heads
         mix_layer: Final MLP that fuses head outputs
     """
-    def __init__(self, seq_heads: dict[str, AgentSequentialHead], 
-                 flat_heads: dict[str, AgentFlatHead], mix_layer: nn.Module):
+    def __init__(self, 
+                 seq_heads: dict[str, SequentialEncoder], 
+                 flat_heads: dict[str, FlatEncoder], 
+                 mix_layer: nn.Module,
+                 centralized: bool = False,
+                 n_agents: int = 1,):
         super().__init__()
         self.seq_heads = nn.ModuleDict(seq_heads)
         self.flat_heads = nn.ModuleDict(flat_heads)
         self.mix_layer = mix_layer
+        self.centralized = centralized
+        self.n_agents = n_agents
+
+    def forward(self, observation: dict[str, torch.Tensor], agent_idx: torch.Tensor):
+        """
+        Processes observations and produces a per-agent output. 
+        Args:
+            observation: A mapping from observation key to tensor. Each tensor must have shape
+                (*B, n_agents, ...) where *B denotes zero or more leading batch dimensions.
+                Sequential keys must have shape (*B, n_agents, seq_len, input_dim) and flat keys
+                must have shape (*B, n_agents, input_dim).
+            agent_idx: Tensor of shape (*B, 1) containing the index of the agent being processed.
+        """
+        head_outputs = []
+        for key in self.seq_heads.keys():
+            seq_input = observation[key]
+            if self.centralized:
+                # The agent dimension of sequential observations will be collapsed into a single sequence of size
+                # (*B, n_agents * seq_len). The model has no way of knowing which items in the sequence belong to which agent,
+                # so we provide an agent index tensor that, for each item in the sequence, indicates which agent it came from.
+                agent_idx_tensor = torch.arange(self.n_agents, device=seq_input.device).repeat_interleave(seq_input.shape[-2])
+                agent_idx_tensor = agent_idx_tensor.unsqueeze(0).expand(seq_input.shape[0], -1).unsqueeze(-1)
+
+                # Collapse agent and temporal dimensions generically. Assumes trailing dims
+                # are (..., n_agents, seq_len, feature). This supports any (or no) leading
+                # batch dimensions without explicit unpacking.
+                seq_input = seq_input.flatten(start_dim=-3, end_dim=-2)
+                
+            else:
+                # Select the agent along the -3 (agent) axis without assuming any specific
+                # number of leading batch dimensions. Result keeps shape (..., seq_len, feature).
+                seq_input = seq_input.select(dim=-3, index=agent_idx)
+                agent_idx_tensor = torch.full_like(seq_input[..., :1, 0:1], agent_idx)
+
+            seq_output = self.seq_heads[key](seq_input, agent_idx_tensor)
+
+            head_outputs.append(seq_output)
+
+        for key in self.flat_heads.keys():
+            flat_input = observation[key]
+            if self.centralized:
+                # Flattening along the agent dimension
+                flat_input = flat_input.flatten(start_dim=-2, end_dim=-1)
+            else:
+                # Select specific agent slice
+                flat_input = flat_input.select(dim=-2, index=agent_idx)
+            flat_output = self.flat_heads[key](flat_input)
+            head_outputs.append(flat_output)
+
+        # Fuse the contributions from every head and record the per-agent output.
+        agent_input = torch.cat(head_outputs, dim=-1)
+        return self.mix_layer(agent_input)
 
 @torch.compile(dynamic=True)
-class MultiAgentFlexEncoder(nn.Module):
+class MultiAgentFlexModule(nn.Module):
     """
-    A flexible multi-agent encoder that can process both sequential and flat observation keys of a dict-like observation space.
+    A flexible multi-agent module that can process both sequential and flat observation keys of a dict-like observation space.
     Each agent's observation can contain multiple keys, some of which are sequential (e.g., time series data) and some are flat
-    (e.g., scalar features). The encoder processes sequential keys using Transformer blocks and flat keys using MLPs. The outputs
+    (e.g., scalar features). The module processes sequential keys using Transformer blocks and flat keys using MLPs. The outputs
     from all heads are concatenated and passed through a final mixing MLP to produce the final output.
 
-    Inputs should be provided as keyword arguments, where each key corresponds to an observation key and the value is a tensor
+    Inputs should be provided as keyword arguments, where each key corresponds to an input key and the value is a tensor
     of shape (*B, n_agents, ...). Sequential keys should have shape (*B, n_agents, seq_len, input_dim) and flat keys
     should have shape (*B, n_agents, input_dim). The network validates that: (1) all required keys are present, (2) the
     agent dimension matches `n_agents`, (3) the last feature dimension matches the configured obs size, and (4) all leading
@@ -184,6 +262,8 @@ class MultiAgentFlexEncoder(nn.Module):
         flat_configs (list[FlatConfig]): List of configurations for flat heads.
         mix_layer_depth (int): Depth of the final mixing MLP.
         mix_layer_num_cells (int): Number of cells per layer in the final mixing MLP
+        mix_activation_class (type[nn.Module] | None): Activation function class for the mixing MLP. Defaults to
+            :class:`torch.nn.Tanh` when ``None``.
         output_dim (int): Dimension of the final output.
         n_agents (int): Number of agents.
         centralized (bool | None): If True, the network is centralized (processes all agents' observations together).
@@ -197,8 +277,8 @@ class MultiAgentFlexEncoder(nn.Module):
 
     def __init__(
         self,
-        sequential_configs: list[SequentialConfig],
-        flat_configs: list[FlatConfig],
+        sequential_configs: list[SequentialEncoderConfig],
+        flat_configs: list[FlatEncoderConfig],
         mix_layer_depth: int,
         mix_layer_num_cells: int,
         mix_activation_class: type[nn.Module] | None,
@@ -266,15 +346,15 @@ class MultiAgentFlexEncoder(nn.Module):
         for config in self.sequential_configs:
             if config.key not in inputs:
                 raise KeyError(f"Sequential key '{config.key}' not found in inputs.")
-            if inputs[config.key].shape[-1] != config.obs_size:
-                raise ValueError(f"Sequential input '{config.key}' last dimension must be {config.obs_size}, got {inputs[config.key].shape[-1]}.")
+            if inputs[config.key].shape[-1] != config.input_size:
+                raise ValueError(f"Sequential input '{config.key}' last dimension must be {config.input_size}, got {inputs[config.key].shape[-1]}.")
 
         # Repeat the checks for flat keys to ensure downstream modules receive correctly shaped data.
         for config in self.flat_configs:
             if config.key not in inputs:
                 raise KeyError(f"Flat key '{config.key}' not found in inputs.")
-            if inputs[config.key].shape[-1] != config.obs_size:
-                raise ValueError(f"Flat input '{config.key}' last dimension must be {config.obs_size}, got {inputs[config.key].shape[-1]}.")
+            if inputs[config.key].shape[-1] != config.input_size:
+                raise ValueError(f"Flat input '{config.key}' last dimension must be {config.input_size}, got {inputs[config.key].shape[-1]}.")
         
         # Check for missing keys
         input_keys = set(inputs.keys())
@@ -288,13 +368,13 @@ class MultiAgentFlexEncoder(nn.Module):
             if tensor.shape[0] != batch_dim:
                 raise ValueError(f"All input tensors must have the same batch size. Tensor '{key}' has batch size {tensor.shape[0]}, expected {batch_dim}.")
     
-    def _build_sequence_head(self, config: SequentialConfig, device) -> AgentSequentialHead:
+    def _build_sequence_head(self, config: SequentialEncoderConfig, device) -> SequentialEncoder:
         """Instantiate the Transformer block stack that processes a sequential observation key."""
-        return AgentSequentialHead(config, device=device)
+        return SequentialEncoder(config, device=device)
 
-    def _build_flat_head(self, config: FlatConfig, device) -> AgentFlatHead:
+    def _build_flat_head(self, config: FlatEncoderConfig, device) -> FlatEncoder:
         """Instantiate the MLP head that processes a flat observation key."""
-        return AgentFlatHead(config, self.centralized, self.n_agents, device=device)
+        return FlatEncoder(config, self.centralized, self.n_agents, device=device)
     
     def _build_agent_network(self) -> nn.Module:
         """Assemble and register the per-agent processing stacks.
@@ -322,7 +402,7 @@ class MultiAgentFlexEncoder(nn.Module):
             activation_class=self.mix_activation_class,
             device=self.device,
         )
-        return AgentBlock(seq_heads, flat_heads, mix_layer)
+        return AgentBlock(seq_heads, flat_heads, mix_layer, self.centralized, self.n_agents)
 
     def forward(self, **observation: torch.Tensor) -> torch.Tensor:
         """Encode multi-agent observations into per-agent embeddings.
@@ -343,49 +423,7 @@ class MultiAgentFlexEncoder(nn.Module):
         all_agent_outputs = []
         for agent_idx in range(num_agents):
             block: AgentBlock = self.agent_networks[0] if self.share_params else self.agent_networks[agent_idx]
-            seq_heads = block.seq_heads
-            flat_heads = block.flat_heads
-            mix_layer = block.mix_layer
-
-            head_outputs = []
-            for config in self.sequential_configs:
-                seq_input = observation[config.key]
-                if self.centralized:
-                    # The agent dimension of sequential observations will be collapsed into a single sequence of size
-                    # (*B, n_agents * seq_len). The model has no way of knowing which items in the sequence belong to which agent,
-                    # so we provide an agent index tensor that, for each item in the sequence, indicates which agent it came from.
-                    agent_idx_tensor = torch.arange(self.n_agents, device=seq_input.device).repeat_interleave(seq_input.shape[-2])
-                    agent_idx_tensor = agent_idx_tensor.unsqueeze(0).expand(seq_input.shape[0], -1).unsqueeze(-1)
-
-                    # Collapse agent and temporal dimensions generically. Assumes trailing dims
-                    # are (..., n_agents, seq_len, feature). This supports any (or no) leading
-                    # batch dimensions without explicit unpacking.
-                    seq_input = seq_input.flatten(start_dim=-3, end_dim=-2)
-                    
-                else:
-                    # Select the agent along the -3 (agent) axis without assuming any specific
-                    # number of leading batch dimensions. Result keeps shape (..., seq_len, feature).
-                    seq_input = seq_input.select(dim=-3, index=agent_idx)
-                    agent_idx_tensor = torch.full_like(seq_input[..., :1, 0:1], agent_idx)
-
-                seq_output = seq_heads[config.key](seq_input, agent_idx_tensor)
-
-                head_outputs.append(seq_output)
-
-            for config in self.flat_configs:
-                flat_input = observation[config.key]
-                if self.centralized:
-                    # Flattening along the agent dimension
-                    flat_input = flat_input.flatten(start_dim=-2, end_dim=-1)
-                else:
-                    # Select specific agent slice
-                    flat_input = flat_input.select(dim=-2, index=agent_idx)
-                flat_output = flat_heads[config.key](flat_input)
-                head_outputs.append(flat_output)
-
-            # Fuse the contributions from every head and record the per-agent output.
-            agent_input = torch.cat(head_outputs, dim=-1)
-            agent_output = mix_layer(agent_input)
+            agent_output = block(observation, agent_idx)
             all_agent_outputs.append(agent_output)
 
         if self.centralized:

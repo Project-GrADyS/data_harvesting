@@ -7,9 +7,9 @@ from torchrl.envs import EnvBase
 
 from data_harvesting.utils import get_activation_class
 from data_harvesting.encoder import (
-    MultiAgentFlexEncoder,
-    SequentialConfig,
-    FlatConfig,
+    MultiAgentFlexModule,
+    SequentialEncoderConfig,
+    FlatEncoderConfig,
 )
 
 def create_mlp_critic(env: EnvBase, config: Dict[str, Any], device: torch.device) -> TensorDictModule:
@@ -60,9 +60,9 @@ def create_flex_critic(env: EnvBase, config: Dict[str, Any], device: torch.devic
     if env_is_sequential:
         # Configuration for the drones part of the observation
         sequential_configs.append(
-            SequentialConfig(
+            SequentialEncoderConfig(
                 key="drones",
-                obs_size=env.observation_spec[("agents", "observation","drones")].shape[-1],
+                input_size=env.observation_spec[("agents", "observation","drones")].shape[-1],
                 embed_dim=seq_heads_cfg["embed_dim"],
                 head_dim=seq_heads_cfg["head_dim"],
                 num_heads=seq_heads_cfg["num_heads"],
@@ -76,9 +76,9 @@ def create_flex_critic(env: EnvBase, config: Dict[str, Any], device: torch.devic
         in_keys["drones"] = ("agents", "observation", "drones")
         # Sequential config for the sensors part of the observation
         sequential_configs.append(
-            SequentialConfig(
+            SequentialEncoderConfig(
                 key="sensors",
-                obs_size=env.observation_spec[("agents", "observation","sensors")].shape[-1],
+                input_size=env.observation_spec[("agents", "observation","sensors")].shape[-1],
                 embed_dim=seq_heads_cfg["embed_dim"],
                 head_dim=seq_heads_cfg["head_dim"],
                 num_heads=seq_heads_cfg["num_heads"],
@@ -93,9 +93,9 @@ def create_flex_critic(env: EnvBase, config: Dict[str, Any], device: torch.devic
         if config["environment"]["id_on_state"]:
             # Flat config for the agent_id part of the observation
             flat_configs.append(
-                FlatConfig(
+                FlatEncoderConfig(
                     key="agent_id",
-                    obs_size=env.observation_spec[("agents", "observation","agent_id")].shape[-1],
+                    input_size=env.observation_spec[("agents", "observation","agent_id")].shape[-1],
                     embed_dim=flat_heads_cfg["embed_dim"],
                     depth=flat_heads_cfg["depth"],
                     num_cells=flat_heads_cfg["num_cells"],
@@ -106,9 +106,9 @@ def create_flex_critic(env: EnvBase, config: Dict[str, Any], device: torch.devic
     else:
         # Flat config for the entire observation when not sequential
         flat_configs.append(
-            FlatConfig(
+            FlatEncoderConfig(
                 key="observation",
-                obs_size=env.observation_spec[("agents", "observation")].shape[-1],
+                input_size=env.observation_spec[("agents", "observation")].shape[-1],
                 embed_dim=flat_heads_cfg["embed_dim"],
                 depth=flat_heads_cfg["depth"],
                 num_cells=flat_heads_cfg["num_cells"],
@@ -119,9 +119,9 @@ def create_flex_critic(env: EnvBase, config: Dict[str, Any], device: torch.devic
 
     # Add flat config for the action space
     flat_configs.append(
-        FlatConfig(
+        FlatEncoderConfig(
             key="action",
-            obs_size=env.full_action_spec[("agents", "action")].shape[-1],
+            input_size=env.full_action_spec[("agents", "action")].shape[-1],
             embed_dim=flat_heads_cfg["embed_dim"],
             depth=flat_heads_cfg["depth"],
             num_cells=flat_heads_cfg["num_cells"],
@@ -130,7 +130,7 @@ def create_flex_critic(env: EnvBase, config: Dict[str, Any], device: torch.devic
     )
     in_keys["action"] = ("agents", "action")
 
-    encoder = MultiAgentFlexEncoder(
+    encoder = MultiAgentFlexModule(
         sequential_configs, 
         flat_configs,
         flex_cfg["mix_layer_depth"],

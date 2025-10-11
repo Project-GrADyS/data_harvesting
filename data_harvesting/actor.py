@@ -10,9 +10,9 @@ from torchrl.modules import (
 )
 from torchrl.modules.distributions import TanhNormal
 from data_harvesting.encoder import (
-    MultiAgentFlexEncoder,
-    SequentialConfig,
-    FlatConfig,
+    MultiAgentFlexModule,
+    SequentialEncoderConfig,
+    FlatEncoderConfig,
 )
 from data_harvesting.utils import get_activation_class
 
@@ -55,9 +55,9 @@ def create_flex_policy_module(env: EnvBase, config: Dict[str, Any], device: torc
     if env_is_sequential:
         # Configuration for the drones part of the observation
         sequential_configs.append(
-            SequentialConfig(
+            SequentialEncoderConfig(
                 key="drones",
-                obs_size=env.observation_spec[("agents", "observation","drones")].shape[-1],
+                input_size=env.observation_spec[("agents", "observation","drones")].shape[-1],
                 embed_dim=seq_heads_cfg["embed_dim"],
                 head_dim=seq_heads_cfg["head_dim"],
                 num_heads=seq_heads_cfg["num_heads"],
@@ -71,9 +71,9 @@ def create_flex_policy_module(env: EnvBase, config: Dict[str, Any], device: torc
         in_keys["drones"] = ("agents", "observation", "drones")
         # Sequential config for the sensors part of the observation
         sequential_configs.append(
-            SequentialConfig(
+            SequentialEncoderConfig(
                 key="sensors",
-                obs_size=env.observation_spec[("agents", "observation","sensors")].shape[-1],
+                input_size=env.observation_spec[("agents", "observation","sensors")].shape[-1],
                 embed_dim=seq_heads_cfg["embed_dim"],
                 head_dim=seq_heads_cfg["head_dim"],
                 num_heads=seq_heads_cfg["num_heads"],
@@ -88,9 +88,9 @@ def create_flex_policy_module(env: EnvBase, config: Dict[str, Any], device: torc
         if config["environment"]["id_on_state"]:
             # Flat config for the agent_id part of the observation
             flat_configs.append(
-                FlatConfig(
+                FlatEncoderConfig(
                     key="agent_id",
-                    obs_size=env.observation_spec[("agents", "observation","agent_id")].shape[-1],
+                    input_size=env.observation_spec[("agents", "observation","agent_id")].shape[-1],
                     embed_dim=flat_heads_cfg["embed_dim"],
                     depth=flat_heads_cfg["depth"],
                     num_cells=flat_heads_cfg["num_cells"],
@@ -101,9 +101,9 @@ def create_flex_policy_module(env: EnvBase, config: Dict[str, Any], device: torc
     else:
         # Flat config for the entire observation when not sequential
         flat_configs.append(
-            FlatConfig(
+            FlatEncoderConfig(
                 key="observation",
-                obs_size=env.observation_spec[("agents", "observation")].shape[-1],
+                input_size=env.observation_spec[("agents", "observation")].shape[-1],
                 embed_dim=flat_heads_cfg["embed_dim"],
                 depth=flat_heads_cfg["depth"],
                 num_cells=flat_heads_cfg["num_cells"],
@@ -112,7 +112,7 @@ def create_flex_policy_module(env: EnvBase, config: Dict[str, Any], device: torc
         )
         in_keys["observation"] = ("agents", "observation")
 
-    encoder = MultiAgentFlexEncoder(
+    encoder = MultiAgentFlexModule(
         sequential_configs, 
         flat_configs,
         flex_cfg["mix_layer_depth"],
