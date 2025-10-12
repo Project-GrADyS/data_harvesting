@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/bbd2fb94d3e8443496ae1522f2c50b6c/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: bbd2fb94d3e8443496ae1522f2c50b6c
+run_name: zealous-crow-300
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760217605660
+status: 1
+tags: []
+user_id: thlamz

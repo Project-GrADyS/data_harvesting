@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/0508191c90ab4612a19a31ab3e230c23/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: 0508191c90ab4612a19a31ab3e230c23
+run_name: useful-ant-946
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760229099980
+status: 1
+tags: []
+user_id: thlamz

@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/588d61aab4664d6da44a2107cdfc0cd8/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: 588d61aab4664d6da44a2107cdfc0cd8
+run_name: exultant-colt-884
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760213165370
+status: 1
+tags: []
+user_id: thlamz

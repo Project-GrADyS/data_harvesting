@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/c341032244624e7a9017036377863e62/artifacts
+end_time: 1760217729232
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: c341032244624e7a9017036377863e62
+run_name: enthused-shad-848
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760217726242
+status: 4
+tags: []
+user_id: thlamz

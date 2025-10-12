@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/2d1154f7218f4dd5a8dbdb7a539e9e08/artifacts
+end_time: 1760217360521
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: 2d1154f7218f4dd5a8dbdb7a539e9e08
+run_name: resilient-ant-582
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760217358375
+status: 4
+tags: []
+user_id: thlamz

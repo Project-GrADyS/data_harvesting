@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/c618f9bbdfd34572b890c5c6a85b64d0/artifacts
+end_time: 1760216104325
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: c618f9bbdfd34572b890c5c6a85b64d0
+run_name: aged-steed-711
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760216088869
+status: 4
+tags: []
+user_id: thlamz

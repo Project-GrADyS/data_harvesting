@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/604b443c62764369a6f639469ee8baee/artifacts
+end_time: 1760229431172
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: 604b443c62764369a6f639469ee8baee
+run_name: loud-skunk-516
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760229410123
+status: 4
+tags: []
+user_id: thlamz

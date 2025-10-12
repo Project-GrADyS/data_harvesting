@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/ecbeda0649ec4a018cb65e7acb1a3d23/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: ecbeda0649ec4a018cb65e7acb1a3d23
+run_name: salty-kit-954
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760229328369
+status: 1
+tags: []
+user_id: thlamz

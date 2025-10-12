@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/400bff2316f044c389d75a8cdc588377/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: 400bff2316f044c389d75a8cdc588377
+run_name: mercurial-moth-175
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760242230613
+status: 1
+tags: []
+user_id: thlamz

@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/cb9bfc3b4c664bfa8e7b8863d90b64b1/artifacts
+deleted_time: 1760282845102
+end_time: 1760244533344
+entry_point_name: ''
+experiment_id: '552728603782970447'
+lifecycle_stage: deleted
+run_id: cb9bfc3b4c664bfa8e7b8863d90b64b1
+run_name: victorious-duck-460
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760243506059
+status: 4
+tags: []
+user_id: thlamz

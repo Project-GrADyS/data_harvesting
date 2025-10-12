@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/c2b07864a5314039a4fafddcc5aa4fbf/artifacts
+end_time: 1760232211955
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: c2b07864a5314039a4fafddcc5aa4fbf
+run_name: gentle-hen-351
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760232002486
+status: 4
+tags: []
+user_id: thlamz

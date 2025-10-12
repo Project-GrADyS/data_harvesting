@@ -1,8 +1,0 @@
-artifact_location: file:///home/thlamz/data_harvesting/mlruns/376944095390572173
-creation_time: 1759977391855
-experiment_id: '376944095390572173'
-last_update_time: 1760133614802
-lifecycle_stage: deleted
-name: flat_obs_encoder
-tags:
-  mlflow.experimentKind: custom_model_development

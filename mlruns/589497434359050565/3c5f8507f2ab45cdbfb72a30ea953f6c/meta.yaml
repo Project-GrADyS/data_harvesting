@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/3c5f8507f2ab45cdbfb72a30ea953f6c/artifacts
+end_time: 1760199919207
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: 3c5f8507f2ab45cdbfb72a30ea953f6c
+run_name: fearless-shark-884
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760199866736
+status: 3
+tags: []
+user_id: thlamz

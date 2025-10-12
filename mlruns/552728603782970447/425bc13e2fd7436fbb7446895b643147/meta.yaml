@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/425bc13e2fd7436fbb7446895b643147/artifacts
+deleted_time: 1760282845055
+end_time: 1760229919496
+entry_point_name: ''
+experiment_id: '552728603782970447'
+lifecycle_stage: deleted
+run_id: 425bc13e2fd7436fbb7446895b643147
+run_name: magnificent-koi-469
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760229915529
+status: 4
+tags: []
+user_id: thlamz

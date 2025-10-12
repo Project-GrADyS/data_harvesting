@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/f3872a4b60be4ab4b20b222654778d4c/artifacts
+deleted_time: 1760282845110
+end_time: 1760282695847
+entry_point_name: ''
+experiment_id: '552728603782970447'
+lifecycle_stage: deleted
+run_id: f3872a4b60be4ab4b20b222654778d4c
+run_name: treasured-zebra-299
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760282600292
+status: 4
+tags: []
+user_id: thlamz

@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/dfb8d7b0568c45f39cb306a71df41a3d/artifacts
+end_time: 1760216667119
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: dfb8d7b0568c45f39cb306a71df41a3d
+run_name: treasured-shrimp-904
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760216621991
+status: 4
+tags: []
+user_id: thlamz

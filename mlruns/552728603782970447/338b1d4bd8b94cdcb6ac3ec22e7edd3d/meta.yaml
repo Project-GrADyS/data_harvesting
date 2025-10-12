@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/338b1d4bd8b94cdcb6ac3ec22e7edd3d/artifacts
+deleted_time: 1760200678514
+end_time: null
+entry_point_name: ''
+experiment_id: '552728603782970447'
+lifecycle_stage: deleted
+run_id: 338b1d4bd8b94cdcb6ac3ec22e7edd3d
+run_name: unleashed-yak-191
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760200145302
+status: 1
+tags: []
+user_id: thlamz

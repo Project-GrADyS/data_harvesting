@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/d4e7895df84a4b1995746ac5ce24d681/artifacts
+end_time: 1760302817508
+entry_point_name: ''
+experiment_id: '552728603782970447'
+lifecycle_stage: active
+run_id: d4e7895df84a4b1995746ac5ce24d681
+run_name: sincere-moose-386
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760282832564
+status: 4
+tags: []
+user_id: thlamz

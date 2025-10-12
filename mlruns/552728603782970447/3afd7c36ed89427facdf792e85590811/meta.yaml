@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/3afd7c36ed89427facdf792e85590811/artifacts
+deleted_time: 1760282845053
+end_time: 1760229814950
+entry_point_name: ''
+experiment_id: '552728603782970447'
+lifecycle_stage: deleted
+run_id: 3afd7c36ed89427facdf792e85590811
+run_name: capricious-goose-167
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760229809496
+status: 4
+tags: []
+user_id: thlamz

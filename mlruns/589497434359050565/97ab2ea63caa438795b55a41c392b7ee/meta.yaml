@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/97ab2ea63caa438795b55a41c392b7ee/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: 97ab2ea63caa438795b55a41c392b7ee
+run_name: loud-stoat-183
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760232634822
+status: 1
+tags: []
+user_id: thlamz

@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/ee3d4549bbfe4345b6bf9443908df6de/artifacts
+end_time: 1760216050256
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: ee3d4549bbfe4345b6bf9443908df6de
+run_name: marvelous-kite-206
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760216046986
+status: 4
+tags: []
+user_id: thlamz

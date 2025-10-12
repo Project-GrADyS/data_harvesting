@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/b6c2f16c82e6415b91e63f7cfabd1757/artifacts
+deleted_time: 1760282845122
+end_time: 1760282709830
+entry_point_name: ''
+experiment_id: '552728603782970447'
+lifecycle_stage: deleted
+run_id: b6c2f16c82e6415b91e63f7cfabd1757
+run_name: fortunate-auk-65
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760282600292
+status: 4
+tags: []
+user_id: thlamz

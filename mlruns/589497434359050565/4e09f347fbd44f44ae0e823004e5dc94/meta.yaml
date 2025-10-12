@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/4e09f347fbd44f44ae0e823004e5dc94/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: 4e09f347fbd44f44ae0e823004e5dc94
+run_name: unequaled-gnu-568
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760215953497
+status: 1
+tags: []
+user_id: thlamz
