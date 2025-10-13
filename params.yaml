@@ -101,6 +101,8 @@ optimization:
   num_optimizer_steps: 20
   # Gradient clipping value (0 disables clipping).
   grad_clip: 1
+  # Whether to use automatic mixed precision (AMP) during training.
+  use_amp: true
 
 # PPO-specific configuration (used when training.algorithm: mappo)
 ppo:

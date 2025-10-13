@@ -28,7 +28,6 @@ class MADDPGAlgorithm:
         self.loss_module = create_loss(self.policy, self.critic, config)
         self.optimizers = create_optimizers(self.loss_module, config)
         self.target_updater = create_updater(self.loss_module, config)
-        self.scaler = torch.amp.grad_scaler.GradScaler(enabled=False)
 
         self.n_optimiser_steps = config["optimization"]["num_optimizer_steps"]
         self.grad_clip = config["optimization"]["grad_clip"]
@@ -41,26 +40,25 @@ class MADDPGAlgorithm:
         for _ in range(self.n_optimiser_steps):
             subdata = self.replay_buffer.sample()
             
-            with torch.amp.autocast(device_type=self.device.type, dtype=torch.bfloat16):
+            with torch.amp.autocast(device_type=self.device.type,
+                                    dtype=torch.bfloat16,
+                                    enabled=self.config["optimization"]["use_amp"]):
                 loss_vals = self.loss_module(subdata)
             
             for loss_name in ["loss_actor", "loss_value"]:
                 loss = loss_vals[loss_name]
                 optimizer: torch.optim.Optimizer = self.optimizers[loss_name]
 
-                self.scaler.scale(loss).backward()
+                loss.backward()
 
                 if self.grad_clip > 0:
-                    self.scaler.unscale_(optimizer)
                     params = optimizer.param_groups[0]["params"]
                     torch.nn.utils.clip_grad_norm_(params, self.grad_clip)
 
-                self.scaler.step(optimizer)
+                optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
 
                 loss_sums[loss_name] += loss.detach().item()
-            
-            self.scaler.update()
 
             self.target_updater.step()
 
