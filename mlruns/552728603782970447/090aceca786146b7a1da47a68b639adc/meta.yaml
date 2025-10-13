@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/090aceca786146b7a1da47a68b639adc/artifacts
+end_time: 1760372138975
+entry_point_name: ''
+experiment_id: '552728603782970447'
+lifecycle_stage: active
+run_id: 090aceca786146b7a1da47a68b639adc
+run_name: rumbling-calf-292
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760371774166
+status: 4
+tags: []
+user_id: thlamz
