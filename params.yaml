@@ -50,7 +50,7 @@ actor:
 
 training:
   # Total number of training timesteps.
-  total_timesteps: 300000
+  total_timesteps: 5000000
   # Initial sigma for exploration noise (AdditiveGaussianModule).
   exploration_sigma_init: 0.1
   # Final sigma for exploration noise (AdditiveGaussianModule).
