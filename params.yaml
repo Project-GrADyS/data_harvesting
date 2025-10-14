@@ -94,11 +94,11 @@ optimization:
   # Discount factor for future rewards.
   gamma: 0.99
   # Learning rate for optimizers.
-  lr: 0.0007
+  lr: 0.00025
   # Tau for the soft-update of the target network.
   tau: 0.005
   # Number of optimizer steps per batch.
-  num_optimizer_steps: 20
+  num_optimizer_steps: 50
   # Gradient clipping value (0 disables clipping).
   grad_clip: 1
   # Whether to use automatic mixed precision (AMP) during training.
