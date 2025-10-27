@@ -90,13 +90,14 @@ class SequentialEncoder(nn.Module):
             enable_nested_tensor=True
         )
 
-    def forward(self, x: torch.Tensor, agent_idx: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, agent_idx: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
         """Process a sequential observation for one agent.
 
         Args:
             x: Input tensor of shape (*B, seq_len, input_dim).
             agent_idx: Input tensor of shape (*B, 1) containing the agent index for each batch entry. Will be used for 
                 agentic encoding if it's enabled.
+            mask: Optional tensor of shape (*B, seq_len) indicating valid timesteps. Not currently used.
 
         Returns:
             torch.Tensor: Output tensor of shape (*B, embed_dim).
@@ -106,6 +107,10 @@ class SequentialEncoder(nn.Module):
         # attention mechanism. Create a mask that marks these timesteps so the attention
         # layers do not attend to them. 
         padded_input_mask = torch.all(x == -1, dim=-1)
+
+        # Combine with the externally provided agent mask
+        if mask is not None:
+            padded_input_mask |= mask
 
         embed_output = self.obs_encoder(x)
 
@@ -193,7 +198,10 @@ class AgentBlock(nn.Module):
         self.centralized = centralized
         self.n_agents = n_agents
 
-    def forward(self, observation: dict[str, torch.Tensor], agent_idx: torch.Tensor):
+    def forward(self, 
+                observation: dict[str, torch.Tensor], 
+                agent_idx: torch.Tensor,
+                mask: torch.Tensor | None = None) -> torch.Tensor:
         """
         Processes observations and produces a per-agent output. 
         Args:
@@ -202,6 +210,7 @@ class AgentBlock(nn.Module):
                 Sequential keys must have shape (*B, n_agents, seq_len, input_dim) and flat keys
                 must have shape (*B, n_agents, input_dim).
             agent_idx: Tensor of shape (*B, 1) containing the index of the agent being processed.
+            mask: A tensor of shape ``(*B, n_agents)`` containing the mask for agents that are alive.
         """
         head_outputs = []
         for key in self.seq_heads.keys():
@@ -224,7 +233,7 @@ class AgentBlock(nn.Module):
                 seq_input = seq_input.select(dim=-3, index=agent_idx)
                 agent_idx_tensor = torch.full_like(seq_input[..., :1, 0:1], agent_idx)
 
-            seq_output = self.seq_heads[key](seq_input, agent_idx_tensor)
+            seq_output = self.seq_heads[key](seq_input, agent_idx_tensor, mask)
 
             head_outputs.append(seq_output)
 
@@ -243,7 +252,7 @@ class AgentBlock(nn.Module):
         agent_input = torch.cat(head_outputs, dim=-1)
         return self.mix_layer(agent_input)
 
-@torch.compile()
+# @torch.compile()
 class MultiAgentFlexModule(nn.Module):
     """
     A flexible multi-agent module that can process both sequential and flat observation keys of a dict-like observation space.
@@ -404,10 +413,11 @@ class MultiAgentFlexModule(nn.Module):
         )
         return AgentBlock(seq_heads, flat_heads, mix_layer, self.centralized, self.n_agents)
 
-    def forward(self, **observation: torch.Tensor) -> torch.Tensor:
+    def forward(self, mask: torch.Tensor | None = None, **observation: torch.Tensor) -> torch.Tensor:
         """Encode multi-agent observations into per-agent embeddings.
 
         Keyword Args:
+            mask: A tensor of shape ``(*B, n_agents)`` containing the mask for agents that are alive.
             observation: Tensors keyed by observation name. Each tensor must obey the shape
                 requirements validated in :meth:`_pre_forward_check`.
 
@@ -423,7 +433,7 @@ class MultiAgentFlexModule(nn.Module):
         all_agent_outputs = []
         for agent_idx in range(num_agents):
             block: AgentBlock = self.agent_networks[0] if self.share_params else self.agent_networks[agent_idx]
-            agent_output = block(observation, agent_idx)
+            agent_output = block(observation, agent_idx, mask)
             all_agent_outputs.append(agent_output)
 
         if self.centralized:
