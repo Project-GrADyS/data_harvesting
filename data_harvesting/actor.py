@@ -20,12 +20,15 @@ from data_harvesting.utils import get_activation_class
 def create_mlp_module(env: EnvBase, config: Dict[str, Any], device: torch.device) -> TensorDictModule:
     if config["environment"]["sequential_obs"]:
         raise NotImplementedError("MLP Actor not implemented for sequential observations.")
+    
+    if config["environment"]["min_num_drones"] != config["environment"]["max_num_drones"]:
+        raise NotImplementedError("MLP Actor not implemented for variable number of drones.")
 
     activation_class = get_activation_class(config["actor"]["activation_function"])
     policy_net = MultiAgentMLP(
         n_agent_inputs=env.observation_spec[("agents", "observation")].shape[-1],
         n_agent_outputs=env.full_action_spec[("agents", "action")].shape[-1],
-        n_agents=config["environment"]["num_drones"],
+        n_agents=config["environment"]["min_num_drones"],
         centralised=config["actor"]["centralized"],
         share_params=config["actor"]["share_parameters"],
         device=device,
@@ -64,7 +67,7 @@ def create_flex_policy_module(env: EnvBase, config: Dict[str, Any], device: torc
                 ff_dim=seq_heads_cfg["ff_dim"],
                 depth=seq_heads_cfg["depth"],
                 dropout=seq_heads_cfg["dropout"],
-                max_num_agents=config["environment"]["num_drones"],
+                max_num_agents=config["environment"]["max_num_drones"],
                 agentic_encoding=False
             )
         )
@@ -80,7 +83,7 @@ def create_flex_policy_module(env: EnvBase, config: Dict[str, Any], device: torc
                 ff_dim=seq_heads_cfg["ff_dim"],
                 depth=seq_heads_cfg["depth"],
                 dropout=seq_heads_cfg["dropout"],
-                max_num_agents=config["environment"]["num_drones"],
+                max_num_agents=config["environment"]["max_num_drones"],
                 agentic_encoding=False
             )
         )
@@ -113,13 +116,13 @@ def create_flex_policy_module(env: EnvBase, config: Dict[str, Any], device: torc
         in_keys["observation"] = ("agents", "observation")
 
     encoder = MultiAgentFlexModule(
-        sequential_configs, 
-        flat_configs,
-        flex_cfg["mix_layer_depth"],
-        flex_cfg["mix_layer_num_cells"],
-        get_activation_class(flex_cfg["mix_activation_function"]),
-        env.full_action_spec[("agents", "action")].shape[-1],
-        config["environment"]["num_drones"],
+        sequential_configs=sequential_configs, 
+        flat_configs=flat_configs,
+        mix_layer_depth=flex_cfg["mix_layer_depth"],
+        mix_layer_num_cells=flex_cfg["mix_layer_num_cells"],
+        mix_activation_class=get_activation_class(flex_cfg["mix_activation_function"]),
+        output_dim=env.full_action_spec[("agents", "action")].shape[-1],
+        n_agents=config["environment"]["max_num_drones"],
         centralized=config["actor"]["centralized"],
         share_params=config["actor"]["share_parameters"],
         device=device
@@ -208,6 +211,9 @@ def create_ppo_actor(
     Returns a ProbabilisticActor that emits actions within the environment bounds and stores
     the log probability under the key ("agents", "sample_log_prob") for PPO updates.
     """
+    if config["environment"]["min_num_drones"] != config["environment"]["max_num_drones"]:
+        raise NotImplementedError("PPO Actor not implemented for variable number of drones.")
+
     activation_class = get_activation_class(config["actor"]["activation_function"])
     action_dim = env.full_action_spec[("agents", "action")].shape[-1]
 
@@ -216,7 +222,7 @@ def create_ppo_actor(
         MultiAgentMLP(
             n_agent_inputs=env.observation_spec[("agents", "observation")].shape[-1],
             n_agent_outputs=action_dim * 2,
-            n_agents=config["environment"]["num_drones"],
+            n_agents=config["environment"]["max_num_drones"],
             centralised=config["actor"]["centralized"],
             share_params=config["actor"]["share_parameters"],
             device=device,

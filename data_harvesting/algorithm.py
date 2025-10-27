@@ -5,7 +5,7 @@ from torchrl.envs import EnvBase
 
 
 from data_harvesting.actor import create_actor, create_exploratory_actor, create_ppo_actor
-from data_harvesting.critic import create_critic, create_value_net
+from data_harvesting.critic import create_critic, create_ppo_value_net
 from data_harvesting.replay import create_replay_buffer
 from data_harvesting.optimization import (
     create_loss,
@@ -77,7 +77,7 @@ class MAPPOAlgorithm:
         self.policy = create_ppo_actor(env, device, config)
         # For collection, exploration is inherent in stochastic policy; no extra noise needed
         self.exploratory_policy = self.policy
-        self.critic = create_value_net(env, device, config)
+        self.critic = create_ppo_value_net(env, device, config)
         self.loss_module = create_ppo_loss(self.policy, self.critic, config)
         self.optimizers = create_ppo_optimizers(self.loss_module, config)
 

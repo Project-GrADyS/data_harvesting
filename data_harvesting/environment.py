@@ -132,7 +132,10 @@ class GrADySEnvironmentConfig:
 
     render_mode: Optional[str] = None  # "visual" | "console"
     algorithm_iteration_interval: float = 0.5
-    num_drones: int = 1
+    # Number of drone agents is samples from [min_num_drones, max_num_drones].
+    # To fix the number, set min_num_drones == max_num_drones.
+    min_num_drones: int = 1
+    max_num_drones: int = 1
     # Number of sensors is always sampled each reset from [min_num_sensors, max_num_sensors].
     # To fix the number, set min_num_sensors == max_num_sensors.
     min_num_sensors: int = 2
@@ -200,8 +203,10 @@ class GrADySEnvironment(ParallelEnv):
         self.max_num_sensors = config.max_num_sensors
         # Active number of sensors set at reset
         self.active_num_sensors: int = -1
-        self.num_drones = config.num_drones
-        self.possible_agents = [f"drone{i}" for i in range(config.num_drones)]
+        self.min_num_drones = config.min_num_drones
+        self.max_num_drones = config.max_num_drones
+        self.active_num_drones: int = -1
+        self.possible_agents = [f"drone{i}" for i in range(config.max_num_drones)]
         self.max_episode_length = config.max_episode_length
         self.max_seconds_stalled = config.max_seconds_stalled
         self.scenario_size = config.scenario_size
@@ -225,15 +230,18 @@ class GrADySEnvironment(ParallelEnv):
         - Optional agent id (1)
         Range: [-1, 1]
         """
-        agent_id = 1 if self.id_on_state else 0
         agent_positions_size = 2
         sensor_positions_size = 2
 
-        return Dict({
+        obs_dict = {
             "sensors": Box(-1, 1, shape=(self.state_num_closest_sensors, sensor_positions_size,)),
             "drones": Box(-1, 1, shape=(self.state_num_closest_drones, agent_positions_size,)),
-            "agent_id": Box(0, 1, shape=(agent_id,)) if self.id_on_state else Box(0, 1, shape=(0,))
-        })
+        }
+        # Only include agent_id key when configured
+        if self.id_on_state:
+            obs_dict["agent_id"] = Box(0, 1, shape=(1,))
+
+        return Dict(obs_dict)
 
     def action_space(self, agent):
         # Drone can move in any direction
@@ -277,7 +285,7 @@ class GrADySEnvironment(ParallelEnv):
         max_distance = self.scenario_size * 2
 
         state = {}
-        for agent_index in range(self.num_drones):
+        for agent_index in range(self.active_num_drones):
             agent_position = agent_nodes[agent_index]
 
             # Calculate distances to all unvisited sensors and sort them
@@ -311,15 +319,12 @@ class GrADySEnvironment(ParallelEnv):
                 "sensors": closest_unvisited_sensors,
             }
             if self.id_on_state:
-                state[f"drone{agent_index}"]["agent_id"] = np.array([agent_index / (self.num_drones - 1) if self.num_drones > 1 else 0])
+                state[f"drone{agent_index}"]["agent_id"] = np.array([agent_index / (self.max_num_drones - 1) if self.max_num_drones > 1 else 0])
         return state
 
     def observe_simulation(self):
         """Return current observation dictionary (relative mode only)."""
         return self.observe_simulation_relative_positions()
-
-    def detect_out_of_bounds_agent(self, agent: Node) -> bool:
-        return abs(agent.position[0]) > self.scenario_size or abs(agent.position[1]) > self.scenario_size
     
     def blank_info(self):
         return {
@@ -344,7 +349,6 @@ class GrADySEnvironment(ParallelEnv):
         hands that are played.
         Returns the observations for each agent
         """
-        self.agents = self.possible_agents.copy()
 
         builder = SimulationBuilder(SimulationConfiguration(
             debug=False,
@@ -409,7 +413,12 @@ class GrADySEnvironment(ParallelEnv):
         self.agent_node_ids = []
         DroneProtocol.speed_action = self.speed_action
         DroneProtocol.algorithm_interval = self.algorithm_iteration_interval
-        for i in range(self.num_drones):
+
+        self.active_num_drones = random.randint(self.min_num_drones, self.max_num_drones)
+
+        self.agents = [f"drone{i}" for i in range(self.active_num_drones)]
+
+        for _ in range(self.active_num_drones):
             if self.full_random_drone_position:
                 self.agent_node_ids.append(builder.add_node(DroneProtocol, (
                     random.uniform(-self.scenario_size, self.scenario_size),
@@ -459,8 +468,12 @@ class GrADySEnvironment(ParallelEnv):
             self.agents = []
             return {}, {}, {}, {}, {}
 
-        # Acting
-        for index, action in enumerate(actions.values()):
+        # Acting: map actions to agents deterministically to avoid misalignment
+        for index, agent in enumerate(self.agents):
+            # If an agent is missing from the action dict (e.g., already done), skip
+            if agent not in actions:
+                continue
+            action = actions[agent]
             agent_node = self.simulator.get_node(self.agent_node_ids[index])
 
             coordinate_limit = self.scenario_size
@@ -591,8 +604,13 @@ def make_env(config: dict) -> PettingZooWrapper:
             in_keys=[("agents", "observation", "sensors"), ("agents", "observation", "drones")],
             out_keys=[("agents", "observation_flat", "sensors"), ("agents", "observation_flat", "drones")],
         ))
+        # Conditionally include agent_id in the concatenated observation only if present
+        include_id = env_config.get("id_on_state", True)
+        in_keys = [("agents", "observation_flat", "sensors"), ("agents", "observation_flat", "drones")]
+        if include_id:
+            in_keys.append(("agents", "observation", "agent_id"))
         env = env.append_transform(CatTensors(
-            in_keys=[("agents", "observation_flat", "sensors"), ("agents", "observation_flat", "drones"), ("agents", "observation", "agent_id")],
+            in_keys=in_keys,
             out_key=("agents", "observation"),
             del_keys=False
         ))
