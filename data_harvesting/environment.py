@@ -338,7 +338,7 @@ class GrADySEnvironment(ParallelEnv):
                 "all_collected": 0,
                 "num_collected": 0.0,
                 "cause": EndCause.NONE.value
-            } for agent in self.agents
+            } for agent in self.possible_agents
         }
 
     def reset(self, seed=None, options=None):
@@ -447,7 +447,15 @@ class GrADySEnvironment(ParallelEnv):
         self.sensors_collected = 0
         self.collection_times = [self.max_episode_length for _ in range(self.active_num_sensors)]
 
-        return self.observe_simulation(), self.blank_info()
+        all_obs = self.observe_simulation()
+
+        # The initial observation has to contain observations for all possible agents
+        # We repeat the last active agent's observation for the inactive agents
+        # This is not a problem because these agents will be truncated immediately
+        for i in range(self.active_num_drones, self.max_num_drones):
+            all_obs[f"drone{i}"] = all_obs[f"drone{self.active_num_drones - 1}"]
+
+        return all_obs, self.blank_info()
 
     def step(self, actions):
         """
@@ -554,7 +562,8 @@ class GrADySEnvironment(ParallelEnv):
         simulation_ended = (all_sensors_collected and self.end_when_all_collected) or not simulation_ongoing
         terminations = {agent: simulation_ended for agent in self.agents}
 
-        truncations = {agent: False for agent in self.agents}
+        # Every inactive agent is truncated
+        truncations = {agent: i >= self.active_num_drones for i, agent in enumerate(self.possible_agents)}
 
         # current observation is just the other player's most recent action
         observations = self.observe_simulation()
@@ -592,7 +601,8 @@ def make_env(config: dict) -> PettingZooWrapper:
     env = PettingZooWrapper(
         GrADySEnvironment(gradys_config),
         categorical_actions=False,
-        group_map=MarlGroupMapType.ALL_IN_ONE_GROUP
+        group_map=MarlGroupMapType.ALL_IN_ONE_GROUP,
+        use_mask=env_config["max_num_drones"] != env_config["min_num_drones"]
     )
 
     # If the environment is not sequential, we flatten and concatenate the observation components
