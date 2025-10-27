@@ -1,9 +1,11 @@
 import torch
 from typing import Any, Dict, TypedDict
-from torchrl.objectives import DDPGLoss, ValueEstimators, SoftUpdate
+from torchrl.objectives import ValueEstimators, SoftUpdate
 from torchrl.objectives.ppo import ClipPPOLoss
 
-def create_loss(policy: torch.nn.Module, critic: torch.nn.Module, config: Dict[str, Any]) -> DDPGLoss:
+from data_harvesting.loss import MaskedDDPGLoss
+
+def create_loss(policy: torch.nn.Module, critic: torch.nn.Module, config: Dict[str, Any]) -> MaskedDDPGLoss:
     """
     Creates the DDPG loss module using parameters from config.
     Args:
@@ -14,7 +16,7 @@ def create_loss(policy: torch.nn.Module, critic: torch.nn.Module, config: Dict[s
         Configured DDPGLoss instance.
     """
     gamma = config["optimization"]["gamma"]
-    loss_module = DDPGLoss(
+    loss_module = MaskedDDPGLoss(
         actor_network=policy,
         value_network=critic,
         delay_value=True,
@@ -27,16 +29,20 @@ def create_loss(policy: torch.nn.Module, critic: torch.nn.Module, config: Dict[s
         done=("agents", "done"),
         terminated=("agents", "terminated"),
     )
+
+    if config["environment"]["max_num_drones"] != config["environment"]["min_num_drones"]:
+        loss_module.set_keys(mask=("agents", "mask"))
+
     loss_module.make_value_estimator(ValueEstimators.TD0, gamma=gamma)
     return loss_module
 
 OptimizerDict = TypedDict("OptimizerDict", {"loss_actor": torch.optim.Optimizer, "loss_value": torch.optim.Optimizer})
 
-def create_optimizers(loss_module: DDPGLoss, config: Dict[str, Any]) -> OptimizerDict:
+def create_optimizers(loss_module: MaskedDDPGLoss, config: Dict[str, Any]) -> OptimizerDict:
     """
     Creates optimizers for the actor and critic using parameters from config.
     Args:
-        loss_module: The DDPGLoss module.
+        loss_module: The MaskedDDPGLoss module.
         config: Configuration dictionary (expects 'optimization' section).
     Returns:
         Dictionary with 'loss_actor' and 'loss_value' optimizers.
@@ -52,7 +58,7 @@ def create_optimizers(loss_module: DDPGLoss, config: Dict[str, Any]) -> Optimize
     }
     return optimizers
 
-def create_updater(loss_module: DDPGLoss, config: Dict[str, Any]) -> SoftUpdate:
+def create_updater(loss_module: MaskedDDPGLoss, config: Dict[str, Any]) -> SoftUpdate:
     """
     Creates a SoftUpdate target network updater using parameters from config.
     Args:
