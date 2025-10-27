@@ -1,8 +1,9 @@
 artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/d4e7895df84a4b1995746ac5ce24d681/artifacts
+deleted_time: 1760478703783
 end_time: 1760302817508
 entry_point_name: ''
 experiment_id: '552728603782970447'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: d4e7895df84a4b1995746ac5ce24d681
 run_name: sincere-moose-386
 source_name: ''

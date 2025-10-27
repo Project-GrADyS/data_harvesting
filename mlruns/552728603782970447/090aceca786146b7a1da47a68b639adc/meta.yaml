@@ -1,8 +1,9 @@
 artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/090aceca786146b7a1da47a68b639adc/artifacts
+deleted_time: 1760478703796
 end_time: 1760372138975
 entry_point_name: ''
 experiment_id: '552728603782970447'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: 090aceca786146b7a1da47a68b639adc
 run_name: rumbling-calf-292
 source_name: ''
