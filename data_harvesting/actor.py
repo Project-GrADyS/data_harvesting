@@ -10,9 +10,11 @@ from torchrl.modules import (
 )
 from torchrl.modules.distributions import TanhNormal
 from data_harvesting.encoder import (
+    FlatEncoderInput,
     MultiAgentFlexModule,
     SequentialEncoderConfig,
     FlatEncoderConfig,
+    SequentialEncoderInput,
 )
 from data_harvesting.utils import get_activation_class
 
@@ -49,75 +51,70 @@ def create_flex_policy_module(env: EnvBase, config: Dict[str, Any], device: torc
     seq_heads_cfg = flex_cfg["sequential_heads"]
     flat_heads_cfg = flex_cfg["flat_heads"]
 
-    sequential_configs = []
-    flat_configs = []
+    sequential_inputs = []
+    flat_inputs = []
     in_keys = {}
 
     env_is_sequential = config["environment"]["sequential_obs"]
     
+    sequential_config = SequentialEncoderConfig(
+        embed_dim=seq_heads_cfg["embed_dim"],
+        head_dim=seq_heads_cfg["head_dim"],
+        num_heads=seq_heads_cfg["num_heads"],
+        ff_dim=seq_heads_cfg["ff_dim"],
+        depth=seq_heads_cfg["depth"],
+        dropout=seq_heads_cfg["dropout"],
+        max_num_agents=config["environment"]["max_num_drones"],
+        agentic_encoding=False
+    )
+    flat_config = FlatEncoderConfig(
+        embed_dim=flat_heads_cfg["embed_dim"],
+        depth=flat_heads_cfg["depth"],
+        num_cells=flat_heads_cfg["num_cells"],
+        activation_class=get_activation_class(flat_heads_cfg["activation_function"])
+    )
+
     if env_is_sequential:
         # Configuration for the drones part of the observation
-        sequential_configs.append(
-            SequentialEncoderConfig(
+        sequential_inputs.append(
+            SequentialEncoderInput(
                 key="drones",
                 input_size=env.observation_spec[("agents", "observation","drones")].shape[-1],
-                embed_dim=seq_heads_cfg["embed_dim"],
-                head_dim=seq_heads_cfg["head_dim"],
-                num_heads=seq_heads_cfg["num_heads"],
-                ff_dim=seq_heads_cfg["ff_dim"],
-                depth=seq_heads_cfg["depth"],
-                dropout=seq_heads_cfg["dropout"],
-                max_num_agents=config["environment"]["max_num_drones"],
-                agentic_encoding=False
             )
         )
         in_keys["drones"] = ("agents", "observation", "drones")
         # Sequential config for the sensors part of the observation
-        sequential_configs.append(
-            SequentialEncoderConfig(
+        sequential_inputs.append(
+            SequentialEncoderInput(
                 key="sensors",
-                input_size=env.observation_spec[("agents", "observation","sensors")].shape[-1],
-                embed_dim=seq_heads_cfg["embed_dim"],
-                head_dim=seq_heads_cfg["head_dim"],
-                num_heads=seq_heads_cfg["num_heads"],
-                ff_dim=seq_heads_cfg["ff_dim"],
-                depth=seq_heads_cfg["depth"],
-                dropout=seq_heads_cfg["dropout"],
-                max_num_agents=config["environment"]["max_num_drones"],
-                agentic_encoding=False
+                input_size=env.observation_spec[("agents", "observation","sensors")].shape[-1]
             )
         )
         in_keys["sensors"] = ("agents", "observation", "sensors")
         if config["environment"]["id_on_state"]:
             # Flat config for the agent_id part of the observation
-            flat_configs.append(
-                FlatEncoderConfig(
+            flat_inputs.append(
+                FlatEncoderInput(
                     key="agent_id",
                     input_size=env.observation_spec[("agents", "observation","agent_id")].shape[-1],
-                    embed_dim=flat_heads_cfg["embed_dim"],
-                    depth=flat_heads_cfg["depth"],
-                    num_cells=flat_heads_cfg["num_cells"],
-                    activation_class=get_activation_class(flat_heads_cfg["activation_function"])
                 )
             )
             in_keys["agent_id"] = ("agents", "observation", "agent_id")
     else:
         # Flat config for the entire observation when not sequential
-        flat_configs.append(
-            FlatEncoderConfig(
+        flat_inputs.append(
+            FlatEncoderInput(
                 key="observation",
-                input_size=env.observation_spec[("agents", "observation")].shape[-1],
-                embed_dim=flat_heads_cfg["embed_dim"],
-                depth=flat_heads_cfg["depth"],
-                num_cells=flat_heads_cfg["num_cells"],
-                activation_class=get_activation_class(flat_heads_cfg["activation_function"])
+                input_size=env.observation_spec[("agents", "observation")].shape[-1]
             )
         )
         in_keys["observation"] = ("agents", "observation")
 
     encoder = MultiAgentFlexModule(
-        sequential_configs=sequential_configs, 
-        flat_configs=flat_configs,
+        sequential_inputs=sequential_inputs, 
+        flat_inputs=flat_inputs,
+        sequential_config=sequential_config,
+        flat_config=flat_config,
         mix_layer_depth=flex_cfg["mix_layer_depth"],
         mix_layer_num_cells=flex_cfg["mix_layer_num_cells"],
         mix_activation_class=get_activation_class(flex_cfg["mix_activation_function"]),

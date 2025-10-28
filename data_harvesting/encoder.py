@@ -9,10 +9,6 @@ class SequentialEncoderConfig:
     """
     Configuration for a SequentialEncoder
     """
-    key: str
-    """The key this encoder processes."""
-    input_size: int
-    """Dimensionality of a single input feature in the sequence"""
     embed_dim: int
     """Dimensionality of the output embedding produced by this head."""
     head_dim: int
@@ -31,14 +27,20 @@ class SequentialEncoderConfig:
     """When ``True``, adds an agent embedding to the input based on the agent index."""
 
 @dataclass
-class FlatEncoderConfig:
+class SequentialEncoderInput:
     """
-    Configuration for a FlatEncoder
+    Represents an input that should be processed by a SequentialEncoder.
     """
     key: str
     """The key this encoder processes."""
     input_size: int
-    """Dimensionality of the flat input feature."""
+    """Dimensionality of a single input feature in the sequence"""
+
+@dataclass
+class FlatEncoderConfig:
+    """
+    Configuration for a FlatEncoder
+    """
     embed_dim: int
     """Dimensionality of the output embedding produced by this head."""
     depth: int
@@ -48,6 +50,16 @@ class FlatEncoderConfig:
     activation_class: type[nn.Module]
     """Activation function class used between MLP layers."""
 
+@dataclass
+class FlatEncoderInput:
+    """
+    Represents an input that should be processed by a FlatEncoder.
+    """
+    key: str
+    """The key this encoder processes."""
+    input_size: int
+    """Dimensionality of the flat input feature."""
+
 class SequentialEncoder(nn.Module):
     """
     A Transformer-based encoder that processes sequential observations. It receives data of shape
@@ -55,6 +67,7 @@ class SequentialEncoder(nn.Module):
     (*B, embed_dim) representing an intermediate representation of the input sequence.
     """
     def __init__(self, 
+                 input: SequentialEncoderInput,
                  config: SequentialEncoderConfig,
                  device: DEVICE_TYPING | None = None):
         """Initialize the sequential head.
@@ -65,9 +78,10 @@ class SequentialEncoder(nn.Module):
         """
         super().__init__()
         self.config = config
+        self.input = input
 
         # Linear layer to project input features to the embedding dimension
-        self.obs_encoder = nn.Linear(config.input_size, config.embed_dim, device=device)
+        self.obs_encoder = nn.Linear(input.input_size, config.embed_dim, device=device)
         # Embedding layer for agent indices
         self.agent_embedder = nn.Embedding(
             num_embeddings=config.max_num_agents,
@@ -110,7 +124,7 @@ class SequentialEncoder(nn.Module):
 
         # Combine with the externally provided agent mask
         if mask is not None:
-            padded_input_mask |= mask
+            padded_input_mask |= ~mask
 
         embed_output = self.obs_encoder(x)
 
@@ -133,6 +147,7 @@ class FlatEncoder(nn.Module):
     (*B, embed_dim) representing an intermediate representation of the input.
     """
     def __init__(self, 
+                 input: FlatEncoderInput,
                  config: FlatEncoderConfig,
                  centralized: bool,
                  n_agents: int,
@@ -149,7 +164,7 @@ class FlatEncoder(nn.Module):
         self.config = config
         self.centralized = centralized
 
-        input_dim = config.input_size
+        input_dim = input.input_size
         # If centralized, the input contains observations from all agents concatenated together.
         if self.centralized:
             input_dim *= n_agents
@@ -213,14 +228,20 @@ class AgentBlock(nn.Module):
             mask: A tensor of shape ``(*B, n_agents)`` containing the mask for agents that are alive.
         """
         head_outputs = []
+
         for key in self.seq_heads.keys():
             seq_input = observation[key]
+            mask_expanded: torch.Tensor | None = None
             if self.centralized:
                 # The agent dimension of sequential observations will be collapsed into a single sequence of size
                 # (*B, n_agents * seq_len). The model has no way of knowing which items in the sequence belong to which agent,
                 # so we provide an agent index tensor that, for each item in the sequence, indicates which agent it came from.
                 agent_idx_tensor = torch.arange(self.n_agents, device=seq_input.device).repeat_interleave(seq_input.shape[-2])
                 agent_idx_tensor = agent_idx_tensor.unsqueeze(0).expand(seq_input.shape[0], -1).unsqueeze(-1)
+
+                if mask is not None:
+                    # Expanding the mask to match the sequence length
+                    mask_expanded = mask.unsqueeze(-1).expand(-1, -1, seq_input.shape[-2]).flatten(-2)
 
                 # Collapse agent and temporal dimensions generically. Assumes trailing dims
                 # are (..., n_agents, seq_len, feature). This supports any (or no) leading
@@ -232,8 +253,11 @@ class AgentBlock(nn.Module):
                 # number of leading batch dimensions. Result keeps shape (..., seq_len, feature).
                 seq_input = seq_input.select(dim=-3, index=agent_idx)
                 agent_idx_tensor = torch.full_like(seq_input[..., :1, 0:1], agent_idx)
+                if mask is not None:
+                    # Expand the mask to match the sequence length
+                    mask_expanded = mask.select(dim=-1, index=agent_idx).unsqueeze(-2).expand(-1, seq_input.shape[-2])
 
-            seq_output = self.seq_heads[key](seq_input, agent_idx_tensor, mask)
+            seq_output = self.seq_heads[key](seq_input, agent_idx_tensor, mask_expanded)
 
             head_outputs.append(seq_output)
 
@@ -275,7 +299,9 @@ class MultiAgentFlexModule(nn.Module):
             :class:`torch.nn.Tanh` when ``None``.
         output_dim (int): Dimension of the final output.
         n_agents (int): Number of agents.
-        centralized (bool | None): If True, the network is centralized (processes all agents' observations together).
+        centralized (bool | None): If True, the network is centralized (processes all agents' observations together). One caveat is that
+                                       flat inputs will be processed by sequential heads in this mode, as they will be collapsed into a 
+                                       single sequence.
                                    If False, the network is decentralized (processes each agent's observation independently).
                                    If None, defaults to False.
         share_params (bool | None): If True, all agents share the same network parameters.
@@ -286,8 +312,10 @@ class MultiAgentFlexModule(nn.Module):
 
     def __init__(
         self,
-        sequential_configs: list[SequentialEncoderConfig],
-        flat_configs: list[FlatEncoderConfig],
+        sequential_config: SequentialEncoderConfig,
+        sequential_inputs: list[SequentialEncoderInput],
+        flat_inputs: list[FlatEncoderInput],
+        flat_config: FlatEncoderConfig,
         mix_layer_depth: int,
         mix_layer_num_cells: int,
         mix_activation_class: type[nn.Module] | None,
@@ -319,8 +347,10 @@ class MultiAgentFlexModule(nn.Module):
         per-agent processing stacks ahead of time so they can be reused on every forward pass.
         """
         super().__init__()
-        self.sequential_configs = sequential_configs
-        self.flat_configs = flat_configs
+        self.sequential_inputs = sequential_inputs
+        self.sequential_config = sequential_config
+        self.flat_inputs = flat_inputs
+        self.flat_config = flat_config
         self.output_dim = output_dim
         self.mix_layer_depth = mix_layer_depth
         self.mix_layer_num_cells = mix_layer_num_cells
@@ -352,14 +382,14 @@ class MultiAgentFlexModule(nn.Module):
                 batch size, or is placed on the wrong device.
         """
         # Validate every sequential key independently to surface precise, actionable errors.
-        for config in self.sequential_configs:
+        for config in self.sequential_inputs:
             if config.key not in inputs:
                 raise KeyError(f"Sequential key '{config.key}' not found in inputs.")
             if inputs[config.key].shape[-1] != config.input_size:
                 raise ValueError(f"Sequential input '{config.key}' last dimension must be {config.input_size}, got {inputs[config.key].shape[-1]}.")
 
         # Repeat the checks for flat keys to ensure downstream modules receive correctly shaped data.
-        for config in self.flat_configs:
+        for config in self.flat_inputs:
             if config.key not in inputs:
                 raise KeyError(f"Flat key '{config.key}' not found in inputs.")
             if inputs[config.key].shape[-1] != config.input_size:
@@ -367,7 +397,7 @@ class MultiAgentFlexModule(nn.Module):
         
         # Check for missing keys
         input_keys = set(inputs.keys())
-        expected_keys = {config.key for config in self.sequential_configs + self.flat_configs}
+        expected_keys = {config.key for config in self.sequential_inputs + self.flat_inputs}
         if input_keys != expected_keys:
             raise KeyError(f"Input keys do not match expected keys. Expected: {expected_keys}, got: {input_keys}.")
 
@@ -377,13 +407,13 @@ class MultiAgentFlexModule(nn.Module):
             if tensor.shape[0] != batch_dim:
                 raise ValueError(f"All input tensors must have the same batch size. Tensor '{key}' has batch size {tensor.shape[0]}, expected {batch_dim}.")
     
-    def _build_sequence_head(self, config: SequentialEncoderConfig, device) -> SequentialEncoder:
+    def _build_sequence_head(self, seq_input: SequentialEncoderInput, device) -> SequentialEncoder:
         """Instantiate the Transformer block stack that processes a sequential observation key."""
-        return SequentialEncoder(config, device=device)
+        return SequentialEncoder(seq_input, self.sequential_config, device=device)
 
-    def _build_flat_head(self, config: FlatEncoderConfig, device) -> FlatEncoder:
+    def _build_flat_head(self, flat_input: FlatEncoderInput, device) -> FlatEncoder:
         """Instantiate the MLP head that processes a flat observation key."""
-        return FlatEncoder(config, self.centralized, self.n_agents, device=device)
+        return FlatEncoder(flat_input, self.flat_config, self.centralized, self.n_agents, device=device)
     
     def _build_agent_network(self) -> nn.Module:
         """Assemble and register the per-agent processing stacks.
@@ -392,16 +422,24 @@ class MultiAgentFlexModule(nn.Module):
             nn.Module: container with attributes ``seq_heads``, ``flat_heads`` and ``mix_layer``.
         """
         seq_heads: dict[str, nn.Module] = {}
-        for cfg in self.sequential_configs:
-            seq_heads[cfg.key] = self._build_sequence_head(cfg, self.device)
+        for seq_input in self.sequential_inputs:
+            seq_heads[seq_input.key] = self._build_sequence_head(seq_input, self.device)
 
         flat_heads: dict[str, nn.Module] = {}
-        for cfg in self.flat_configs:
-            flat_heads[cfg.key] = self._build_flat_head(cfg, self.device)
+        for flat_input in self.flat_inputs:
+            # If the inputs are centralized, the flat inputs will be collapsed into an input sequence
+            # and processed by a sequential head instead.
+            if self.centralized:
+                seq_heads[flat_input.key] = self._build_sequence_head(
+                    SequentialEncoderInput(input_size=flat_input.input_size, key=flat_input.key),
+                    self.device
+                )
+            else:
+                flat_heads[flat_input.key] = self._build_flat_head(flat_input, self.device)
 
         mix_input_dim = (
-            sum(cfg.embed_dim for cfg in self.sequential_configs)
-            + sum(cfg.embed_dim for cfg in self.flat_configs)
+            sum(self.sequential_config.embed_dim for _ in self.sequential_inputs)
+            + sum(self.flat_config.embed_dim for _ in self.flat_inputs)
         )
         mix_layer = MLP(
             in_features=mix_input_dim,
@@ -429,6 +467,15 @@ class MultiAgentFlexModule(nn.Module):
         self._pre_forward_check(observation)
 
         num_agents = self.n_agents if not self.centralized else 1
+
+        # Unsqueezing flat inputs into sequences when centralized so that they can be
+        # processed by the sequential heads.
+        if self.centralized:
+            for flat_input in self.flat_inputs:
+                key = flat_input.key
+                obs_tensor = observation[key]
+                obs_tensor = obs_tensor.unsqueeze(-2)  # Add sequence dimension
+                observation[key] = obs_tensor
 
         all_agent_outputs = []
         for agent_idx in range(num_agents):
