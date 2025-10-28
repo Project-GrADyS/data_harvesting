@@ -20,7 +20,7 @@ environment:
   # Number of closest sensors to include in the state.
   state_num_closest_sensors: 12
   # Number of closest drones to include in the state.
-  state_num_closest_drones: 1
+  state_num_closest_drones: 7
   # Whether to include agent IDs in the state.
   id_on_state: true
   # Minimum priority value for sensors.
