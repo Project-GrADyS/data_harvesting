@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/2cedf076465742718c6994fddadb2d50/artifacts
+deleted_time: 1761610124268
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: deleted
+run_id: 2cedf076465742718c6994fddadb2d50
+run_name: flawless-gnu-511
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761533896156
+status: 1
+tags: []
+user_id: thlamz

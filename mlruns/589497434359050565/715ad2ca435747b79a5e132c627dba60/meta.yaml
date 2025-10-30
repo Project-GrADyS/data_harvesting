@@ -1,8 +1,9 @@
 artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/715ad2ca435747b79a5e132c627dba60/artifacts
+deleted_time: 1761610124935
 end_time: null
 entry_point_name: ''
 experiment_id: '589497434359050565'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: 715ad2ca435747b79a5e132c627dba60
 run_name: unruly-crow-698
 source_name: ''

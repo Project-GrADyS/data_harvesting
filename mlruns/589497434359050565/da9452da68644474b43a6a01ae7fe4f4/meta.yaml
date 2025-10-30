@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/da9452da68644474b43a6a01ae7fe4f4/artifacts
+deleted_time: 1761610124168
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: deleted
+run_id: da9452da68644474b43a6a01ae7fe4f4
+run_name: defiant-shad-551
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761580397367
+status: 1
+tags: []
+user_id: thlamz

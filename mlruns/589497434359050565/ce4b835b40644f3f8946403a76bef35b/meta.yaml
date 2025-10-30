@@ -1,8 +1,9 @@
 artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/ce4b835b40644f3f8946403a76bef35b/artifacts
+deleted_time: 1761610125060
 end_time: 1760210772108
 entry_point_name: ''
 experiment_id: '589497434359050565'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: ce4b835b40644f3f8946403a76bef35b
 run_name: bedecked-panda-125
 source_name: ''

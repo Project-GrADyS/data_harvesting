@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/d707264bbb274102815bff19f5ba427f/artifacts
+deleted_time: 1761610124074
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: deleted
+run_id: d707264bbb274102815bff19f5ba427f
+run_name: tasteful-whale-795
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761592546286
+status: 1
+tags: []
+user_id: thlamz

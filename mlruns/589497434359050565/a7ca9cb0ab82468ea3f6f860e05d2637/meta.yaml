@@ -1,8 +1,9 @@
 artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/a7ca9cb0ab82468ea3f6f860e05d2637/artifacts
+deleted_time: 1761610124047
 end_time: 1760217691330
 entry_point_name: ''
 experiment_id: '589497434359050565'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: a7ca9cb0ab82468ea3f6f860e05d2637
 run_name: orderly-tern-984
 source_name: ''

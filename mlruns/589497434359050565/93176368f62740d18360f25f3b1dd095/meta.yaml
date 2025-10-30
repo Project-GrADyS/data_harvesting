@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/93176368f62740d18360f25f3b1dd095/artifacts
+deleted_time: 1761610123951
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: deleted
+run_id: 93176368f62740d18360f25f3b1dd095
+run_name: serious-elk-42
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761607237636
+status: 1
+tags: []
+user_id: thlamz

@@ -1,8 +1,9 @@
 artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/64b1c16fef244f16864ef284ba9cb7f5/artifacts
+deleted_time: 1761610124974
 end_time: 1760214422812
 entry_point_name: ''
 experiment_id: '589497434359050565'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: 64b1c16fef244f16864ef284ba9cb7f5
 run_name: luxuriant-shark-334
 source_name: ''

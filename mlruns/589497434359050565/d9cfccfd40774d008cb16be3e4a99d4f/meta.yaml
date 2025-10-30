@@ -1,8 +1,9 @@
 artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/d9cfccfd40774d008cb16be3e4a99d4f/artifacts
+deleted_time: 1761610124283
 end_time: null
 entry_point_name: ''
 experiment_id: '589497434359050565'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: d9cfccfd40774d008cb16be3e4a99d4f
 run_name: abrasive-owl-914
 source_name: ''

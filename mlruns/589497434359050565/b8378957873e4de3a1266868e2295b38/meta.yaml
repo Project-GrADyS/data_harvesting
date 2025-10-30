@@ -1,8 +1,9 @@
 artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/b8378957873e4de3a1266868e2295b38/artifacts
+deleted_time: 1761610124341
 end_time: null
 entry_point_name: ''
 experiment_id: '589497434359050565'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: b8378957873e4de3a1266868e2295b38
 run_name: popular-gull-786
 source_name: ''

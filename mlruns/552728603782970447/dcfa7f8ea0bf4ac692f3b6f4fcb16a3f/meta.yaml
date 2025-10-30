@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/552728603782970447/dcfa7f8ea0bf4ac692f3b6f4fcb16a3f/artifacts
+deleted_time: 1761659666685
+end_time: 1761611860340
+entry_point_name: ''
+experiment_id: '552728603782970447'
+lifecycle_stage: deleted
+run_id: dcfa7f8ea0bf4ac692f3b6f4fcb16a3f
+run_name: kindly-finch-692
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761611565764
+status: 4
+tags: []
+user_id: thlamz

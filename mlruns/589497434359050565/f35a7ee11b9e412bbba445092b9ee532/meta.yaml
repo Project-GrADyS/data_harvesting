@@ -1,8 +1,9 @@
 artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/f35a7ee11b9e412bbba445092b9ee532/artifacts
+deleted_time: 1761610124585
 end_time: 1760227076962
 entry_point_name: ''
 experiment_id: '589497434359050565'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: f35a7ee11b9e412bbba445092b9ee532
 run_name: delightful-smelt-540
 source_name: ''

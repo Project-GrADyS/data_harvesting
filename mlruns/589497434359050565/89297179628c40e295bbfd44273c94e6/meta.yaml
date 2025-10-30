@@ -1,8 +1,9 @@
 artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/89297179628c40e295bbfd44273c94e6/artifacts
+deleted_time: 1761610124459
 end_time: null
 entry_point_name: ''
 experiment_id: '589497434359050565'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: 89297179628c40e295bbfd44273c94e6
 run_name: smiling-stork-264
 source_name: ''

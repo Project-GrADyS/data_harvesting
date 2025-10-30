@@ -1,8 +1,9 @@
 artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/b550a5c5f5b840ee9625b22947838a16/artifacts
+deleted_time: 1761610124897
 end_time: 1760215604367
 entry_point_name: ''
 experiment_id: '589497434359050565'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: b550a5c5f5b840ee9625b22947838a16
 run_name: melodic-lark-207
 source_name: ''

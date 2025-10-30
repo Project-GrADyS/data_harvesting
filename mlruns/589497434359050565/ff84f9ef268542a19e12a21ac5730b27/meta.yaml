@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/ff84f9ef268542a19e12a21ac5730b27/artifacts
+deleted_time: 1761610124237
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: deleted
+run_id: ff84f9ef268542a19e12a21ac5730b27
+run_name: unruly-mare-881
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761573804396
+status: 1
+tags: []
+user_id: thlamz

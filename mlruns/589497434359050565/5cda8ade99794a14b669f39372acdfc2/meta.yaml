@@ -1,8 +1,9 @@
 artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/5cda8ade99794a14b669f39372acdfc2/artifacts
+deleted_time: 1761610124997
 end_time: null
 entry_point_name: ''
 experiment_id: '589497434359050565'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: 5cda8ade99794a14b669f39372acdfc2
 run_name: spiffy-lamb-557
 source_name: ''

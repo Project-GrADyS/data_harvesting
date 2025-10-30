@@ -1,8 +1,9 @@
 artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/50b0327bf1ac4080b5712ed9f5850b0c/artifacts
+deleted_time: 1761610124860
 end_time: 1760215933204
 entry_point_name: ''
 experiment_id: '589497434359050565'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: 50b0327bf1ac4080b5712ed9f5850b0c
 run_name: luxuriant-frog-727
 source_name: ''

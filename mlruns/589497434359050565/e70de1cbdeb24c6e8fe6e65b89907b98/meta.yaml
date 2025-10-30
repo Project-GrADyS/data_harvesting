@@ -1,8 +1,9 @@
 artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/e70de1cbdeb24c6e8fe6e65b89907b98/artifacts
+deleted_time: 1761610124448
 end_time: null
 entry_point_name: ''
 experiment_id: '589497434359050565'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: e70de1cbdeb24c6e8fe6e65b89907b98
 run_name: puzzled-mink-943
 source_name: ''

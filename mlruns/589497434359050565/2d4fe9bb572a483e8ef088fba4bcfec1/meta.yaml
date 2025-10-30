@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/2d4fe9bb572a483e8ef088fba4bcfec1/artifacts
+deleted_time: 1761610123970
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: deleted
+run_id: 2d4fe9bb572a483e8ef088fba4bcfec1
+run_name: redolent-steed-853
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761606463337
+status: 1
+tags: []
+user_id: thlamz

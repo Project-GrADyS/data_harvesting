@@ -1,8 +1,9 @@
 artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/8c27acaf423349babc8787e81d388463/artifacts
+deleted_time: 1761610124597
 end_time: null
 entry_point_name: ''
 experiment_id: '589497434359050565'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: 8c27acaf423349babc8787e81d388463
 run_name: bold-shrew-485
 source_name: ''
