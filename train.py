@@ -10,6 +10,15 @@ from tqdm import tqdm
 
 torch.set_float32_matmul_precision('high')
 
+def save_model(algorithm: MADDPGAlgorithm | MAPPOAlgorithm):
+    # Move to CPU for portability when loading in environments without CUDA
+    try:
+        policy_cpu = algorithm.policy.to("cpu")
+    except Exception:
+        # If .to is unsupported for any wrapped module, fall back to original
+        policy_cpu = algorithm.policy
+    mlflow.pytorch.log_model(policy_cpu, name="policy_model")
+
 def train(config: dict, run_name: str | None = None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -42,36 +51,39 @@ def train(config: dict, run_name: str | None = None):
         mlflow.start_run(run_name=run_name), 
         create_collector(algorithm.exploratory_policy, device, transformed_env, config) as collector
     ):
-        mlflow.log_params(config)
+        try:
+            mlflow.log_params(config)
 
-        metrics_logger = EnvironmentMetricsCollector()
-        learning_logger = LearningMetricsCollector()
+            metrics_logger = EnvironmentMetricsCollector()
+            learning_logger = LearningMetricsCollector()
 
-        experience_steps = 0
-        last_metric_log = 0
+            experience_steps = 0
+            last_metric_log = 0
 
-        # Training/collection iterations
-        for iteration, batch in enumerate(collector):
-            current_frames = batch.numel()
+            # Training/collection iterations
+            for iteration, batch in enumerate(collector):
+                current_frames = batch.numel()
+                
+                # Learning step
+                losses = algorithm.learn(batch)
+                for loss_name, loss_value in losses.items():
+                    learning_logger.report_loss(loss_name, loss_value)
+                metrics_logger.report_metrics(batch)
+                
+                # Logging
+                if experience_steps - last_metric_log > log_every_n_steps:
+                    learning_logger.log_metrics(experience_steps)
+                    metrics_logger.log_metrics(experience_steps)
+                    last_metric_log = experience_steps
+
+                pbar.update(current_frames)
+                experience_steps += current_frames
             
-            # Learning step
-            losses = algorithm.learn(batch)
-            for loss_name, loss_value in losses.items():
-                learning_logger.report_loss(loss_name, loss_value)
-            metrics_logger.report_metrics(batch)
-            
-            # Logging
-            if experience_steps - last_metric_log > log_every_n_steps:
-                learning_logger.log_metrics(experience_steps)
-                metrics_logger.log_metrics(experience_steps)
-                last_metric_log = experience_steps
-
-            pbar.update(current_frames)
-            experience_steps += current_frames
-        
-        # Logging metrics at the end of training
-        learning_logger.log_metrics(experience_steps)
-        metrics_logger.log_metrics(experience_steps)
+            # Logging metrics at the end of training
+            learning_logger.log_metrics(experience_steps)
+            metrics_logger.log_metrics(experience_steps)
+        finally:
+            save_model(algorithm)
 
     # Returning the final average reward as a simple measure of performance
     # Useful for hyperparameter tuning
