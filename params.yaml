@@ -52,7 +52,7 @@ actor:
 
 training:
   # Total number of training timesteps.
-  total_timesteps: 5000000
+  total_timesteps: 300000
   # Initial sigma for exploration noise (AdditiveGaussianModule).
   exploration_sigma_init: 0.1
   # Final sigma for exploration noise (AdditiveGaussianModule).
@@ -60,7 +60,7 @@ training:
   # Number of steps to anneal sigma from init to end (AdditiveGaussianModule).
   exploration_annealing_steps: 500_000
   # Batch size for training updates.
-  batch_size: 2048
+  batch_size: 1024
   # Algorithm to use. Options: "maddpg", "mappo"
   algorithm: maddpg
 
