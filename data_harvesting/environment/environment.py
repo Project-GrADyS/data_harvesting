@@ -7,11 +7,6 @@ from typing import List, Optional
 
 import gymnasium
 import numpy as np
-from gradysim.protocol.interface import IProtocol
-from gradysim.protocol.messages.communication import BroadcastMessageCommand
-from gradysim.protocol.messages.mobility import GotoCoordsMobilityCommand, SetSpeedMobilityCommand
-from gradysim.protocol.messages.telemetry import Telemetry
-from gradysim.protocol.position import squared_distance
 from gradysim.simulator.event import EventLoop
 from gradysim.simulator.handler.communication import CommunicationHandler, CommunicationMedium
 from gradysim.simulator.handler.interface import INodeHandler
@@ -25,106 +20,8 @@ from gymnasium.spaces import Box, Dict
 from pettingzoo import ParallelEnv
 from torchrl.envs import PettingZooWrapper, MarlGroupMapType
 
+from data_harvesting.environment.protocols import SensorProtocol, DroneProtocol
 
-class SensorProtocol(IProtocol):
-    has_collected: bool
-
-    min_priority: int = 0
-    max_priority: int = 1
-
-    def initialize(self) -> None:
-        self.priority = random.uniform(self.min_priority, self.max_priority)
-        self.provider.tracked_variables["priority"] = self.priority
-        self.has_collected = False
-        self.provider.tracked_variables["collected"] = self.has_collected
-
-    def handle_packet(self, message: str) -> None:
-        self.has_collected = True
-        self.provider.tracked_variables["collected"] = self.has_collected
-
-    def handle_timer(self, timer: str) -> None:
-        pass
-
-    def handle_telemetry(self, telemetry: Telemetry) -> None:
-        pass
-
-    def finish(self) -> None:
-        pass
-
-
-class DroneProtocol(IProtocol):
-    current_position: tuple[float, float, float]
-    speed_action: bool = False
-    algorithm_interval: float = 0.1
-
-    def act(self, action: List[float], coordinate_limit: float) -> None:
-        self.provider.tracked_variables['current_action'] = list(action)
-
-        direction: float = action[0] * 2 * math.pi
-
-        if self.speed_action:
-            speed: float = action[1] * 15
-            command = SetSpeedMobilityCommand(speed)
-            self.provider.send_mobility_command(command)
-
-        unit_vector = [math.cos(direction), math.sin(direction)]
-
-        distance_to_x_edge = coordinate_limit - abs(self.current_position[0])
-        distance_to_y_edge = coordinate_limit - abs(self.current_position[1])
-
-        # Maintain direction but bound destination within scenario
-        if distance_to_x_edge > 0 and distance_to_y_edge > 0:
-            scale_x = distance_to_x_edge / (abs(unit_vector[0]) + 1e-10)
-            scale_y = distance_to_y_edge / (abs(unit_vector[1]) + 1e-10)
-            scale = min(scale_x, scale_y)
-
-            destination = [
-                self.current_position[0] + unit_vector[0] * scale,
-                self.current_position[1] + unit_vector[1] * scale,
-                0
-            ]
-
-        # If the drone is at the edge of the scenario, prevent it from leaving
-        else:
-            destination = [
-                self.current_position[0] + unit_vector[0] * 1e5,
-                self.current_position[1] + unit_vector[1] * 1e5,
-                0
-            ]
-            # Bound destination within scenario
-            destination[0] = max(-coordinate_limit, min(coordinate_limit, destination[0]))
-            destination[1] = max(-coordinate_limit, min(coordinate_limit, destination[1]))
-
-        # Start travelling in the direction of travel
-        command = GotoCoordsMobilityCommand(*destination)
-        self.provider.send_mobility_command(command)
-
-        if self.speed_action:
-            self.provider.schedule_timer("", self.provider.current_time() + self.algorithm_interval * 0.99)
-
-    def initialize(self) -> None:
-        self.current_position = (0, 0, 0)
-        self._collect_packets()
-        if not self.speed_action:
-            self.provider.schedule_timer("", self.provider.current_time() + 0.1)
-
-    def handle_timer(self, timer: str) -> None:
-        self._collect_packets()
-        if not self.speed_action:
-            self.provider.schedule_timer("", self.provider.current_time() + 0.1)
-
-    def handle_packet(self, message: str) -> None:
-        pass
-
-    def handle_telemetry(self, telemetry: Telemetry) -> None:
-        self.current_position = telemetry.current_position
-
-    def _collect_packets(self) -> None:
-        command = BroadcastMessageCommand("")
-        self.provider.send_communication_command(command)
-
-    def finish(self) -> None:
-        pass
 
 @dataclasses.dataclass
 class GrADySEnvironmentConfig:
