@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/256522931402279818/3931c3f96749455899dd4bc1b667e55e/artifacts
+end_time: 1768605975596
+entry_point_name: ''
+experiment_id: '256522931402279818'
+lifecycle_stage: active
+run_id: 3931c3f96749455899dd4bc1b667e55e
+run_name: selective-fish-731
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768604666092
+status: 4
+tags: []
+user_id: thlamz

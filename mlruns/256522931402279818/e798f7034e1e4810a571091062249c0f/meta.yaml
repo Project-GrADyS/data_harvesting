@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/256522931402279818/e798f7034e1e4810a571091062249c0f/artifacts
+end_time: 1768604425042
+entry_point_name: ''
+experiment_id: '256522931402279818'
+lifecycle_stage: active
+run_id: e798f7034e1e4810a571091062249c0f
+run_name: merciful-kit-6
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768604054887
+status: 3
+tags: []
+user_id: thlamz

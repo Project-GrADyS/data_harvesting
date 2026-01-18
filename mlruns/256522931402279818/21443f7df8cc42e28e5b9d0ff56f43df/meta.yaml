@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/256522931402279818/21443f7df8cc42e28e5b9d0ff56f43df/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '256522931402279818'
+lifecycle_stage: active
+run_id: 21443f7df8cc42e28e5b9d0ff56f43df
+run_name: burly-shoat-429
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768606885784
+status: 1
+tags: []
+user_id: thlamz

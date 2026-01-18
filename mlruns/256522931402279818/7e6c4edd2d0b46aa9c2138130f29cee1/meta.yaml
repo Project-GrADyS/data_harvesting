@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/256522931402279818/7e6c4edd2d0b46aa9c2138130f29cee1/artifacts
+end_time: 1768347198840
+entry_point_name: ''
+experiment_id: '256522931402279818'
+lifecycle_stage: active
+run_id: 7e6c4edd2d0b46aa9c2138130f29cee1
+run_name: marvelous-perch-373
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768346993008
+status: 4
+tags: []
+user_id: thlamz

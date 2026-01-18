@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/8a47d891d40c43f785a5ae503d1f8616/artifacts
+end_time: 1768608812479
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: 8a47d891d40c43f785a5ae503d1f8616
+run_name: defiant-fawn-510
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768608528632
+status: 4
+tags: []
+user_id: thlamz

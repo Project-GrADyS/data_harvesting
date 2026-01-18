@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/256522931402279818/c28120e6954b49829c9ba5ff5c888ded/artifacts
+end_time: 1768608034105
+entry_point_name: ''
+experiment_id: '256522931402279818'
+lifecycle_stage: active
+run_id: c28120e6954b49829c9ba5ff5c888ded
+run_name: legendary-zebra-12
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768607580633
+status: 4
+tags: []
+user_id: thlamz

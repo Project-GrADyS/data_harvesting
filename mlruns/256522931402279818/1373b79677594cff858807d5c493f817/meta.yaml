@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/256522931402279818/1373b79677594cff858807d5c493f817/artifacts
+end_time: 1768346594668
+entry_point_name: ''
+experiment_id: '256522931402279818'
+lifecycle_stage: active
+run_id: 1373b79677594cff858807d5c493f817
+run_name: auspicious-slug-183
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768346169778
+status: 4
+tags: []
+user_id: thlamz
