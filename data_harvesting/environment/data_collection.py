@@ -1,3 +1,6 @@
+import dataclasses
+import enum
+import enum
 import math
 import random
 from typing import Optional
@@ -10,14 +13,47 @@ from gradysim.simulator.handler.mobility import MobilityHandler, MobilityConfigu
 from gradysim.simulator.handler.timer import TimerHandler
 from gradysim.simulator.handler.visualization import VisualizationHandler, VisualizationConfiguration
 from gradysim.simulator.extension.visualization_controller import VisualizationController
-from tensordict import TensorDict, TensorDictBase
+from tensordict import TensorDictBase
 from torchrl.data import Bounded
 from torchrl.data.tensor_specs import Categorical, Composite, Unbounded
 from torchrl.envs import EnvBase
 
-from data_harvesting.environment.gradys_env import BaseGrADySEnvironment, SimulationStatus
-from data_harvesting.environment.environment import EndCause, GrADySEnvironmentConfig
+from data_harvesting.environment.gradys_env import BaseGrADySEnvironment
 from data_harvesting.environment.protocols import DroneProtocol, SensorProtocol
+
+@dataclasses.dataclass
+class GrADySEnvironmentConfig:
+    """Configuration for GrADyS environment (only 'relative' observation mode retained)."""
+
+    render_mode: Optional[str] = None  # "visual" | "console"
+    algorithm_iteration_interval: float = 0.5
+    # Number of drone agents is samples from [min_num_drones, max_num_drones].
+    # To fix the number, set min_num_drones == max_num_drones.
+    min_num_drones: int = 1
+    max_num_drones: int = 1
+    # Number of sensors is always sampled each reset from [min_num_sensors, max_num_sensors].
+    # To fix the number, set min_num_sensors == max_num_sensors.
+    min_num_sensors: int = 2
+    max_num_sensors: int = 2
+    scenario_size: float = 100
+    max_episode_length: int = 500
+    max_seconds_stalled: int = 30
+    communication_range: float = 20
+    state_num_closest_sensors: int = 2
+    state_num_closest_drones: int = 2
+    id_on_state: bool = True
+    min_sensor_priority: float = 0.1
+    max_sensor_priority: float = 1
+    full_random_drone_position: bool = False
+    reward: str = 'punish'  # 'punish' | 'time-reward' | 'reward'
+    speed_action: bool = True
+    end_when_all_collected: bool = True
+
+class EndCause(enum.Enum):
+    NONE = 0
+    TIMEOUT = 1
+    ALL_COLLECTED = 2
+    STALLED = 3
 
 class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
     """
