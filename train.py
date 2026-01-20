@@ -47,9 +47,10 @@ def train(config: dict, run_name: str | None = None):
 
     pbar = tqdm(total=total_steps)
 
+    collection_device = config["collector"]["device"]
     with (
         mlflow.start_run(run_name=run_name), 
-        create_collector(algorithm.exploratory_policy, device, transformed_env, config) as collector
+        create_collector(algorithm.exploratory_policy, collection_device, transformed_env, config) as collector
     ):
         try:
             mlflow.log_params(config)
@@ -71,6 +72,12 @@ def train(config: dict, run_name: str | None = None):
                 for loss_name, loss_value in losses.items():
                     learning_logger.report_loss(loss_name, loss_value)
                 metrics_logger.report_metrics(batch)
+
+                # Sync updated policy weights to collector workers.
+                # On CUDA this is a no-op (workers share GPU memory via CUDA IPC),
+                # but on CPU workers hold independent copies that must be
+                # explicitly refreshed after each training step.
+                collector.update_policy_weights_()
                 
                 # Logging
                 if experience_steps - last_metric_log > log_every_n_steps:

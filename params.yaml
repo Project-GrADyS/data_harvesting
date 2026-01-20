@@ -83,6 +83,8 @@ collector:
   frames_per_batch: 1024
   # Whether to use async collectors
   async_collector: true
+  # Device used for collecting experiences ("cpu" or "cuda").
+  device: cpu
 
 replay_buffer:
   # Size of the replay buffer (number of transitions it can store).
