@@ -63,6 +63,8 @@ def train(config: dict, run_name: str | None = None):
             # Training/collection iterations
             for iteration, batch in enumerate(collector):
                 current_frames = batch.numel()
+                # The batch shape is (num_collectors, frames_per_batch, ...), flatten it to a single batch dimension
+                batch = batch.reshape(-1)
                 
                 # Learning step
                 losses = algorithm.learn(batch)
