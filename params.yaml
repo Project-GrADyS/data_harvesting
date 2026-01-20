@@ -135,24 +135,24 @@ flex_encoder:
   # key whose tensor shape is (batch, n_agents, seq_len, input_dim).
   # Provide one block per sequential sub-observation you wish to encode.
   sequential_heads:
-    embed_dim: 128                  # Output embedding size of this head
-    head_dim: 32                    # Dimension per attention head
-    num_heads: 4                    # Number of attention heads
-    ff_dim: 128                     # Feed-forward (Transformer MLP) inner dim
-    depth: 2                        # Number of Transformer layers
-    dropout: 0.1                    # Dropout probability inside Transformer
-    critic_agent_embedding: true           # Enrich observation encoding with agent ID embeddings
+    embed_dim: 128 # Output embedding size of this head
+    head_dim: 32 # Dimension per attention head
+    num_heads: 4 # Number of attention heads
+    ff_dim: 128 # Feed-forward (Transformer MLP) inner dim
+    depth: 2 # Number of Transformer layers
+    dropout: 0.1 # Dropout probability inside Transformer
+    critic_agent_embedding: true # Enrich observation encoding with agent ID embeddings
 
   # MLP-based flat heads. Each entry corresponds to an observation key whose
   # tensor shape is (batch, n_agents, input_dim) (no temporal dimension).
   flat_heads:
-    embed_dim: 128                  # Output embedding size of this flat head
-    depth: 1                        # Hidden layer count inside this head MLP
-    num_cells: 128                  # Hidden layer width
-    activation_function: Tanh       # One of: Tanh, ReLU, LeakyReLU
+    embed_dim: 128 # Output embedding size of this flat head
+    depth: 1 # Hidden layer count inside this head MLP
+    num_cells: 128 # Hidden layer width
+    activation_function: Tanh # One of: Tanh, ReLU, LeakyReLU
 
   # Final mixing MLP that fuses ALL head outputs per-agent (or centrally) into
   # a unified embedding of size output_dim below.
-  mix_layer_depth: 1                  # Hidden layer count of mixing MLP
-  mix_layer_num_cells: 256            # Hidden layer width of mixing MLP
-  mix_activation_function: Tanh       # Activation for mixing MLP
+  mix_layer_depth: 1 # Hidden layer count of mixing MLP
+  mix_layer_num_cells: 256 # Hidden layer width of mixing MLP
+  mix_activation_function: Tanh # Activation for mixing MLP
