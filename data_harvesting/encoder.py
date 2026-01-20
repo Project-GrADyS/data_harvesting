@@ -465,10 +465,16 @@ class MultiAgentFlexModule(nn.Module):
             else:
                 flat_heads[flat_input.key] = self._build_flat_head(flat_input, self.device)
 
-        mix_input_dim = (
-            sum(self.sequential_config.embed_dim for _ in self.sequential_inputs)
-            + sum(self.flat_config.embed_dim for _ in self.flat_inputs)
-        )
+        if self.centralized:
+            # When centralized, all inputs (sequential and flat) are processed by sequential heads.
+            mix_input_dim = sum(
+                self.sequential_config.embed_dim for _ in self.sequential_inputs + self.flat_inputs
+            )
+        else:
+            mix_input_dim = (
+                sum(self.sequential_config.embed_dim for _ in self.sequential_inputs)
+                + sum(self.flat_config.embed_dim for _ in self.flat_inputs)
+            )
         mix_layer = MLP(
             in_features=mix_input_dim,
             out_features=self.output_dim,
