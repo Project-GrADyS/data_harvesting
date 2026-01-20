@@ -205,17 +205,19 @@ class AgentBlock(nn.Module):
                  flat_heads: dict[str, FlatEncoder], 
                  mix_layer: nn.Module,
                  centralized: bool = False,
+                 share_params: bool = False,
                  n_agents: int = 1,):
         super().__init__()
         self.seq_heads = nn.ModuleDict(seq_heads)
         self.flat_heads = nn.ModuleDict(flat_heads)
         self.mix_layer = mix_layer
         self.centralized = centralized
+        self.share_params = share_params
         self.n_agents = n_agents
 
     def forward(self, 
                 observation: dict[str, torch.Tensor], 
-                agent_idx: torch.Tensor,
+                agent_idx: int,
                 mask: torch.Tensor | None = None) -> torch.Tensor:
         """
         Processes observations and produces a per-agent output. 
@@ -231,7 +233,10 @@ class AgentBlock(nn.Module):
 
         for key in self.seq_heads.keys():
             seq_input = observation[key]
+            original_shape = seq_input.shape
             mask_expanded: torch.Tensor | None = None
+            
+            # If the model is centralized, all agents' sequential inputs are concatenated into a single sequence.
             if self.centralized:
                 # The agent dimension of sequential observations will be collapsed into a single sequence of size
                 # (*B, n_agents * seq_len). The model has no way of knowing which items in the sequence belong to which agent,
@@ -247,7 +252,17 @@ class AgentBlock(nn.Module):
                 # are (..., n_agents, seq_len, feature). This supports any (or no) leading
                 # batch dimensions without explicit unpacking.
                 seq_input = seq_input.flatten(start_dim=-3, end_dim=-2)
-                
+            # If we are sharing parameters, merge the agent dimension with the batch dimensions
+            elif self.share_params:
+                # Merging agent dimension into batch dimensions (*B, n_agents, seq_len, feature) -> (*B * n_agents, seq_len, feature)
+                seq_input = seq_input.flatten(start_dim=0, end_dim=-3)
+                agent_idx_repeats = seq_input.shape[-3] // self.n_agents
+                agent_idx_tensor = torch.arange(self.n_agents, device=seq_input.device).repeat(agent_idx_repeats)
+                agent_idx_tensor = agent_idx_tensor.unsqueeze(-1)
+                if mask is not None:
+                    # Expand the mask to match the sequence length
+                    mask_expanded = mask.flatten(start_dim=0, end_dim=-2).unsqueeze(-1).expand(-1, seq_input.shape[-2])
+            # If we are not sharing parameters, select the specific agent's input and process only it.
             else:
                 # Select the agent along the -3 (agent) axis without assuming any specific
                 # number of leading batch dimensions. Result keeps shape (..., seq_len, feature).
@@ -257,18 +272,32 @@ class AgentBlock(nn.Module):
                     # Expand the mask to match the sequence length
                     mask_expanded = mask.select(dim=-1, index=agent_idx).unsqueeze(-2).expand(-1, seq_input.shape[-2])
 
-            seq_output = self.seq_heads[key](seq_input, agent_idx_tensor, mask_expanded)
+            seq_output: torch.Tensor = self.seq_heads[key](seq_input, agent_idx_tensor, mask_expanded)
+
+            if not self.centralized and self.share_params:
+                # Reshaping back to original batch dimensions with agent dimension separate
+                # Unflatten only when a batch dimension originally existed
+                # (n_agents, embed_dim) -> (n_agents, embed_dim) but (*B * n_agents, embed_dim) -> (*B, n_agents, embed_dim)
+                leading_batch_dims = original_shape[:-3]
+                seq_output = seq_output.view(*leading_batch_dims, self.n_agents, seq_output.shape[-1])
 
             head_outputs.append(seq_output)
 
         for key in self.flat_heads.keys():
             flat_input = observation[key]
+
+            # If the model is centralized, all agents' flat inputs are concatenated together into a single flat vector.
             if self.centralized:
                 # Flattening along the agent dimension
                 flat_input = flat_input.flatten(start_dim=-2, end_dim=-1)
+            # If we are sharing parameters, process the input as is, containing all agents' flat inputs.
+            elif self.share_params:
+                pass
+            # If we are not sharing parameters, select the specific agent's input and process only it.
             else:
                 # Select specific agent slice
                 flat_input = flat_input.select(dim=-2, index=agent_idx)
+
             flat_output = self.flat_heads[key](flat_input)
             head_outputs.append(flat_output)
 
@@ -358,11 +387,10 @@ class MultiAgentFlexModule(nn.Module):
         self.n_agents = n_agents
         self.centralized = centralized if centralized is not None else False
         self.share_params = share_params
-        # Centralized networks always share parameters.
+
+        # No need for shared parameters when centralized. Only a single model will be used.
         if self.centralized:
-            self.share_params = True
-        else:
-            self.share_params = share_params if share_params is not None else False
+            self.share_params = False
 
         self.device = torch.device(device) if device is not None else torch.device("cpu")
 
@@ -449,7 +477,7 @@ class MultiAgentFlexModule(nn.Module):
             activation_class=self.mix_activation_class,
             device=self.device,
         )
-        return AgentBlock(seq_heads, flat_heads, mix_layer, self.centralized, self.n_agents)
+        return AgentBlock(seq_heads, flat_heads, mix_layer, self.centralized, self.share_params, self.n_agents)
 
     def forward(self, mask: torch.Tensor | None = None, **observation: torch.Tensor) -> torch.Tensor:
         """Encode multi-agent observations into per-agent embeddings.
@@ -466,7 +494,9 @@ class MultiAgentFlexModule(nn.Module):
         """
         self._pre_forward_check(observation)
 
-        num_agents = self.n_agents if not self.centralized else 1
+        agent_block_iterations = self.n_agents
+        if self.centralized or self.share_params:
+            agent_block_iterations = 1
 
         # Unsqueezing flat inputs into sequences when centralized so that they can be
         # processed by the sequential heads.
@@ -478,9 +508,9 @@ class MultiAgentFlexModule(nn.Module):
                 observation[key] = obs_tensor
 
         all_agent_outputs = []
-        for agent_idx in range(num_agents):
-            block: AgentBlock = self.agent_networks[0] if self.share_params else self.agent_networks[agent_idx]
-            agent_output = block(observation, agent_idx, mask)
+        for iteration in range(agent_block_iterations):
+            block: AgentBlock = self.agent_networks[iteration]
+            agent_output = block(observation, iteration, mask)
             all_agent_outputs.append(agent_output)
 
         if self.centralized:
@@ -488,4 +518,9 @@ class MultiAgentFlexModule(nn.Module):
             all_agent_outputs = all_agent_outputs * self.n_agents
 
         # Assemble final tensor with agent dimension immediately before the feature dimension.
-        return torch.stack(all_agent_outputs, dim=-2)
+        # If parameters are shared, all agents were processed in one batch and the output is already correct.
+        if self.share_params:
+            return all_agent_outputs[0]
+        # Otherwise, stack the per-agent outputs to construct the agent dimension.
+        else:
+            return torch.stack(all_agent_outputs, dim=-2)
