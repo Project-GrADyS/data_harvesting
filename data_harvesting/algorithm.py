@@ -36,7 +36,10 @@ class MADDPGAlgorithm:
         current_frames = batch.numel()
         self.replay_buffer.extend(batch)
 
-        loss_sums = {"loss_actor": 0.0, "loss_value": 0.0}
+        loss_sums = {
+            "loss_actor": torch.zeros((), device=self.device),
+            "loss_value": torch.zeros((), device=self.device),
+        }
         for _ in range(self.n_optimiser_steps):
             subdata = self.replay_buffer.sample()
             
@@ -58,13 +61,13 @@ class MADDPGAlgorithm:
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
 
-                loss_sums[loss_name] += loss.detach().item()
+                loss_sums[loss_name] += loss.detach()
 
             self.target_updater.step()
 
         self.exploration_noise.step(current_frames)
 
-        avg_losses = {name: loss_sums[name] / self.n_optimiser_steps for name in loss_sums}
+        avg_losses = {name: (loss_sums[name] / self.n_optimiser_steps).item() for name in loss_sums}
         return avg_losses
 
 
@@ -102,7 +105,10 @@ class MAPPOAlgorithm:
         with torch.no_grad():
             self.loss_module.value_estimator(batch)
 
-        loss_sums = {"loss_policy": 0.0, "loss_value": 0.0}
+        loss_sums = {
+            "loss_policy": torch.zeros((), device=self.device),
+            "loss_value": torch.zeros((), device=self.device),
+        }
         n_steps = 0
 
         for _ in range(self.num_epochs):
@@ -127,13 +133,13 @@ class MAPPOAlgorithm:
                 self.optimizers["loss_value"].step()
                 self.optimizers["loss_value"].zero_grad(set_to_none=True)
 
-                loss_sums["loss_policy"] += policy_loss.detach().item()
-                loss_sums["loss_value"] += value_loss.detach().item()
+                loss_sums["loss_policy"] += policy_loss.detach()
+                loss_sums["loss_value"] += value_loss.detach()
                 n_steps += 1
 
         if n_steps == 0:
             return {"loss_policy": 0.0, "loss_value": 0.0}
-        return {k: v / n_steps for k, v in loss_sums.items()}
+        return {k: (v / n_steps).item() for k, v in loss_sums.items()}
 
 
 
