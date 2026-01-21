@@ -55,8 +55,8 @@ def train(config: dict, run_name: str | None = None):
         try:
             mlflow.log_params(config)
 
-            metrics_logger = EnvironmentMetricsCollector()
-            learning_logger = LearningMetricsCollector()
+            metrics_logger = EnvironmentMetricsCollector(device)
+            learning_logger = LearningMetricsCollector(device)
 
             experience_steps = 0
             last_metric_log = 0
@@ -96,5 +96,5 @@ def train(config: dict, run_name: str | None = None):
 
     # Returning the final average reward as a simple measure of performance
     # Useful for hyperparameter tuning
-    avg_reward = metrics_logger.sum_avg_reward / metrics_logger.trajectories
+    avg_reward = (metrics_logger.sum_avg_reward / metrics_logger.trajectories).item()
     return avg_reward

@@ -67,7 +67,7 @@ class MADDPGAlgorithm:
 
         self.exploration_noise.step(current_frames)
 
-        avg_losses = {name: (loss_sums[name] / self.n_optimiser_steps).item() for name in loss_sums}
+        avg_losses = {name: (loss_sums[name] / self.n_optimiser_steps) for name in loss_sums}
         return avg_losses
 
 
@@ -138,8 +138,11 @@ class MAPPOAlgorithm:
                 n_steps += 1
 
         if n_steps == 0:
-            return {"loss_policy": 0.0, "loss_value": 0.0}
-        return {k: (v / n_steps).item() for k, v in loss_sums.items()}
+            return {
+                "loss_policy": torch.zeros((), device=self.device),
+                "loss_value": torch.zeros((), device=self.device),
+            }
+        return {k: (v / n_steps) for k, v in loss_sums.items()}
 
 
 
