@@ -25,6 +25,36 @@ from torchrl.objectives.utils import (
 )
 from torchrl.objectives.value import TD0Estimator, TD1Estimator, TDLambdaEstimator
 
+def _reduce(
+    tensor: torch.Tensor, reduction: str, mask: torch.Tensor | None = None
+) -> float | torch.Tensor:
+    """Reduces a tensor given the reduction method, optionally applying a mask. Avoids indexing
+    operations using the mask to prevent unnecessary synchronizations.
+
+    Args:
+        tensor (torch.Tensor): The tensor to reduce.
+        reduction (str): The reduction method.
+        mask (torch.Tensor, optional): A mask to apply to the tensor before reducing.
+
+    Returns:
+        float | torch.Tensor: The reduced tensor.
+    """
+    if reduction == "none":
+        result = tensor
+    elif reduction == "mean":
+        if mask is not None:
+            result = (tensor * mask).sum() / mask.sum()
+        else:
+            result = tensor.mean()
+    elif reduction == "sum":
+        if mask is not None:
+            result = (tensor * mask).sum()
+        else:
+            result = tensor.sum()
+    else:
+        raise NotImplementedError(f"Unknown reduction method {reduction}")
+    return result
+
 
 class MaskedDDPGLoss(LossModule):
     """The DDPG Loss class.
