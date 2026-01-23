@@ -5,7 +5,7 @@ from torchrl.objectives.ppo import ClipPPOLoss
 
 from data_harvesting.loss import MaskedDDPGLoss
 
-def create_loss(policy: torch.nn.Module, critic: torch.nn.Module, config: Dict[str, Any]) -> MaskedDDPGLoss:
+def create_loss(policy: torch.nn.Module, critic: torch.nn.Module, config: Dict[str, Any], device: torch.device) -> MaskedDDPGLoss:
     """
     Creates the DDPG loss module using parameters from config.
     Args:
@@ -33,7 +33,7 @@ def create_loss(policy: torch.nn.Module, critic: torch.nn.Module, config: Dict[s
     if config["environment"]["max_num_drones"] != config["environment"]["min_num_drones"]:
         loss_module.set_keys(mask=("agents", "mask"))
 
-    loss_module.make_value_estimator(ValueEstimators.TD0, gamma=gamma)
+    loss_module.make_value_estimator(ValueEstimators.TD0, gamma=gamma, device=device)
     return loss_module
 
 OptimizerDict = TypedDict("OptimizerDict", {"loss_actor": torch.optim.Optimizer, "loss_value": torch.optim.Optimizer})

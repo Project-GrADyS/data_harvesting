@@ -25,7 +25,7 @@ class MADDPGAlgorithm:
         self.exploratory_policy, self.exploration_noise = create_exploratory_actor(self.policy, device, config)
         self.critic = create_critic(env, device, config)
         self.replay_buffer = create_replay_buffer(config, device)
-        self.loss_module = create_loss(self.policy, self.critic, config)
+        self.loss_module = create_loss(self.policy, self.critic, config, device)
         self.optimizers = create_optimizers(self.loss_module, config)
         self.target_updater = create_updater(self.loss_module, config)
 
