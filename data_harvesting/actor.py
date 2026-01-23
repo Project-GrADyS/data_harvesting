@@ -16,7 +16,7 @@ from data_harvesting.encoder import (
     FlatEncoderConfig,
     SequentialEncoderInput,
 )
-from data_harvesting.utils import get_activation_class
+from data_harvesting.utils import get_faster_tanh_delta, get_activation_class
 
 
 def create_mlp_module(env: EnvBase, config: Dict[str, Any], device: torch.device) -> TensorDictModule:
@@ -154,17 +154,18 @@ def create_actor(
         else create_mlp_module(env, config, device)
     )
 
-    from torchrl.modules import TanhDelta
+    high = env.full_action_spec_unbatched["agents", "action"].space.high.to(device)
+    low = env.full_action_spec_unbatched["agents", "action"].space.low.to(device)
 
     policy = ProbabilisticActor(
         module=policy_module,
         spec=env.full_action_spec[("agents", "action")],
         in_keys=[("agents", "param")],
         out_keys=[("agents", "action")],
-        distribution_class=TanhDelta,
+        distribution_class=get_faster_tanh_delta(high, low),
         distribution_kwargs={
-            "low": env.full_action_spec_unbatched["agents", "action"].space.low,
-            "high": env.full_action_spec_unbatched["agents", "action"].space.high,
+            "low": low,
+            "high": high,
         },
         return_log_prob=False,
     )
