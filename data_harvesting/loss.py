@@ -18,7 +18,6 @@ from torchrl.objectives.common import LossModule
 from torchrl.objectives.utils import (
     _cache_values,
     _GAMMA_LMBDA_DEPREC_ERROR,
-    _reduce,
     default_value_kwargs,
     distance_loss,
     ValueEstimators,
@@ -57,7 +56,11 @@ def _reduce(
 
 
 class MaskedDDPGLoss(LossModule):
-    """The DDPG Loss class.
+    """The DDPG Loss class. Implements the loss functions for the actor and critic networks,
+    as well as the value estimator.
+
+    This is a re-implementation of the DDPG loss from TorchRL, extended to support masking
+    for variable-sized inputs.
 
     Args:
         actor_network (TensorDictModule): a policy operator.
