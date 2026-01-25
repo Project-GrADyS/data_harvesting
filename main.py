@@ -1,7 +1,7 @@
 import mlflow
 import argparse
 from hyperopt import hp, fmin, tpe
-from train import train
+from data_harvesting.train import train
 
 argparse = argparse.ArgumentParser()
 argparse.add_argument("-E", type=str, required=False, help="MLflow experiment ID", dest="experiment_name")
