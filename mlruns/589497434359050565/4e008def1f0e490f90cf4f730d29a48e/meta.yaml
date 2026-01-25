@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/4e008def1f0e490f90cf4f730d29a48e/artifacts
+end_time: 1768943463204
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: 4e008def1f0e490f90cf4f730d29a48e
+run_name: merciful-croc-989
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768943420133
+status: 4
+tags: []
+user_id: thlamz

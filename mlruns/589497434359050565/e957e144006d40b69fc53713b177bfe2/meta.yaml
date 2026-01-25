@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/e957e144006d40b69fc53713b177bfe2/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: e957e144006d40b69fc53713b177bfe2
+run_name: rogue-gnat-59
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1769133068853
+status: 1
+tags: []
+user_id: thlamz

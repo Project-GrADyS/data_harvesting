@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/2f14a4e7ac314c05a1828f8b0f38dc0c/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: 2f14a4e7ac314c05a1828f8b0f38dc0c
+run_name: sedate-gnu-594
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1769132600065
+status: 1
+tags: []
+user_id: thlamz

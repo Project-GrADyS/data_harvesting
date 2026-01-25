@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/56f6c8fe98da474e9915ce093e5ee896/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: 56f6c8fe98da474e9915ce093e5ee896
+run_name: defiant-bee-720
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1769135783841
+status: 1
+tags: []
+user_id: thlamz

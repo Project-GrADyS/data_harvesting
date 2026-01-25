@@ -1,6 +1,8 @@
 artifact_location: file:///home/thlamz/data_harvesting/mlruns/221261372118423086
 creation_time: 1761790622438
 experiment_id: '221261372118423086'
-last_update_time: 1761790622438
+last_update_time: 1769346016028
 lifecycle_stage: active
-name: varying_agent_trial
+name: variable_agent_trial
+tags:
+  mlflow.experimentKind: custom_model_development

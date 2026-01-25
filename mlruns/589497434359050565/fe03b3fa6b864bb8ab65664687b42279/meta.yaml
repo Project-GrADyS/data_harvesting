@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/fe03b3fa6b864bb8ab65664687b42279/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: fe03b3fa6b864bb8ab65664687b42279
+run_name: whimsical-rook-248
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768927592598
+status: 1
+tags: []
+user_id: thlamz

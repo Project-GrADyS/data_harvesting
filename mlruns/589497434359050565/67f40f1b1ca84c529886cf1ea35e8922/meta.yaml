@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/67f40f1b1ca84c529886cf1ea35e8922/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: 67f40f1b1ca84c529886cf1ea35e8922
+run_name: stylish-ox-692
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768945786327
+status: 1
+tags: []
+user_id: thlamz

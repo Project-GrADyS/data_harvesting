@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/27fd681f68e24941a6a25a679f132d67/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: 27fd681f68e24941a6a25a679f132d67
+run_name: puzzled-bird-52
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768868098825
+status: 1
+tags: []
+user_id: thlamz

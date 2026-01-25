@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/b5ad997f3cde45b283e19d95e1b646f4/artifacts
+end_time: 1768934830890
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: b5ad997f3cde45b283e19d95e1b646f4
+run_name: awesome-mare-773
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768934756454
+status: 4
+tags: []
+user_id: thlamz

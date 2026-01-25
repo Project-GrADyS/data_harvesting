@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/b940061928cc445ca5b1ab2d3013c4db/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: b940061928cc445ca5b1ab2d3013c4db
+run_name: beautiful-lamb-944
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768927967253
+status: 1
+tags: []
+user_id: thlamz

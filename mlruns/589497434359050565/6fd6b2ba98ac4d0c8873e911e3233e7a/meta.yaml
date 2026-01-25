@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/6fd6b2ba98ac4d0c8873e911e3233e7a/artifacts
+end_time: 1769132561779
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: 6fd6b2ba98ac4d0c8873e911e3233e7a
+run_name: calm-lark-977
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1769132468014
+status: 4
+tags: []
+user_id: thlamz

@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/589497434359050565/36cd418796ca49bebf80cfeac89c13e0/artifacts
+end_time: 1768934099025
+entry_point_name: ''
+experiment_id: '589497434359050565'
+lifecycle_stage: active
+run_id: 36cd418796ca49bebf80cfeac89c13e0
+run_name: serious-donkey-677
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768933871406
+status: 4
+tags: []
+user_id: thlamz
