@@ -1,8 +1,9 @@
 artifact_uri: file:///home/thlamz/data_harvesting/mlruns/252750710528511749/e3fe0cb98c5443b38760f3f4b8d77f1c/artifacts
+deleted_time: 1770679089735
 end_time: 1769381334612
 entry_point_name: ''
 experiment_id: '252750710528511749'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: e3fe0cb98c5443b38760f3f4b8d77f1c
 run_name: stately-jay-286
 source_name: ''

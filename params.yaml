@@ -52,7 +52,7 @@ actor:
 
 training:
   # Total number of training timesteps.
-  total_timesteps: 1000000
+  total_timesteps: 5000000
   # Initial sigma for exploration noise (AdditiveGaussianModule).
   exploration_sigma_init: 0.1
   # Final sigma for exploration noise (AdditiveGaussianModule).
@@ -102,9 +102,9 @@ optimization:
   # Tau for the soft-update of the target network.
   tau: 0.005
   # Number of optimizer steps per batch.
-  num_optimizer_steps: 50
+  num_optimizer_steps: 20
   # Gradient clipping value (0 disables clipping).
-  grad_clip: 1
+  grad_clip: 0
   # Whether to use automatic mixed precision (AMP) during training.
   use_amp: true
 
