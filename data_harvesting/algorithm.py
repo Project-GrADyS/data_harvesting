@@ -70,6 +70,26 @@ class MADDPGAlgorithm:
         avg_losses = {name: (loss_sums[name] / self.n_optimiser_steps) for name in loss_sums}
         return avg_losses
 
+    def state_dict(self):
+        """Returns the state dictionary for checkpointing."""
+        return {
+            "policy": self.policy.state_dict(),
+            "critic": self.critic.state_dict(),
+            "loss_module": self.loss_module.state_dict(),
+            "optimizers": {name: opt.state_dict() for name, opt in self.optimizers.items()},
+            "exploration_noise": self.exploration_noise.state_dict() if hasattr(self.exploration_noise, "state_dict") else None,
+        }
+    
+    def load_state_dict(self, state_dict):
+        """Loads the state dictionary from a checkpoint."""
+        self.policy.load_state_dict(state_dict["policy"])
+        self.critic.load_state_dict(state_dict["critic"])
+        self.loss_module.load_state_dict(state_dict["loss_module"])
+        for name, opt in self.optimizers.items():
+            opt.load_state_dict(state_dict["optimizers"][name])
+        if state_dict["exploration_noise"] is not None and hasattr(self.exploration_noise, "load_state_dict"):
+            self.exploration_noise.load_state_dict(state_dict["exploration_noise"])
+
 
 class MAPPOAlgorithm:
     def __init__(self, env: EnvBase, device: torch.device, config: dict):
@@ -143,6 +163,23 @@ class MAPPOAlgorithm:
                 "loss_value": torch.zeros((), device=self.device),
             }
         return {k: (v / n_steps) for k, v in loss_sums.items()}
+
+    def state_dict(self):
+        """Returns the state dictionary for checkpointing."""
+        return {
+            "policy": self.policy.state_dict(),
+            "critic": self.critic.state_dict(),
+            "loss_module": self.loss_module.state_dict(),
+            "optimizers": {name: opt.state_dict() for name, opt in self.optimizers.items()},
+        }
+    
+    def load_state_dict(self, state_dict):
+        """Loads the state dictionary from a checkpoint."""
+        self.policy.load_state_dict(state_dict["policy"])
+        self.critic.load_state_dict(state_dict["critic"])
+        self.loss_module.load_state_dict(state_dict["loss_module"])
+        for name, opt in self.optimizers.items():
+            opt.load_state_dict(state_dict["optimizers"][name])
 
 
 

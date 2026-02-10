@@ -1,11 +1,13 @@
 import mlflow
 import torch
+from pathlib import Path
 from torchrl.envs import check_env_specs, TransformedEnv, RewardSum
 
 from data_harvesting.environment import make_env
 from data_harvesting.collector import create_collector
 from data_harvesting.metrics import EnvironmentMetricsCollector, LearningMetricsCollector
 from data_harvesting.algorithm import MADDPGAlgorithm, MAPPOAlgorithm
+from data_harvesting.checkpoint import save_checkpoint, load_checkpoint
 from tqdm import tqdm
 
 torch.set_float32_matmul_precision('high')
@@ -44,6 +46,12 @@ def train(config: dict, run_name: str | None = None):
 
     total_steps = config["training"]["total_timesteps"]
     log_every_n_steps = config["metrics"]["log_every_n_steps"]
+    
+    # Checkpointing configuration
+    checkpoint_enabled = config.get("checkpointing", {}).get("enabled", False)
+    checkpoint_interval = config.get("checkpointing", {}).get("checkpoint_interval", 50000)
+    checkpoint_dir = config.get("checkpointing", {}).get("checkpoint_dir", "checkpoints")
+    resume_from = config.get("checkpointing", {}).get("resume_from", None)
 
     pbar = tqdm(total=total_steps)
 
@@ -60,6 +68,17 @@ def train(config: dict, run_name: str | None = None):
 
             experience_steps = 0
             last_metric_log = 0
+            iteration = 0
+            last_checkpoint_steps = 0
+            
+            # Load checkpoint if resuming
+            if resume_from and Path(resume_from).exists():
+                checkpoint_data = load_checkpoint(resume_from, algorithm, metrics_logger, learning_logger)
+                experience_steps = checkpoint_data["experience_steps"]
+                iteration = checkpoint_data["iteration"]
+                last_checkpoint_steps = experience_steps
+                pbar.update(experience_steps)
+                print(f"Resumed from checkpoint: {resume_from} at step {experience_steps}")
 
             # Training/collection iterations
             for iteration, batch in enumerate(collector):
@@ -84,9 +103,24 @@ def train(config: dict, run_name: str | None = None):
                     learning_logger.log_metrics(experience_steps)
                     metrics_logger.log_metrics(experience_steps)
                     last_metric_log = experience_steps
+                
+                # Checkpointing
+                if checkpoint_enabled and experience_steps - last_checkpoint_steps >= checkpoint_interval:
+                    checkpoint_path = Path(checkpoint_dir) / f"checkpoint_step_{experience_steps}.pt"
+                    save_checkpoint(
+                        checkpoint_path,
+                        algorithm,
+                        experience_steps,
+                        iteration,
+                        metrics_logger,
+                        learning_logger
+                    )
+                    last_checkpoint_steps = experience_steps
+                    print(f"Checkpoint saved at step {experience_steps}")
 
                 pbar.update(current_frames)
                 experience_steps += current_frames
+                iteration += 1
             
             # Logging metrics at the end of training
             learning_logger.log_metrics(experience_steps)

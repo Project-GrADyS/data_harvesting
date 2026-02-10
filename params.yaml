@@ -129,6 +129,16 @@ metrics:
   # Save model at the end of training
   save_model: true
 
+checkpointing:
+  # Whether to enable checkpointing during training
+  enabled: true
+  # Directory to save checkpoints (relative to mlflow run directory)
+  checkpoint_dir: checkpoints
+  # Save checkpoint every N steps
+  checkpoint_interval: 50000
+  # Path to a checkpoint file to resume from (optional, empty means start fresh)
+  resume_from: null
+
 # Flexible multi-head encoder configuration (optional replacement for MultiAgentMLP)
 flex_encoder:
   # Master switch: when true, actor/critic construction logic should instantiate
