@@ -62,6 +62,20 @@ def train(config: dict, run_name: str | None = None):
     ):
         try:
             mlflow.log_params(config)
+            
+            # Resolve checkpoint directory path relative to mlflow artifact directory
+            if checkpoint_enabled:
+                artifact_uri = mlflow.get_artifact_uri()
+                # artifact_uri is like "file:///path/to/mlruns/0/run_id/artifacts"
+                # We want to save checkpoints alongside artifacts in the run directory
+                if artifact_uri.startswith("file://"):
+                    run_dir = Path(artifact_uri[7:]).parent  # Remove "file://" and go up to run directory
+                    checkpoint_dir_path = run_dir / checkpoint_dir
+                else:
+                    # If not a local file URI, use relative path from current directory
+                    checkpoint_dir_path = Path(checkpoint_dir)
+            else:
+                checkpoint_dir_path = Path(checkpoint_dir)
 
             metrics_logger = EnvironmentMetricsCollector(device)
             learning_logger = LearningMetricsCollector(device)
@@ -76,7 +90,8 @@ def train(config: dict, run_name: str | None = None):
                 checkpoint_data = load_checkpoint(resume_from, algorithm, metrics_logger, learning_logger)
                 experience_steps = checkpoint_data["experience_steps"]
                 iteration = checkpoint_data["iteration"]
-                last_checkpoint_steps = experience_steps
+                # Align to checkpoint interval boundaries to maintain consistent intervals
+                last_checkpoint_steps = (experience_steps // checkpoint_interval) * checkpoint_interval
                 pbar.update(experience_steps)
                 print(f"Resumed from checkpoint: {resume_from} at step {experience_steps}")
 
@@ -106,7 +121,7 @@ def train(config: dict, run_name: str | None = None):
                 
                 # Checkpointing
                 if checkpoint_enabled and experience_steps - last_checkpoint_steps >= checkpoint_interval:
-                    checkpoint_path = Path(checkpoint_dir) / f"checkpoint_step_{experience_steps}.pt"
+                    checkpoint_path = checkpoint_dir_path / f"checkpoint_step_{experience_steps}.pt"
                     save_checkpoint(
                         checkpoint_path,
                         algorithm,

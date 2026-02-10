@@ -81,7 +81,7 @@ class EnvironmentMetricsCollector:
     def state_dict(self):
         """Returns the state dictionary for checkpointing."""
         return {
-            "trajectories": self.trajectories,
+            "trajectories": self.trajectories.clone(),
             "sum_avg_reward": self.sum_avg_reward,
             "sum_max_reward": self.sum_max_reward,
             "sum_sum_reward": self.sum_sum_reward,
