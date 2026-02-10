@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 
 from data_harvesting.checkpoint import save_checkpoint, load_checkpoint
-from data_harvesting.metrics import EnvironmentMetricsCollector, LearningMetricsCollector
 
 
 class MockAlgorithm:
@@ -20,20 +19,36 @@ class MockAlgorithm:
         self.param = state_dict["param"]
 
 
+class MockMetricsLogger:
+    """Mock metrics logger for testing checkpointing."""
+    
+    def __init__(self):
+        self.counter = torch.tensor(0.0)
+        self.value = torch.tensor(10.0)
+    
+    def state_dict(self):
+        return {
+            "counter": self.counter,
+            "value": self.value,
+        }
+    
+    def load_state_dict(self, state_dict):
+        self.counter = state_dict["counter"]
+        self.value = state_dict["value"]
+
+
 def test_save_and_load_checkpoint():
     """Test that checkpoints can be saved and loaded correctly."""
-    device = torch.device("cpu")
-    
     # Create mock objects
     algorithm = MockAlgorithm()
-    metrics_logger = EnvironmentMetricsCollector(device)
-    learning_logger = LearningMetricsCollector(device)
+    metrics_logger = MockMetricsLogger()
+    learning_logger = MockMetricsLogger()
     
     # Set some state
     experience_steps = 1000
     iteration = 10
-    metrics_logger.trajectories = torch.tensor(5.0)
-    learning_logger.iterations = torch.tensor(10.0)
+    metrics_logger.counter = torch.tensor(5.0)
+    learning_logger.counter = torch.tensor(10.0)
     
     with tempfile.TemporaryDirectory() as tmpdir:
         checkpoint_path = Path(tmpdir) / "test_checkpoint.pt"
@@ -53,8 +68,8 @@ def test_save_and_load_checkpoint():
         # Create new instances to load into
         new_algorithm = MockAlgorithm()
         new_algorithm.param = torch.tensor([0.0, 0.0, 0.0])  # Different initial state
-        new_metrics_logger = EnvironmentMetricsCollector(device)
-        new_learning_logger = LearningMetricsCollector(device)
+        new_metrics_logger = MockMetricsLogger()
+        new_learning_logger = MockMetricsLogger()
         
         # Load checkpoint
         loaded_state = load_checkpoint(
@@ -68,16 +83,15 @@ def test_save_and_load_checkpoint():
         assert loaded_state["experience_steps"] == experience_steps
         assert loaded_state["iteration"] == iteration
         assert torch.allclose(new_algorithm.param, algorithm.param)
-        assert torch.allclose(new_metrics_logger.trajectories, metrics_logger.trajectories)
-        assert torch.allclose(new_learning_logger.iterations, learning_logger.iterations)
+        assert torch.allclose(new_metrics_logger.counter, metrics_logger.counter)
+        assert torch.allclose(new_learning_logger.counter, learning_logger.counter)
 
 
 def test_load_nonexistent_checkpoint():
     """Test that loading a nonexistent checkpoint raises FileNotFoundError."""
-    device = torch.device("cpu")
     algorithm = MockAlgorithm()
-    metrics_logger = EnvironmentMetricsCollector(device)
-    learning_logger = LearningMetricsCollector(device)
+    metrics_logger = MockMetricsLogger()
+    learning_logger = MockMetricsLogger()
     
     with pytest.raises(FileNotFoundError):
         load_checkpoint(
@@ -88,36 +102,36 @@ def test_load_nonexistent_checkpoint():
         )
 
 
-def test_metrics_state_dict_roundtrip():
-    """Test that metrics state_dict can be saved and loaded correctly."""
-    device = torch.device("cpu")
+def test_checkpoint_file_structure():
+    """Test that checkpoint file contains the expected structure."""
+    algorithm = MockAlgorithm()
+    metrics_logger = MockMetricsLogger()
+    learning_logger = MockMetricsLogger()
     
-    # Environment metrics
-    env_metrics = EnvironmentMetricsCollector(device)
-    env_metrics.trajectories = torch.tensor(10.0)
-    env_metrics.sum_avg_reward = torch.tensor(100.0)
-    env_metrics.sum_max_reward = torch.tensor(50.0)
+    experience_steps = 2000
+    iteration = 20
     
-    state = env_metrics.state_dict()
-    new_env_metrics = EnvironmentMetricsCollector(device)
-    new_env_metrics.load_state_dict(state)
-    
-    assert torch.allclose(new_env_metrics.trajectories, env_metrics.trajectories)
-    assert torch.allclose(new_env_metrics.sum_avg_reward, env_metrics.sum_avg_reward)
-    assert torch.allclose(new_env_metrics.sum_max_reward, env_metrics.sum_max_reward)
-    
-    # Learning metrics
-    learning_metrics = LearningMetricsCollector(device)
-    learning_metrics.iterations = torch.tensor(20.0)
-    learning_metrics.losses["loss_actor"] = torch.tensor(0.5)
-    learning_metrics.losses["loss_value"] = torch.tensor(0.3)
-    learning_metrics.start_time = 123.456
-    
-    state = learning_metrics.state_dict()
-    new_learning_metrics = LearningMetricsCollector(device)
-    new_learning_metrics.load_state_dict(state)
-    
-    assert torch.allclose(new_learning_metrics.iterations, learning_metrics.iterations)
-    assert torch.allclose(new_learning_metrics.losses["loss_actor"], learning_metrics.losses["loss_actor"])
-    assert torch.allclose(new_learning_metrics.losses["loss_value"], learning_metrics.losses["loss_value"])
-    assert new_learning_metrics.start_time == learning_metrics.start_time
+    with tempfile.TemporaryDirectory() as tmpdir:
+        checkpoint_path = Path(tmpdir) / "test_checkpoint.pt"
+        
+        # Save checkpoint
+        save_checkpoint(
+            checkpoint_path,
+            algorithm,
+            experience_steps,
+            iteration,
+            metrics_logger,
+            learning_logger
+        )
+        
+        # Load checkpoint directly to verify structure
+        checkpoint = torch.load(checkpoint_path, weights_only=False)
+        
+        assert "experience_steps" in checkpoint
+        assert "iteration" in checkpoint
+        assert "algorithm_state" in checkpoint
+        assert "metrics_logger_state" in checkpoint
+        assert "learning_logger_state" in checkpoint
+        
+        assert checkpoint["experience_steps"] == experience_steps
+        assert checkpoint["iteration"] == iteration

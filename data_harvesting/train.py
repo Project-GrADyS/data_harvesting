@@ -81,7 +81,7 @@ def train(config: dict, run_name: str | None = None):
                 print(f"Resumed from checkpoint: {resume_from} at step {experience_steps}")
 
             # Training/collection iterations
-            for iteration, batch in enumerate(collector):
+            for batch in collector:
                 current_frames = batch.numel()
                 # The batch shape is (num_collectors, frames_per_batch, ...), flatten it to a single batch dimension
                 batch = batch.reshape(-1)
