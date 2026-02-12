@@ -18,6 +18,14 @@ parser.add_argument(
     help="MLflow experiment name (defaults to 'default')",
     dest="experiment_name",
 )
+parser.add_argument(
+    "-S",
+    type=int,
+    required=False,
+    default=300_000,
+    help="Total training timesteps for each trial (default: 300,000)",
+    dest="total_timesteps",
+)
 args = parser.parse_args()
 
 MLFLOW_TRACKING_URI = "file:./mlruns"
@@ -28,7 +36,13 @@ if __name__ == "__main__":
 
     with open("params.yaml", "r") as f:
         config: dict = yaml.safe_load(f)
-    
+
+    config["training"]["total_timesteps"] = args.total_timesteps
+
+    # We do not want to save the model for every trial during hyperparameter tuning, as it can consume a lot of disk space 
+    # and is not necessary for identifying the best hyperparameters. 
+    config["metrics"]["save_model"] = False
+
     experiment_name = args.experiment_name if args.experiment_name else "default"
     mlflow.set_experiment(experiment_name)
     
