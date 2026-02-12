@@ -92,7 +92,8 @@ def train(config: dict, run_name: str | None = None):
             learning_logger.log_metrics(experience_steps)
             metrics_logger.log_metrics(experience_steps)
         finally:
-            save_model(algorithm)
+            if config["metrics"]["save_model"]:
+                save_model(algorithm)
 
     # Returning the final average reward as a simple measure of performance
     # Useful for hyperparameter tuning
