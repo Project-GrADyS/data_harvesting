@@ -1,0 +1,8 @@
+# Problem
+In order for the variable agent solution to be practical, training speed needs to be improved. 
+
+# Solution
+Other than several optimizations in code, we also attempted to use a smaller encoder shape. We ran a trial to find the best hyper-parameters for this encoder in [smaller_encoder_trials](http://localhost:5000/#/experiments/139407390714801080).
+
+# Results
+Although training speed was very fast, proper collection was not learned. This shape was chosen arbitrarily, we need to try other encoder shapes to see what works best. The idea is choosing smallest shape (thus faster to train) that can still learn proper collection.

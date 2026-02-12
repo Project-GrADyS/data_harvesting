@@ -46,12 +46,37 @@ if __name__ == "__main__":
     experiment_name = args.experiment_name if args.experiment_name else "default"
     mlflow.set_experiment(experiment_name)
     
+    # Search space expanded to include flex_encoder architecture choices
     space = {
         "optimization": {
             "num_optimizer_steps": hp.choice("num_optimizer_steps", [1, 5, 10, 20, 50]),
             "lr": hp.loguniform("lr", -10, -3),
             "grad_clip": hp.choice("grad_clip", [0, 0.5, 1.0, 5.0]),
-        }
+        },
+
+        # Tuning space for the flexible multi-head encoder
+        "flex_encoder": {
+            "sequential_heads": {
+                "embed_dim": hp.choice("flex_seq_embed_dim", [32, 64, 96, 128]),
+                "head_dim": hp.choice("flex_seq_head_dim", [16, 32, 48, 64]),
+                "num_heads": hp.choice("flex_seq_num_heads", [1, 2, 4, 8]),
+                "ff_dim": hp.choice("flex_seq_ff_dim", [64, 128, 256]),
+                "depth": hp.choice("flex_seq_depth", [1, 2, 3]),
+                "dropout": hp.choice("flex_seq_dropout", [0.0, 0.05, 0.1, 0.2]),
+                "critic_agent_embedding": hp.choice("flex_critic_agent_embedding", [True, False]),
+            },
+
+            "flat_heads": {
+                "embed_dim": hp.choice("flex_flat_embed_dim", [32, 64, 96]),
+                "depth": hp.choice("flex_flat_depth", [1, 2]),
+                "num_cells": hp.choice("flex_flat_num_cells", [32, 64, 128]),
+                "activation_function": hp.choice("flex_flat_activation", ["Tanh", "ReLU", "LeakyReLU"]),
+            },
+
+            "mix_layer_depth": hp.choice("flex_mix_layer_depth", [1, 2]),
+            "mix_layer_num_cells": hp.choice("flex_mix_layer_num_cells", [64, 128, 256]),
+            "mix_activation_function": hp.choice("flex_mix_activation", ["Tanh", "ReLU"]),
+        },
     }
 
     def _train_in_subprocess(run_config: dict, run_name: str | None) -> float:
@@ -124,8 +149,9 @@ if __name__ == "__main__":
         fn=tune,
         space=space,
         algo=tpe.suggest,
-        max_evals=30,
-        show_progressbar=False
+        # Increased default evaluations to better explore architecture trade-offs
+        max_evals=50,
+        show_progressbar=False,
     )
     print("Best hyperparameters found:")
     print(best)
