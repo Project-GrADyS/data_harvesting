@@ -1,5 +1,6 @@
 import argparse
 import json
+import math
 import os
 import subprocess
 import sys
@@ -26,6 +27,14 @@ parser.add_argument(
     help="Total training timesteps for each trial (default: 300,000)",
     dest="total_timesteps",
 )
+parser.add_argument(
+    "-N",
+    type=int,
+    required=False,
+    default=30,
+    help="Number of hyperparameter configurations to try (default: 30)",
+    dest="num_trials",
+)
 args = parser.parse_args()
 
 MLFLOW_TRACKING_URI = "file:./mlruns"
@@ -47,12 +56,50 @@ if __name__ == "__main__":
     mlflow.set_experiment(experiment_name)
     
     space = {
+        "training": {
+            "batch_size": hp.choice("batch_size", [256, 512, 1024, 2048]),
+        },
         "optimization": {
-            "num_optimizer_steps": hp.choice("num_optimizer_steps", [1, 5, 10, 20, 50]),
-            "lr": hp.loguniform("lr", -10, -3),
-            "grad_clip": hp.choice("grad_clip", [0, 0.5, 1.0, 5.0]),
-        }
+            "num_optimizer_steps": hp.choice("num_optimizer_steps", [1, 2, 5, 10, 20, 40]),
+            "lr": hp.loguniform("lr", math.log(1e-5), math.log(3e-3)),
+            "tau": hp.loguniform("tau", math.log(1e-3), math.log(5e-2)),
+            "gamma": hp.uniform("gamma", 0.95, 0.999),
+            "grad_clip": hp.choice("grad_clip", [0.0, 0.5, 1.0, 5.0, 10.0]),
+        },
+        "collector": {
+            "frames_per_batch": hp.choice("frames_per_batch", [512, 1024, 2048, 4096]),
+        },
+        "flex_encoder": {
+            "sequential_heads": {
+                "embed_dim": hp.choice("seq_embed_dim", [64, 128, 256]),
+                "num_heads": hp.choice("seq_num_heads", [2, 4, 8]),
+                "ff_dim": hp.choice("seq_ff_dim", [128, 256, 512]),
+                "depth": hp.choice("seq_depth", [1, 2, 3]),
+            },
+            "flat_heads": {
+                "embed_dim": hp.choice("flat_embed_dim", [64, 128, 256]),
+                "depth": hp.choice("flat_depth", [1, 2]),
+                "num_cells": hp.choice("flat_num_cells", [64, 128, 256]),
+            },
+            "mix_layer_num_cells": hp.choice("mix_layer_num_cells", [128, 256, 512]),
+            "mix_layer_depth": hp.choice("mix_layer_depth", [1, 2, 3]),
+        },
     }
+
+    def _deep_update(target: dict, updates: dict) -> None:
+        for key, value in updates.items():
+            if isinstance(value, dict) and isinstance(target.get(key), dict):
+                _deep_update(target[key], value)
+            else:
+                target[key] = value
+
+    def _collect_leafs(prefix: str, value: object, out: list[tuple[str, object]]) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                next_prefix = f"{prefix}.{key}" if prefix else key
+                _collect_leafs(next_prefix, child, out)
+        else:
+            out.append((prefix, value))
 
     def _train_in_subprocess(run_config: dict, run_name: str | None) -> float:
         """Runs train() in a fresh Python process and returns its numeric result.
@@ -108,13 +155,8 @@ if __name__ == "__main__":
 
         tuned_arg_leafs: list[tuple[str, object]] = []
 
-        # tune_args contains overrides that should be merged into the base config
-        for section, params in tune_args.items():
-            if section not in run_config:
-                run_config[section] = {}
-            for key, value in params.items():
-                run_config[section][key] = value
-                tuned_arg_leafs.append((f"{section}.{key}", value))
+        _deep_update(run_config, tune_args)
+        _collect_leafs("", tune_args, tuned_arg_leafs)
 
         run_name = " ".join([f"{k}={v}" for k, v in tuned_arg_leafs])
 
@@ -124,7 +166,7 @@ if __name__ == "__main__":
         fn=tune,
         space=space,
         algo=tpe.suggest,
-        max_evals=30,
+        max_evals=args.num_trials,
         show_progressbar=False
     )
     print("Best hyperparameters found:")
