@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
+from time import sleep
 from gradysim.simulator.simulation import SimulationBuilder, Simulator, SimulationConfiguration, EventLoop, Node
 from gradysim.simulator.handler.interface import INodeHandler
 
@@ -17,7 +18,7 @@ class BaseGrADySEnvironment(ABC):
     _algorithm_iteration_interval: float
     _algorithm_iteration_finished: bool
 
-    def __init__(self, algorithm_iteration_interval: float):
+    def __init__(self, algorithm_iteration_interval: float, visual_mode: bool = False):
         """
         Initializes the GrADySEnvironment with the specified parameters. 
         Args:
@@ -31,6 +32,7 @@ class BaseGrADySEnvironment(ABC):
         """
         self._algorithm_iteration_interval = algorithm_iteration_interval
         self._algorithm_iteration_finished = False
+        self.visual_mode = visual_mode
 
     @abstractmethod
     def _build_simulation(self, builder: SimulationBuilder):
@@ -46,6 +48,7 @@ class BaseGrADySEnvironment(ABC):
         """
         Resets the simulation to its initial state.
         """
+        self.finalize_simulation()
         builder = SimulationBuilder(simulation_configuration)
 
         class GrADySHandler(INodeHandler):
@@ -88,6 +91,12 @@ class BaseGrADySEnvironment(ABC):
 
         simulation_ongoing = True
         while not self._algorithm_iteration_finished:
+            next_event = self.simulator._event_loop.peek_event()
+            if self.visual_mode and next_event is not None:
+                time_until_next_event = (next_event.timestamp - self.simulator._current_timestamp)
+                if time_until_next_event > 0:
+                    sleep(time_until_next_event)
+
             simulation_ongoing = self.simulator.step_simulation()
             if not simulation_ongoing:
                 break
@@ -95,4 +104,9 @@ class BaseGrADySEnvironment(ABC):
         return SimulationStatus(has_ended=not simulation_ongoing)
 
 
-        
+    def finalize_simulation(self):
+        """
+        Finalizes the simulation and releases any resources.
+        """
+        if hasattr(self, "simulator"):
+            self.simulator._finalize_simulation()

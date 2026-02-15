@@ -12,7 +12,6 @@ from gradysim.simulator.handler.communication import CommunicationHandler, Commu
 from gradysim.simulator.handler.mobility import MobilityHandler, MobilityConfiguration
 from gradysim.simulator.handler.timer import TimerHandler
 from gradysim.simulator.handler.visualization import VisualizationHandler, VisualizationConfiguration
-from gradysim.simulator.extension.visualization_controller import VisualizationController
 from tensordict import TensorDictBase
 from torchrl.data import Bounded
 from torchrl.data.tensor_specs import Categorical, Composite, Unbounded
@@ -66,7 +65,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
     batch_locked: bool = True
 
     def __init__(self, config: GrADySEnvironmentConfig, *, device=None):
-        BaseGrADySEnvironment.__init__(self, config.algorithm_iteration_interval)
+        BaseGrADySEnvironment.__init__(self, config.algorithm_iteration_interval, visual_mode=(config.render_mode == "visual"))
         EnvBase.__init__(self, device=device)
 
         self.render_mode = config.render_mode
@@ -187,8 +186,6 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
                 )))
 
         self.simulator = builder.build()
-        if self.render_mode == "visual":
-            self.controller = VisualizationController()
 
     def _build_specs(self) -> None:
         device = self.device
@@ -664,3 +661,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
 
         for key, value in metrics.items():
             info_td.get(key)[: self.active_num_drones] = value
+
+    def close(self, *, raise_if_closed: bool = True):
+        super().close(raise_if_closed=raise_if_closed)
+        self.finalize_simulation()
