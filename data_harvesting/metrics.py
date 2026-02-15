@@ -41,7 +41,7 @@ class EnvironmentMetricsCollector:
         self.sum_all_collected += metric_sums["all_collected"]
         self.sum_num_collected += metric_sums["num_collected"]
         # Update end-cause counts
-        end_cause = info["end_cause"]
+        end_cause = info["cause"]
         for i, cause in enumerate(EndCause):
             self.end_cause_counts[i] += (end_cause == cause.value).sum()
 
