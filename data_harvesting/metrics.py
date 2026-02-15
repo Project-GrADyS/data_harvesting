@@ -18,9 +18,7 @@ class EnvironmentMetricsCollector:
         self.sum_completion_time: torch.Tensor = torch.zeros((), device=device)
         self.sum_all_collected: torch.Tensor = torch.zeros((), device=device)
         self.sum_num_collected: torch.Tensor = torch.zeros((), device=device)
-        self.end_cause_counts = {
-            cause: 0 for cause in EndCause
-        }
+        self.end_cause_counts: torch.Tensor = torch.zeros(len(EndCause), device=device)
 
     def report_metrics(self, batch: TensorDictBase):
         # Compute mask of episodes that terminated at the last step (batch dimension)
@@ -30,7 +28,8 @@ class EnvironmentMetricsCollector:
         info = batch.get(("next", "agents", "info"))[mask, 0]
 
         # Accumulate sums on-device to avoid per-step syncs.
-        metric_sums = info.sum().detach()
+        det_info = info.detach()
+        metric_sums = det_info.sum(dim=0)
         self.trajectories += mask.sum()
 
         self.sum_avg_reward += metric_sums["avg_reward"]
@@ -41,6 +40,10 @@ class EnvironmentMetricsCollector:
         self.sum_completion_time += metric_sums["completion_time"]
         self.sum_all_collected += metric_sums["all_collected"]
         self.sum_num_collected += metric_sums["num_collected"]
+        # Update end-cause counts
+        end_cause = info["end_cause"]
+        for i, cause in enumerate(EndCause):
+            self.end_cause_counts[i] += (end_cause == cause.value).sum()
 
     def log_metrics(self, step: int):        
         trajectories = self.trajectories.item()
@@ -67,8 +70,8 @@ class EnvironmentMetricsCollector:
             "num_collected": num_collected,
         }
         # Include end-cause counters
-        for cause, count in self.end_cause_counts.items():
-            metrics[f"end_cause_{cause.name}"] = count
+        for i, count in enumerate(self.end_cause_counts):
+            metrics[f"end_cause_{EndCause(i).name}"] = count.item()
 
         mlflow.log_metrics(metrics, step=step)
 
