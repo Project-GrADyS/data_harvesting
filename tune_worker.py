@@ -12,41 +12,51 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import signal
 import sys
 
 import mlflow
+import torch
 
 from data_harvesting.train import train
+import os
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Tune worker: run one train() call")
-    parser.add_argument("--tracking-uri", required=True)
-    parser.add_argument("--experiment-name", required=True)
-    parser.add_argument("--run-name", default="")
-    parser.add_argument(
-        "--result-path",
-        default="",
-        help="Optional path to write a JSON result payload to (used by the parent process).",
-    )
-    args = parser.parse_args(argv)
+    os.setpgrp() # create new process group, become its leader
+    try:
+        parser = argparse.ArgumentParser(description="Tune worker: run one train() call")
+        parser.add_argument("--tracking-uri", required=True)
+        parser.add_argument("--experiment-name", required=True)
+        parser.add_argument("--run-name", default="")
+        parser.add_argument(
+            "--result-path",
+            default="",
+            help="Optional path to write a JSON result payload to (used by the parent process).",
+        )
+        args = parser.parse_args(argv)
 
-    mlflow.set_tracking_uri(args.tracking_uri)
-    if args.experiment_name:
-        mlflow.set_experiment(args.experiment_name)
+        mlflow.set_tracking_uri(args.tracking_uri)
+        if args.experiment_name:
+            mlflow.set_experiment(args.experiment_name)
 
-    config = json.loads(sys.stdin.read())
-    result = train(config, run_name=args.run_name or None)
+        config = json.loads(sys.stdin.read())
+        result = train(config, run_name=args.run_name or None)
 
-    payload = {"result": float(result)}
+        torch.cuda.empty_cache()
 
-    if args.result_path:
-        Path(args.result_path).write_text(json.dumps(payload) + "\n")
+        payload = {"result": float(result)}
 
-    # Still print a machine-readable payload for convenience/debugging.
-    sys.stdout.write(json.dumps(payload))
-    sys.stdout.write("\n")
-    sys.stdout.flush()
+        if args.result_path:
+            Path(args.result_path).write_text(json.dumps(payload) + "\n")
+
+        # Still print a machine-readable payload for convenience/debugging.
+        sys.stdout.write(json.dumps(payload))
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    finally:
+        os.killpg(0, signal.SIGKILL) # kill all processes in my group
+
     return 0
 
 

@@ -4,6 +4,26 @@ from typing import Callable, Any, Dict
 from torchrl.collectors import DataCollectorBase, MultiaSyncDataCollector, aSyncDataCollector, SyncDataCollector, MultiSyncDataCollector
 from tensordict.nn import TensorDictModule
 
+def _shutdown_collector(collector: Any) -> None:
+    """Best-effort shutdown for collectors across TorchRL versions."""
+    if hasattr(collector, "shutdown"):
+        try:
+            collector.shutdown()
+            return
+        except Exception:
+            pass
+    if hasattr(collector, "stop"):
+        try:
+            collector.stop()
+            return
+        except Exception:
+            pass
+    if hasattr(collector, "close"):
+        try:
+            collector.close()
+        except Exception:
+            pass
+
 def _create_async_collector(
     exploratory_policy: TensorDictModule,
     device: torch.device,
@@ -110,5 +130,4 @@ def create_collector(
     try:
         yield collector
     finally:
-        if async_collector:
-            collector.shutdown()
+        _shutdown_collector(collector)

@@ -9,6 +9,7 @@ from copy import deepcopy
 
 import mlflow
 from hyperopt import fmin, hp, tpe
+from time import sleep
 
 
 parser = argparse.ArgumentParser()
@@ -57,7 +58,7 @@ if __name__ == "__main__":
     
     space = {
         "training": {
-            "batch_size": hp.choice("batch_size", [256, 512, 1024, 2048]),
+            "batch_size": hp.choice("batch_size", [256, 512, 1024]),
         },
         "optimization": {
             "num_optimizer_steps": hp.choice("num_optimizer_steps", [1, 2, 5, 10, 20, 40]),
@@ -143,6 +144,10 @@ if __name__ == "__main__":
                 )
 
             payload = json.loads(open(result_path, "r", encoding="utf-8").read())
+
+            print(f"Trial result: {payload['result']}, waiting 40s for subprocess to release resources...")
+            sleep(40) # give the subprocess some time to release resources before starting the next trial
+
             return float(payload["result"])
         finally:
             try:
