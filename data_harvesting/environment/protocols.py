@@ -6,6 +6,7 @@ from gradysim.protocol.interface import IProtocol
 from gradysim.protocol.messages.communication import BroadcastMessageCommand
 from gradysim.protocol.messages.mobility import SetSpeedMobilityCommand, GotoCoordsMobilityCommand
 from gradysim.protocol.messages.telemetry import Telemetry
+from gradysim.simulator.extension.visualization_controller import VisualizationController
 
 
 class SensorProtocol(IProtocol):
@@ -25,10 +26,13 @@ class SensorProtocol(IProtocol):
         self.provider.tracked_variables["priority"] = self.priority
         self.has_collected = False
         self.provider.tracked_variables["collected"] = self.has_collected
+        self.controller = VisualizationController(self)
+        self.controller.paint_node(self.provider.get_id(), color=(255, 0, 0))
 
     def handle_packet(self, message: str) -> None:
         self.has_collected = True
         self.provider.tracked_variables["collected"] = self.has_collected
+        self.controller.paint_node(self.provider.get_id(), color=(0, 255, 0))
 
     def handle_timer(self, timer: str) -> None:
         pass
@@ -183,6 +187,9 @@ class DroneProtocol(IProtocol):
         self._collect_packets()
         if not self.speed_action:
             self.provider.schedule_timer("", self.provider.current_time() + 0.1)
+
+        self.controller = VisualizationController(self)
+        self.controller.paint_node(self.provider.get_id(), color=(0, 0, 0))
 
     def handle_timer(self, timer: str) -> None:
         self._collect_packets()
