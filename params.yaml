@@ -52,7 +52,7 @@ actor:
 
 training:
   # Total number of training timesteps.
-  total_timesteps: 5000000
+  total_timesteps: 50000000
   # Initial sigma for exploration noise (AdditiveGaussianModule).
   exploration_sigma_init: 0.1
   # Final sigma for exploration noise (AdditiveGaussianModule).
@@ -60,7 +60,7 @@ training:
   # Number of steps to anneal sigma from init to end (AdditiveGaussianModule).
   exploration_annealing_steps: 500_000
   # Batch size for training updates.
-  batch_size: 1024
+  batch_size: 256
   # Algorithm to use. Options: "maddpg", "mappo"
   algorithm: maddpg
 
@@ -96,15 +96,15 @@ replay_buffer:
 
 optimization:
   # Discount factor for future rewards.
-  gamma: 0.99
+  gamma: 0.96
   # Learning rate for optimizers.
-  lr: 0.0001
+  lr: 0.0002
   # Tau for the soft-update of the target network.
-  tau: 0.005
+  tau: 0.017
   # Number of optimizer steps per batch.
   num_optimizer_steps: 20
   # Gradient clipping value (0 disables clipping).
-  grad_clip: 0
+  grad_clip: 1.0
   # Whether to use automatic mixed precision (AMP) during training.
   use_amp: true
 
@@ -142,7 +142,7 @@ flex_encoder:
     embed_dim: 128 # Output embedding size of this head
     head_dim: 32 # Dimension per attention head
     num_heads: 4 # Number of attention heads
-    ff_dim: 128 # Feed-forward (Transformer MLP) inner dim
+    ff_dim: 256 # Feed-forward (Transformer MLP) inner dim
     depth: 2 # Number of Transformer layers
     dropout: 0.1 # Dropout probability inside Transformer
     critic_agent_embedding: true # Enrich observation encoding with agent ID embeddings
@@ -150,13 +150,13 @@ flex_encoder:
   # MLP-based flat heads. Each entry corresponds to an observation key whose
   # tensor shape is (batch, n_agents, input_dim) (no temporal dimension).
   flat_heads:
-    embed_dim: 128 # Output embedding size of this flat head
+    embed_dim: 256 # Output embedding size of this flat head
     depth: 1 # Hidden layer count inside this head MLP
-    num_cells: 128 # Hidden layer width of this head MLP
+    num_cells: 256 # Hidden layer width of this head MLP
     activation_function: Tanh # One of: Tanh, ReLU, LeakyReLU
 
   # Final mixing MLP that fuses ALL head outputs per-agent (or centrally) into
   # a unified embedding of size output_dim below.
   mix_layer_depth: 1 # Hidden layer count of mixing MLP
-  mix_layer_num_cells: 256 # Hidden layer width of mixing MLP
+  mix_layer_num_cells: 128 # Hidden layer width of mixing MLP
   mix_activation_function: Tanh # Activation for mixing MLP
