@@ -1,24 +1,7 @@
-import math
-import random
-from time import sleep
-from typing import List, Optional
 
-import gymnasium
-import numpy as np
-from gradysim.simulator.event import EventLoop
-from gradysim.simulator.handler.communication import CommunicationHandler, CommunicationMedium
-from gradysim.simulator.handler.interface import INodeHandler
-from gradysim.simulator.handler.mobility import MobilityHandler, MobilityConfiguration
-from gradysim.simulator.handler.timer import TimerHandler
-from gradysim.simulator.handler.visualization import VisualizationHandler, VisualizationConfiguration
-from gradysim.simulator.extension.visualization_controller import VisualizationController
-from gradysim.simulator.node import Node
-from gradysim.simulator.simulation import SimulationBuilder, Simulator, SimulationConfiguration
-from gymnasium.spaces import Box, Dict
 from torchrl.envs import EnvBase
 
-from data_harvesting.environment.data_collection import DataCollectionEnvironment, EndCause, GrADySEnvironmentConfig
-from data_harvesting.environment.protocols import SensorProtocol, DroneProtocol
+from data_harvesting.environment.data_collection import DataCollectionEnvironment, GrADySEnvironmentConfig
 
 def make_env(config: dict) -> EnvBase:
     """
