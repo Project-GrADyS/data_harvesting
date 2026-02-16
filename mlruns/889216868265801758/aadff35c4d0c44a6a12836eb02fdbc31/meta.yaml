@@ -1,0 +1,14 @@
+artifact_uri: file:///workspace/data_harvesting/mlruns/889216868265801758/aadff35c4d0c44a6a12836eb02fdbc31/artifacts
+end_time: 1771001308535
+entry_point_name: ''
+experiment_id: '889216868265801758'
+lifecycle_stage: active
+run_id: aadff35c4d0c44a6a12836eb02fdbc31
+run_name: optimization.grad_clip=5.0 optimization.lr=0.0019592465572481842 optimization.num_optimizer_steps=10
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1771000242176
+status: 3
+tags: []
+user_id: root

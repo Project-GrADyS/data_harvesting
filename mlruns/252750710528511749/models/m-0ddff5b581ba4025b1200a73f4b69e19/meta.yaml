@@ -1,0 +1,10 @@
+artifact_location: file:///home/thlamz/data_harvesting/mlruns/252750710528511749/models/m-0ddff5b581ba4025b1200a73f4b69e19/artifacts
+creation_timestamp: 1771166207495
+experiment_id: '252750710528511749'
+last_updated_timestamp: 1771166223017
+model_id: m-0ddff5b581ba4025b1200a73f4b69e19
+model_type: null
+name: policy_model
+source_run_id: 273e6c7a44e94cae9e23f08ea5d3ea03
+status: 2
+status_message: null

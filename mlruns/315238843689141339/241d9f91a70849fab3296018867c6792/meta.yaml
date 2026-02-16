@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/315238843689141339/241d9f91a70849fab3296018867c6792/artifacts
+end_time: 1771170310239
+entry_point_name: ''
+experiment_id: '315238843689141339'
+lifecycle_stage: active
+run_id: 241d9f91a70849fab3296018867c6792
+run_name: nosy-flea-142
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1771167815607
+status: 4
+tags: []
+user_id: thlamz

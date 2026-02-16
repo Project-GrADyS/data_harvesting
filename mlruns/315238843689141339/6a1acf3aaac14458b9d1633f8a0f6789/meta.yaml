@@ -1,0 +1,14 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/315238843689141339/6a1acf3aaac14458b9d1633f8a0f6789/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '315238843689141339'
+lifecycle_stage: active
+run_id: 6a1acf3aaac14458b9d1633f8a0f6789
+run_name: invincible-hog-113
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1770996172484
+status: 1
+tags: []
+user_id: thlamz

@@ -1,0 +1,19 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/863988749784768555/36c89ee3c1d246dd8c40e7da2827232b/artifacts
+end_time: 1770907619605
+entry_point_name: ''
+experiment_id: '863988749784768555'
+lifecycle_stage: active
+run_id: 36c89ee3c1d246dd8c40e7da2827232b
+run_name: 'flex_encoder.flat_heads={''activation_function'': ''LeakyReLU'', ''depth'':
+  2, ''embed_dim'': 96, ''num_cells'': 128} flex_encoder.mix_activation_function=Tanh
+  flex_encoder.mix_layer_depth=2 flex_encoder.mix_layer_num_cells=128 flex_encoder.sequential_heads={''critic_agent_embedding'':
+  False, ''depth'': 3, ''dropout'': 0.05, ''embed_dim'': 96, ''ff_dim'': 128, ''head_dim'':
+  64, ''num_heads'': 1} optimization.grad_clip=1.0 optimization.lr=0.0019222372568252122
+  optimization.num_optimizer_steps=20'
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1770905882776
+status: 3
+tags: []
+user_id: thlamz

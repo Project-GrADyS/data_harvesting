@@ -1,0 +1,15 @@
+artifact_uri: file:///home/thlamz/data_harvesting/mlruns/252750710528511749/39a9e639c0cc46c09044232c24ce5ee3/artifacts
+deleted_time: 1770924666469
+end_time: null
+entry_point_name: ''
+experiment_id: '252750710528511749'
+lifecycle_stage: deleted
+run_id: 39a9e639c0cc46c09044232c24ce5ee3
+run_name: 3_test_larger_encoder
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1770923395521
+status: 1
+tags: []
+user_id: thlamz
