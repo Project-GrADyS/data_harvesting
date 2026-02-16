@@ -29,7 +29,7 @@ environment:
   max_sensor_priority: 1.0
   # If true, drone positions are fully randomized at start.
   full_random_drone_position: false
-  # Reward function type. Options: "punish", "time-reward", "reward"
+  # Reward function type. Only "punish" is supported.
   reward: punish
   # If true, agents can control their speed.
   speed_action: true

@@ -44,7 +44,7 @@ class GrADySEnvironmentConfig:
     min_sensor_priority: float = 0.1
     max_sensor_priority: float = 1
     full_random_drone_position: bool = False
-    reward: str = 'punish'  # 'punish' | 'time-reward' | 'reward'
+    reward: str = 'punish'  # Fixed reward mode: punish
     speed_action: bool = True
     end_when_all_collected: bool = True
 
@@ -89,7 +89,8 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         self.min_sensor_priority = config.min_sensor_priority
         self.max_sensor_priority = config.max_sensor_priority
         self.full_random_drone_position = config.full_random_drone_position
-        self.reward = config.reward
+        if config.reward != "punish":
+            raise ValueError("Only reward='punish' is supported.")
         self.speed_action = config.speed_action
         self.end_when_all_collected = config.end_when_all_collected
 
@@ -453,31 +454,18 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         self.episode_duration += 1
 
     def _compute_reward(self, collected_before: list[bool], collected_after: list[bool]) -> float:
-        reward = 0.0
         before = sum(collected_before)
         after = sum(collected_after)
-        if self.reward == "punish":
-            if after > before:
-                reward = (after - before) * 10
-            else:
-                remaining = self.active_num_sensors - after
-                reward = -(remaining) / max(1, self.active_num_sensors)
-        if self.reward == "reward":
-            reward = after - before
-        return float(reward)
+        if after > before:
+            return float((after - before) * 10)
+        remaining = self.active_num_sensors - after
+        return float(-(remaining) / max(1, self.active_num_sensors))
 
     def _update_collection_times(self, collected_after: list[bool]) -> None:
         current_timestamp = self.episode_duration * self.algorithm_iteration_interval
         for index, sensor_id in enumerate(self.sensor_node_ids):
             if collected_after[index] and self.collection_times[index] == self.max_episode_length:
                 self.collection_times[index] = current_timestamp
-                if self.reward == "time-reward":
-                    priority = (
-                        self.simulator.get_node(sensor_id)
-                        .protocol_encapsulator.protocol.priority
-                    )
-                    bonus = priority * (1 - current_timestamp / self.max_episode_length)
-                    self.reward_sum += bonus
 
     def _reward_sum_update(self, reward: float) -> None:
         if self.active_num_drones > 0:
