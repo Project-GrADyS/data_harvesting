@@ -538,12 +538,12 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
 
             if len(sorted_agent_indices) > 1:
                 closest_agents[:len(sorted_agent_indices) - 1] = (
-                    agent_position - closest_agents[:len(sorted_agent_indices) - 1] + max_distance
+                    closest_agents[:len(sorted_agent_indices) - 1] - agent_position + max_distance
                 ) / (max_distance * 2)
 
             if len(sorted_sensor_indices):
                 closest_unvisited_sensors[:len(sorted_sensor_indices)] = (
-                    agent_position - closest_unvisited_sensors[:len(sorted_sensor_indices)] + max_distance
+                    closest_unvisited_sensors[:len(sorted_sensor_indices)] - agent_position + max_distance
                 ) / (max_distance * 2)
 
             state[f"drone{agent_index}"] = {
