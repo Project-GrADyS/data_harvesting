@@ -147,11 +147,15 @@ class DroneProtocol(IProtocol):
     - If the drone reaches the edge of the scenario, it adjusts its destination to remain within bounds.
     - The drone periodically broadcasts messages to collect data packets from sensors.
     """
-    current_position: tuple[float, float, float]
+    current_position: tuple[float, float, float] | None
+    ready: bool
     speed_action: bool = False
     algorithm_interval: float = 0.1
 
     def act(self, action: List[float], coordinate_limit: float) -> None:
+        if self.current_position is None:
+            raise RuntimeError("Called act before receiving initial telemetry")
+        
         self.provider.tracked_variables['current_action'] = list(action)
 
         if self.speed_action:
@@ -183,7 +187,8 @@ class DroneProtocol(IProtocol):
             self.provider.schedule_timer("", self.provider.current_time() + self.algorithm_interval * 0.99)
 
     def initialize(self) -> None:
-        self.current_position = (0, 0, 0)
+        self.current_position = None
+        self.ready = False
         self._collect_packets()
         if not self.speed_action:
             self.provider.schedule_timer("", self.provider.current_time() + 0.1)
@@ -201,6 +206,7 @@ class DroneProtocol(IProtocol):
 
     def handle_telemetry(self, telemetry: Telemetry) -> None:
         self.current_position = telemetry.current_position
+        self.ready = True
 
     def _collect_packets(self) -> None:
         command = BroadcastMessageCommand("")

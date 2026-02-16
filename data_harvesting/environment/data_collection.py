@@ -390,6 +390,16 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         self._reset_statistics()
 
         self.reset_simulation(self._simulation_configuration)
+
+        max_ready_steps = self.active_num_drones * 10  # Arbitrary large number of steps to wait for drones to be ready
+        ready_steps = 0
+        while not self._all_active_drones_ready():
+            status = self.step_simulation()
+            ready_steps += 1
+            if status.has_ended:
+                raise RuntimeError("Simulation ended before all drones received initial telemetry")
+            if ready_steps >= max_ready_steps:
+                raise RuntimeError("Timed out waiting for initial telemetry for all drones")
         
         all_obs = self._observe_simulation()
 
@@ -403,6 +413,14 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         self._fill_done(tensordict_out, EndCause.NONE)
         self._fill_info(tensordict_out, EndCause.NONE, False)
         return tensordict_out
+
+    def _all_active_drones_ready(self) -> bool:
+        for index in range(self.active_num_drones):
+            agent_node = self.simulator.get_node(self.agent_node_ids[index])
+            protocol = agent_node.protocol_encapsulator.protocol
+            if not getattr(protocol, "ready", False):
+                return False
+        return True
     
     def _set_seed(self, seed: int | None) -> None:
         if seed is not None:

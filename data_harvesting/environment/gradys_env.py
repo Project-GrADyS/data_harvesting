@@ -80,6 +80,7 @@ class BaseGrADySEnvironment(ABC):
         self.simulator = builder.build()
 
         # Running a single simulation step to get the initial observations
+        self.simulator._event_loop.schedule_event(0, lambda: None)  # Schedule a no-op event to kickstart the event loop
         if not self.simulator.step_simulation():
             raise RuntimeError("Simulation failed to start")
 
