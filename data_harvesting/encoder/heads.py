@@ -76,6 +76,9 @@ class SequentialEncoder(nn.Module):
 
         embed_output = self.obs_encoder(x)
 
+        valid_timestep_mask = ~padded_input_mask
+        embed_output = embed_output * valid_timestep_mask.unsqueeze(-1).to(embed_output.dtype)
+
         # If agentic encoding is enabled, add the agent embedding to every step in the sequence.
         if self.config.agentic_encoding:
             agent_embeddings = self.agent_embedder(agent_idx).squeeze(dim=-2)
@@ -83,8 +86,9 @@ class SequentialEncoder(nn.Module):
 
         seq_output = self.transformer(embed_output, src_key_padding_mask=padded_input_mask)
 
-        # Aggregate the sequence dimension so every head contributes a fixed-size vector.
-        seq_output = seq_output.mean(dim=-2)
+        # Aggregate only valid timesteps so masked entries do not influence the output.
+        valid_timestep_mask = valid_timestep_mask.unsqueeze(-1).to(seq_output.dtype)
+        seq_output = (seq_output * valid_timestep_mask).sum(dim=-2) / valid_timestep_mask.sum(dim=-2).clamp_min(1.0)
 
         return seq_output
 
