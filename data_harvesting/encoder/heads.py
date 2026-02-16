@@ -65,24 +65,28 @@ class SequentialEncoder(nn.Module):
             torch.Tensor: Output tensor of shape (*B, embed_dim).
         """
 
+        leading_batch_shape = x.shape[:-2]
+        seq_len = x.shape[-2]
+        x_flat = x.reshape(-1, seq_len, x.shape[-1])
+
         # Observations where all features are -1 are padding and should be ignored by the
         # attention mechanism. Create a mask that marks these timesteps so the attention
         # layers do not attend to them.
-        padded_input_mask = torch.all(x == -1, dim=-1)
+        padded_input_mask = torch.all(x_flat == -1, dim=-1)
 
         # Combine with the externally provided agent mask
         if mask is not None:
-            padded_input_mask |= ~mask
+            padded_input_mask |= ~mask.reshape(-1, seq_len)
 
-        embed_output = self.obs_encoder(x)
+        embed_output = self.obs_encoder(x_flat)
 
         valid_timestep_mask = ~padded_input_mask
         embed_output = embed_output * valid_timestep_mask.unsqueeze(-1).to(embed_output.dtype)
 
         # If agentic encoding is enabled, add the agent embedding to every step in the sequence.
-        if self.config.agentic_encoding:
-            agent_embeddings = self.agent_embedder(agent_idx).squeeze(dim=-2)
-            embed_output += agent_embeddings
+        if self.agent_embedder is not None:
+            agent_embeddings = self.agent_embedder(agent_idx.reshape(-1, 1)).squeeze(dim=-2)
+            embed_output += agent_embeddings.unsqueeze(-2)
 
         seq_output = self.transformer(embed_output, src_key_padding_mask=padded_input_mask)
 
@@ -90,7 +94,7 @@ class SequentialEncoder(nn.Module):
         valid_timestep_mask = valid_timestep_mask.unsqueeze(-1).to(seq_output.dtype)
         seq_output = (seq_output * valid_timestep_mask).sum(dim=-2) / valid_timestep_mask.sum(dim=-2).clamp_min(1.0)
 
-        return seq_output
+        return seq_output.reshape(*leading_batch_shape, seq_output.shape[-1])
 
 
 class FlatEncoder(nn.Module):
