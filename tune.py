@@ -74,7 +74,7 @@ if __name__ == "__main__":
             "sequential_heads": {
                 "embed_dim": hp.choice("seq_embed_dim", [64, 128, 256]),
                 "num_heads": hp.choice("seq_num_heads", [2, 4, 8]),
-                "ff_dim": hp.choice("seq_ff_dim", [128, 256, 512]),
+                "ff_dim": hp.choice("seq_ff_dim", [128, 256]),
                 "depth": hp.choice("seq_depth", [1, 2, 3]),
             },
             "flat_heads": {
@@ -82,7 +82,7 @@ if __name__ == "__main__":
                 "depth": hp.choice("flat_depth", [1, 2]),
                 "num_cells": hp.choice("flat_num_cells", [64, 128, 256]),
             },
-            "mix_layer_num_cells": hp.choice("mix_layer_num_cells", [128, 256, 512]),
+            "mix_layer_num_cells": hp.choice("mix_layer_num_cells", [128, 256]),
             "mix_layer_depth": hp.choice("mix_layer_depth", [1, 2, 3]),
         },
     }
@@ -133,9 +133,6 @@ if __name__ == "__main__":
                 stderr=None,
                 env={**os.environ, "PYTHONUNBUFFERED": "1"},
             )
-
-            if completed.returncode != 0:
-                raise RuntimeError(f"Training subprocess failed (exit_code={completed.returncode})")
 
             if not os.path.exists(result_path):
                 raise RuntimeError(
