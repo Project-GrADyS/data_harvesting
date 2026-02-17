@@ -85,8 +85,14 @@ class SequentialEncoder(nn.Module):
 
         # If agentic encoding is enabled, add the agent embedding to every step in the sequence.
         if self.agent_embedder is not None:
-            agent_embeddings = self.agent_embedder(agent_idx.reshape(-1, 1)).squeeze(dim=-2)
-            embed_output += agent_embeddings.unsqueeze(-2)
+            # If the agent_idx shape matches the leading batch dimensions of x, we can directly embed it. 
+            # Otherwise, we need to reshape it to match the flattened batch dimensions of x_flat.
+            if agent_idx.shape[:-1] == x_flat.shape[:-1]:
+                agent_embeddings = self.agent_embedder(agent_idx.squeeze(-1).to(torch.long))
+            else:
+                agent_embeddings = self.agent_embedder(agent_idx.reshape(-1, 1).to(torch.long)).squeeze(dim=-2)
+                agent_embeddings = agent_embeddings.unsqueeze(-2)
+            embed_output += agent_embeddings
 
         seq_output = self.transformer(embed_output, src_key_padding_mask=padded_input_mask)
 

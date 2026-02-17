@@ -54,7 +54,7 @@ class SharedAgentBlock(nn.Module):
             agent_idx_tensor = agent_idx_tensor.unsqueeze(-1)
 
             if mask is not None:
-                mask_expanded = mask.flatten(start_dim=0, end_dim=-2).unsqueeze(-1).expand(-1, seq_input.shape[-2])
+                mask_expanded = mask.reshape(-1, 1).expand(-1, seq_input.shape[-2])
 
             seq_output = head(seq_input, agent_idx_tensor, mask_expanded)
 
@@ -90,7 +90,8 @@ class PerAgentBlock(nn.Module):
             agent_idx_tensor = torch.full_like(seq_input[..., :1, 0:1], agent_idx)
 
             if mask is not None:
-                mask_expanded = mask.select(dim=-1, index=agent_idx).unsqueeze(-2).expand(-1, seq_input.shape[-2])
+                mask_agent = mask.select(dim=-1, index=agent_idx)
+                mask_expanded = mask_agent.unsqueeze(-1).expand(*mask_agent.shape, seq_input.shape[-2])
 
             seq_output = head(seq_input, agent_idx_tensor, mask_expanded)
             head_outputs.append(seq_output)
