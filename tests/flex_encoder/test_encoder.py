@@ -1,4 +1,5 @@
 import torch
+import pytest
 
 from data_harvesting.actor import create_actor
 from data_harvesting.critic import create_critic
@@ -66,6 +67,85 @@ def _make_centralized_encoder(n_agents: int = 3, output_dim: int = 4) -> MultiAg
         share_params=False,
         device=torch.device("cpu"),
     )
+
+
+def _make_per_agent_encoder(n_agents: int = 3, output_dim: int = 5) -> MultiAgentFlexModule:
+    return MultiAgentFlexModule(
+        sequential_config=_sequential_config(max_agents=n_agents, agentic_encoding=False),
+        sequential_inputs=[SequentialEncoderInput(key="drones", input_size=2)],
+        flat_inputs=[FlatEncoderInput(key="agent_id", input_size=1)],
+        flat_config=_flat_config(),
+        mix_layer_depth=1,
+        mix_layer_num_cells=32,
+        mix_activation_class=torch.nn.Tanh,
+        output_dim=output_dim,
+        n_agents=n_agents,
+        centralized=False,
+        share_params=False,
+        device=torch.device("cpu"),
+    )
+
+
+@pytest.mark.parametrize("mode", ["shared", "per_agent", "centralized"])
+def test_flex_mode_output_shape_is_correct(mode: str) -> None:
+    torch.manual_seed(0)
+
+    if mode == "shared":
+        module = _make_shared_encoder(n_agents=3, output_dim=5)
+        observation = {
+            "drones": torch.randn(2, 3, 4, 2),
+            "agent_id": torch.randn(2, 3, 1),
+        }
+        expected_shape = (2, 3, 5)
+    elif mode == "per_agent":
+        module = _make_per_agent_encoder(n_agents=3, output_dim=5)
+        observation = {
+            "drones": torch.randn(2, 3, 4, 2),
+            "agent_id": torch.randn(2, 3, 1),
+        }
+        expected_shape = (2, 3, 5)
+    else:
+        module = _make_centralized_encoder(n_agents=3, output_dim=4)
+        observation = {
+            "drones": torch.randn(2, 3, 4, 2),
+        }
+        expected_shape = (2, 3, 4)
+
+    mask = torch.ones(2, 3, dtype=torch.bool)
+    output = module(mask=mask, **observation)
+
+    assert tuple(output.shape) == expected_shape
+    assert torch.isfinite(output).all()
+
+
+@pytest.mark.parametrize("mode", ["shared", "per_agent", "centralized"])
+def test_flex_mode_all_true_mask_matches_no_mask(mode: str) -> None:
+    torch.manual_seed(0)
+
+    if mode == "shared":
+        module = _make_shared_encoder(n_agents=3, output_dim=5)
+        observation = {
+            "drones": torch.randn(2, 3, 4, 2),
+            "agent_id": torch.randn(2, 3, 1),
+        }
+    elif mode == "per_agent":
+        module = _make_per_agent_encoder(n_agents=3, output_dim=5)
+        observation = {
+            "drones": torch.randn(2, 3, 4, 2),
+            "agent_id": torch.randn(2, 3, 1),
+        }
+    else:
+        module = _make_centralized_encoder(n_agents=3, output_dim=4)
+        observation = {
+            "drones": torch.randn(2, 3, 4, 2),
+        }
+
+    all_true_mask = torch.ones(2, 3, dtype=torch.bool)
+
+    output_nomask = module(mask=None, **observation)
+    output_all_true_mask = module(mask=all_true_mask, **observation)
+
+    assert torch.allclose(output_nomask, output_all_true_mask, atol=1e-6, rtol=1e-6)
 
 
 def _actor_critic_flex_config() -> dict:
