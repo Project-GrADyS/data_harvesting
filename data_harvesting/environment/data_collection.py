@@ -368,7 +368,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         self._fill_observation(tensordict_out, self._observe_simulation())
         self._fill_rewards(tensordict_out, reward)
         self._fill_done(tensordict_out, end_cause)
-        self._fill_info(tensordict_out, end_cause, simulation_ended)
+        self._fill_info(tensordict_out, all_sensors_collected, end_cause, simulation_ended)
         return tensordict_out
 
     def _reset_statistics(self):
@@ -412,7 +412,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         tensordict_out = self._cached_reset_zero.clone()
         self._fill_observation(tensordict_out, all_obs)
         self._fill_done(tensordict_out, EndCause.NONE)
-        self._fill_info(tensordict_out, EndCause.NONE, False)
+        self._fill_info(tensordict_out, 0, EndCause.NONE, False)
         return tensordict_out
 
     def _all_active_drones_ready(self) -> bool:
@@ -633,7 +633,8 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         td.set("terminated", torch.tensor([terminated_any], device=self.device))
         td.set("truncated", torch.tensor([truncated_any], device=self.device))
 
-    def _fill_info(self, td: TensorDictBase, end_cause: EndCause, ended: bool) -> None:
+    def _fill_info(self, td: TensorDictBase, num_collected: int, end_cause: EndCause, ended: bool) -> None:
+        all_collected = num_collected == self.active_num_sensors
         info_td = td.get(("agents", "info"))
         for key in self._info_keys:
             info_td.get(key).zero_()
@@ -649,7 +650,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         )
         completion_time = (
             self.max_episode_length
-            if end_cause != EndCause.ALL_COLLECTED
+            if not all_collected
             else self.simulator._current_timestamp
         )
 
@@ -660,7 +661,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
             "avg_collection_time": avg_collection_time,
             "episode_duration": float(self.episode_duration),
             "completion_time": float(completion_time),
-            "all_collected": float(int(end_cause == EndCause.ALL_COLLECTED)),
+            "all_collected": float(int(all_collected)),
             "num_collected": float(sum(self._get_sensor_collected())),
             "cause": float(end_cause.value),
         }
