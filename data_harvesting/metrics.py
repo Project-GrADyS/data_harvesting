@@ -25,17 +25,15 @@ class EnvironmentMetricsCollector:
         # Agent-level done includes truncated inactive slots, which can be true
         # even when an episode has not ended.
         done = batch.get(("next", "done")).reshape(-1).to(torch.bool)
-        truncated = batch.get(("next", "truncated")).reshape(-1).to(torch.bool)
-        mask = ~truncated & done  # Only count non-truncated done transitions
-        if not bool(mask.any()):
+        if not bool(done.any()):
             return
 
-        info = batch.get(("next", "agents", "info"))[mask, 0]
+        info = batch.get(("next", "agents", "info"))[done, 0]
 
         # Accumulate sums on-device to avoid per-step syncs.
         det_info = info.detach()
         metric_sums = det_info.sum(dim=0)
-        self.trajectories += mask.sum()
+        self.trajectories += done.sum()
 
         self.sum_avg_reward += metric_sums["avg_reward"]
         self.sum_max_reward += metric_sums["max_reward"]
