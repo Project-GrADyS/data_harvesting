@@ -1,8 +1,0 @@
-# Problem
-We have figured out training with a fixed number of sensors. Time to do the same with a variable number of sensors.
-
-# Solution
-Trying out the same hyperparameters as in the fixed sensor experiments **maddpg_t_speed**
-
-# Results
-Learning went well until it plateaued. Should run another trial to figure out the best hyperparameters 
