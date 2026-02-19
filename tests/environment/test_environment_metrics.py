@@ -7,13 +7,22 @@ from data_harvesting.environment import EndCause, make_env
 RIGHT = 0.0
 
 
-def _metrics_config(*, num_sensors: int, communication_range: float, max_seconds_stalled: int, max_episode_length: int = 50) -> dict:
+def _metrics_config(
+    *,
+    num_sensors: int,
+    communication_range: float,
+    max_seconds_stalled: int,
+    max_episode_length: int = 50,
+    end_when_all_collected: bool = True,
+    min_num_drones: int = 1,
+    max_num_drones: int = 1,
+) -> dict:
     return {
         "environment": {
             "sequential_obs": True,
             "algorithm_iteration_interval": 1.0,
-            "min_num_drones": 1,
-            "max_num_drones": 1,
+            "min_num_drones": min_num_drones,
+            "max_num_drones": max_num_drones,
             "min_num_sensors": num_sensors,
             "max_num_sensors": num_sensors,
             "scenario_size": 10.0,
@@ -25,9 +34,17 @@ def _metrics_config(*, num_sensors: int, communication_range: float, max_seconds
             "id_on_state": True,
             "reward": "punish",
             "speed_action": True,
-            "end_when_all_collected": True,
+            "end_when_all_collected": end_when_all_collected,
         }
     }
+
+
+def _reset_until(env, predicate, max_seed: int = 200):
+    for seed in range(max_seed):
+        td = env.reset(seed=seed)
+        if predicate(env.active_num_drones, env.max_num_drones):
+            return td
+    raise AssertionError("Could not find reset matching requested condition")
 
 
 def _prepare_scenario(
@@ -151,5 +168,108 @@ def test_metrics_are_zero_when_episode_not_ended() -> None:
         assert bool(next_td.get("done").item()) is False
         for value in metrics.values():
             assert value == pytest.approx(0.0)
+    finally:
+        env.close()
+
+
+def test_done_flag_ignores_inactive_agent_done_states() -> None:
+    env = make_env(
+        _metrics_config(
+            num_sensors=1,
+            communication_range=0.0,
+            max_seconds_stalled=20,
+            min_num_drones=1,
+            max_num_drones=2,
+        )
+    )
+    try:
+        td = _reset_until(env, lambda active, max_drones: active < max_drones)
+        assert bool(td.get("done").item()) is False
+        assert bool(td.get("terminated").item()) is False
+        assert bool(td.get("truncated").item()) is False
+
+        action = torch.zeros((env.max_num_drones, 2), dtype=torch.float32, device=env.device)
+        td.set(("agents", "action"), action)
+        next_td = env.step(td).get("next")
+
+        assert bool(next_td.get("done").item()) is False
+        assert bool(next_td.get("terminated").item()) is False
+        assert bool(next_td.get("truncated").item()) is False
+    finally:
+        env.close()
+
+
+def test_end_when_all_collected_false_reports_all_collected_on_terminal_step() -> None:
+    max_episode_length = 50
+    env = make_env(
+        _metrics_config(
+            num_sensors=1,
+            communication_range=3.0,
+            max_seconds_stalled=2,
+            max_episode_length=max_episode_length,
+            end_when_all_collected=False,
+        )
+    )
+    try:
+        td = env.reset(seed=44)
+        _prepare_scenario(
+            env,
+            drone_pos=(0.0, 0.0),
+            sensor_positions=[(0.0, 0.0)],
+            collected_flags=[False],
+        )
+        env.simulator.get_node(env.sensor_node_ids[0]).protocol_encapsulator.protocol.has_collected = True
+
+        final_next = None
+        for _ in range(8):
+            next_td = _step(env, td, speed=0.0)
+            if bool(next_td.get("done").item()):
+                final_next = next_td
+                break
+            td = next_td
+
+        assert final_next is not None
+        metrics = _metrics(final_next)
+        assert metrics["all_collected"] == pytest.approx(1.0)
+        assert metrics["num_collected"] == pytest.approx(1.0)
+        assert metrics["completion_time"] < max_episode_length
+    finally:
+        env.close()
+
+
+def test_timeout_or_stall_without_full_collection_sets_max_completion_time() -> None:
+    max_episode_length = 50
+    env = make_env(
+        _metrics_config(
+            num_sensors=2,
+            communication_range=3.0,
+            max_seconds_stalled=2,
+            max_episode_length=max_episode_length,
+            end_when_all_collected=False,
+        )
+    )
+    try:
+        td = env.reset(seed=45)
+        _prepare_scenario(
+            env,
+            drone_pos=(0.0, 0.0),
+            sensor_positions=[(0.0, 0.0), (9.0, 0.0)],
+            collected_flags=[False, False],
+        )
+
+        final_next = None
+        for _ in range(8):
+            next_td = _step(env, td, speed=0.0)
+            if bool(next_td.get("done").item()):
+                final_next = next_td
+                break
+            td = next_td
+
+        assert final_next is not None
+        metrics = _metrics(final_next)
+        assert metrics["cause"] == pytest.approx(float(EndCause.STALLED.value))
+        assert metrics["all_collected"] == pytest.approx(0.0)
+        assert metrics["num_collected"] == pytest.approx(1.0)
+        assert metrics["completion_time"] == pytest.approx(float(max_episode_length))
     finally:
         env.close()
