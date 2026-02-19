@@ -333,8 +333,6 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
 
         status = self.step_simulation()
         end_cause = EndCause.NONE
-        if status.has_ended:
-            end_cause = EndCause.TIMEOUT
 
         collected_after = self._get_sensor_collected()
 
@@ -348,7 +346,9 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
 
         if self.stall_duration > self.max_seconds_stalled:
             end_cause = EndCause.STALLED
-        if all_sensors_collected:
+        elif status.has_ended:
+            end_cause = EndCause.TIMEOUT
+        elif all_sensors_collected and self.end_when_all_collected:
             end_cause = EndCause.ALL_COLLECTED
 
         reward = self._compute_reward(collected_before, collected_after)
@@ -359,7 +359,6 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         # benefits from time after collection where agents can "enjoy" the reward signal for success.
         simulation_ended = (
             (all_sensors_collected and self.end_when_all_collected)
-            or status.has_ended
             or end_cause != EndCause.NONE
         )
 
