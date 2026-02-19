@@ -220,8 +220,12 @@ def test_end_when_all_collected_false_reports_all_collected_on_terminal_step() -
         )
         env.simulator.get_node(env.sensor_node_ids[0]).protocol_encapsulator.protocol.has_collected = True
 
+        first_next = _step(env, td, speed=0.0)
+        assert bool(first_next.get("done").item()) is False
+        td = first_next
+
         final_next = None
-        for _ in range(8):
+        for _ in range(7):
             next_td = _step(env, td, speed=0.0)
             if bool(next_td.get("done").item()):
                 final_next = next_td
