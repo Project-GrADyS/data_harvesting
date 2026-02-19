@@ -35,7 +35,7 @@ class EnvironmentMetricsCollector:
         # Accumulate sums on-device to avoid per-step syncs.
         det_info = info.detach()
         metric_sums = det_info.sum(dim=0)
-        self.trajectories += done.sum()
+        self.trajectories += mask.sum()
 
         self.sum_avg_reward += metric_sums["avg_reward"]
         self.sum_max_reward += metric_sums["max_reward"]
