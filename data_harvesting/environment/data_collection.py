@@ -360,7 +360,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         simulation_ended = (
             (all_sensors_collected and self.end_when_all_collected)
             or status.has_ended
-            or end_cause in {EndCause.STALLED, EndCause.TIMEOUT}
+            or end_cause != EndCause.NONE
         )
 
         # Filling the output tensordict for the step
