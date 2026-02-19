@@ -368,7 +368,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         self._fill_observation(tensordict_out, self._observe_simulation())
         self._fill_rewards(tensordict_out, reward)
         self._fill_done(tensordict_out, end_cause)
-        self._fill_info(tensordict_out, all_sensors_collected, end_cause, simulation_ended)
+        self._fill_info(tensordict_out, sum(collected_after), end_cause, simulation_ended)
         return tensordict_out
 
     def _reset_statistics(self):
@@ -662,7 +662,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
             "episode_duration": float(self.episode_duration),
             "completion_time": float(completion_time),
             "all_collected": float(int(all_collected)),
-            "num_collected": float(sum(self._get_sensor_collected())),
+            "num_collected": float(num_collected),
             "cause": float(end_cause.value),
         }
 

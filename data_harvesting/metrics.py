@@ -21,16 +21,21 @@ class EnvironmentMetricsCollector:
         self.end_cause_counts: torch.Tensor = torch.zeros(len(EndCause), device=device)
 
     def report_metrics(self, batch: TensorDictBase):
-        # Compute mask of episodes that terminated at the last step (batch dimension)
-        done_last = batch.get(("next", "agents", "done"))[:, -1]
-        mask = done_last.reshape(-1).to(torch.bool)
+        # Use environment-level termination to identify terminal transitions.
+        # Agent-level done includes truncated inactive slots, which can be true
+        # even when an episode has not ended.
+        done = batch.get(("next", "done")).reshape(-1).to(torch.bool)
+        truncated = batch.get(("next", "truncated")).reshape(-1).to(torch.bool)
+        mask = ~truncated & done  # Only count non-truncated done transitions
+        if not bool(mask.any()):
+            return
 
         info = batch.get(("next", "agents", "info"))[mask, 0]
 
         # Accumulate sums on-device to avoid per-step syncs.
         det_info = info.detach()
         metric_sums = det_info.sum(dim=0)
-        self.trajectories += mask.sum()
+        self.trajectories += done.sum()
 
         self.sum_avg_reward += metric_sums["avg_reward"]
         self.sum_max_reward += metric_sums["max_reward"]
