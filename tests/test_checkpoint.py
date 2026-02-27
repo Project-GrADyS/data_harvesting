@@ -3,7 +3,7 @@ import torch
 import tempfile
 import mlflow
 
-from data_harvesting.checkpoint import save_checkpoint, load_checkpoint
+from data_harvesting.checkpoint import load_checkpoint, save_checkpoint
 
 
 def _init_test_mlflow(tmpdir: str) -> None:
@@ -57,9 +57,9 @@ def test_save_and_load_checkpoint():
     
     with tempfile.TemporaryDirectory() as tmpdir:
         _init_test_mlflow(tmpdir)
-        with mlflow.start_run():
+        with mlflow.start_run() as run:
             # Save checkpoint
-            checkpoint_path = save_checkpoint(
+            checkpoint_name = save_checkpoint(
                 algorithm,
                 experience_steps,
                 iteration,
@@ -75,7 +75,8 @@ def test_save_and_load_checkpoint():
         
             # Load checkpoint
             loaded_state = load_checkpoint(
-                checkpoint_path,
+                run.info.run_id,
+                checkpoint_name,
                 new_algorithm,
                 new_metrics_logger,
                 new_learning_logger,
@@ -97,36 +98,37 @@ def test_load_nonexistent_checkpoint():
     
     with tempfile.TemporaryDirectory() as tmpdir:
         _init_test_mlflow(tmpdir)
-        with mlflow.start_run():
+        with mlflow.start_run() as run:
             with pytest.raises(Exception):
                 load_checkpoint(
-                    "/nonexistent/path/checkpoint.pt",
+                    run.info.run_id,
+                    "checkpoint_step_12345.pt",
                     algorithm,
                     metrics_logger,
                     learning_logger
                 )
 
 
-def test_load_latest_checkpoint_when_path_is_none():
+def test_load_checkpoint_with_explicit_checkpoint_name():
     algorithm = MockAlgorithm()
     metrics_logger = MockMetricsLogger()
     learning_logger = MockMetricsLogger()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         _init_test_mlflow(tmpdir)
-        with mlflow.start_run():
+        with mlflow.start_run() as run:
             save_checkpoint(algorithm, 100, 1, metrics_logger, learning_logger)
-            save_checkpoint(algorithm, 200, 2, metrics_logger, learning_logger)
 
             loaded_state = load_checkpoint(
-                None,
+                run.info.run_id,
+                "checkpoint_step_100.pt",
                 algorithm,
                 metrics_logger,
                 learning_logger,
             )
 
-            assert loaded_state["experience_steps"] == 200
-            assert loaded_state["iteration"] == 2
+            assert loaded_state["experience_steps"] == 100
+            assert loaded_state["iteration"] == 1
 
 
 def test_checkpoint_file_structure():
@@ -141,7 +143,7 @@ def test_checkpoint_file_structure():
     with tempfile.TemporaryDirectory() as tmpdir:
         _init_test_mlflow(tmpdir)
         with mlflow.start_run(run_name="checkpoint-structure") as run:
-            artifact_path = save_checkpoint(
+            checkpoint_name = save_checkpoint(
                 algorithm,
                 experience_steps,
                 iteration,
@@ -151,7 +153,7 @@ def test_checkpoint_file_structure():
 
             local_checkpoint_path = mlflow.artifacts.download_artifacts(
                 run_id=run.info.run_id,
-                artifact_path=artifact_path,
+                artifact_path=f"checkpoints/{checkpoint_name}",
             )
             checkpoint = torch.load(local_checkpoint_path, weights_only=False)
 

@@ -132,8 +132,6 @@ metrics:
 checkpointing:
   # Whether to enable checkpointing during training
   enabled: true
-  # Directory to save checkpoints (relative to mlflow run directory)
-  checkpoint_dir: checkpoints
   # Save checkpoint every N steps
   checkpoint_interval: 1000000
 

@@ -1,6 +1,5 @@
 import mlflow
 import argparse
-from hyperopt import hp, fmin, tpe
 from data_harvesting.train import train
 
 parser = argparse.ArgumentParser()
@@ -10,8 +9,13 @@ run_group = parser.add_mutually_exclusive_group()
 run_group.add_argument("-R", type=str, required=False, help="MLflow run name", dest="run_name")
 run_group.add_argument("--resume-run-id", type=str, required=False, default=None, help="MLflow run ID to resume logging into")
 
-parser.add_argument("--resume-checkpoint", type=str, required=False, default=None, help="Checkpoint path or artifact path to resume from")
+parser.add_argument("--resume-checkpoint", type=str, required=False, default=None, help="Checkpoint artifact file name to resume from (e.g. checkpoint_step_100000.pt)")
 args = parser.parse_args()
+
+if args.resume_run_id and not args.resume_checkpoint:
+    parser.error("--resume-checkpoint is required when --resume-run-id is set")
+if args.resume_checkpoint and not args.resume_run_id:
+    parser.error("--resume-run-id is required when --resume-checkpoint is set")
 
 mlflow.set_tracking_uri("file:./mlruns")
 

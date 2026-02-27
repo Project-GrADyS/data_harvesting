@@ -33,12 +33,15 @@ def save_checkpoint_policy_model(algorithm: MADDPGAlgorithm | MAPPOAlgorithm):
 def train(
     config: dict,
     run_name: str | None = None,
-    *,
     resume_checkpoint: str | None = None,
     resume_run_id: str | None = None,
 ):
     if run_name and resume_run_id:
         raise ValueError("run_name (-R) cannot be used together with resume_run_id")
+    if resume_run_id and not resume_checkpoint:
+        raise ValueError("resume_checkpoint is required when resume_run_id is set")
+    if resume_checkpoint and not resume_run_id:
+        raise ValueError("resume_run_id is required when resume_checkpoint is set")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -68,7 +71,6 @@ def train(
     # Checkpointing configuration
     checkpoint_enabled = config.get("checkpointing", {}).get("enabled", False)
     checkpoint_interval = config.get("checkpointing", {}).get("checkpoint_interval", 50000)
-    checkpoint_dir = config.get("checkpointing", {}).get("checkpoint_dir", "checkpoints")
 
     pbar = tqdm(total=total_steps)
 
@@ -96,17 +98,14 @@ def train(
             iteration = 0
             last_checkpoint_steps = 0
 
-            if resume_checkpoint is not None or (checkpoint_enabled and resume_run_id):
-                active_run = mlflow.active_run()
-                if active_run is None:
-                    raise RuntimeError("Expected an active MLflow run before loading checkpoints")
+            if resume_run_id:
+                assert resume_checkpoint is not None
                 checkpoint_data = load_checkpoint(
+                    resume_run_id,
                     resume_checkpoint,
                     algorithm,
                     metrics_logger,
                     learning_logger,
-                    run_id=active_run.info.run_id,
-                    artifact_dir=checkpoint_dir,
                 )
                 experience_steps = checkpoint_data["experience_steps"]
                 iteration = checkpoint_data["iteration"]
@@ -146,7 +145,6 @@ def train(
                         iteration,
                         metrics_logger,
                         learning_logger,
-                        artifact_dir=checkpoint_dir,
                     )
                     save_checkpoint_policy_model(algorithm)
                     last_checkpoint_steps = experience_steps
