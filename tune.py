@@ -52,6 +52,7 @@ if __name__ == "__main__":
     # We do not want to save the model for every trial during hyperparameter tuning, as it can consume a lot of disk space 
     # and is not necessary for identifying the best hyperparameters. 
     config["metrics"]["save_model"] = False
+    config.setdefault("checkpointing", {})["enabled"] = False
 
     experiment_name = args.experiment_name if args.experiment_name else "default"
     mlflow.set_experiment(experiment_name)

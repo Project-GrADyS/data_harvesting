@@ -1,6 +1,0 @@
-artifact_location: file:///home/thlamz/data_harvesting/mlruns/863988749784768555
-creation_time: 1770857190784
-experiment_id: '863988749784768555'
-last_update_time: 1770857190784
-lifecycle_stage: active
-name: encoder_size_trial

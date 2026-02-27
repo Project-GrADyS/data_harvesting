@@ -1,27 +1,45 @@
 import mlflow
 import torch
-from pathlib import Path
+from copy import deepcopy
+from mlflow import pytorch as mlflow_pytorch
 from torchrl.envs import check_env_specs, TransformedEnv, RewardSum
 
 from data_harvesting.environment import make_env
 from data_harvesting.collector import create_collector
 from data_harvesting.metrics import EnvironmentMetricsCollector, LearningMetricsCollector
 from data_harvesting.algorithm import MADDPGAlgorithm, MAPPOAlgorithm
-from data_harvesting.checkpoint import save_checkpoint, load_checkpoint
+from data_harvesting.checkpoint import load_checkpoint, save_checkpoint
 from tqdm import tqdm
 
 torch.set_float32_matmul_precision('high')
 
 def save_model(algorithm: MADDPGAlgorithm | MAPPOAlgorithm):
-    # Move to CPU for portability when loading in environments without CUDA
+    # Log a CPU copy for portability without mutating the live training module.
     try:
-        policy_cpu = algorithm.policy.to("cpu")
+        policy_cpu = deepcopy(algorithm.policy).to("cpu")
     except Exception:
-        # If .to is unsupported for any wrapped module, fall back to original
+        # Fall back to the original object if deepcopy/.to isn't supported.
         policy_cpu = algorithm.policy
-    mlflow.pytorch.log_model(policy_cpu, name="policy_model")
+    mlflow_pytorch.log_model(policy_cpu, name="policy_model")
 
-def train(config: dict, run_name: str | None = None):
+
+def save_checkpoint_policy_model(algorithm: MADDPGAlgorithm | MAPPOAlgorithm):
+    try:
+        policy_cpu = deepcopy(algorithm.policy).to("cpu")
+    except Exception:
+        policy_cpu = algorithm.policy
+    mlflow_pytorch.log_model(policy_cpu, name="policy_checkpoint")
+
+def train(
+    config: dict,
+    run_name: str | None = None,
+    *,
+    resume_checkpoint: str | None = None,
+    resume_run_id: str | None = None,
+):
+    if run_name and resume_run_id:
+        raise ValueError("run_name (-R) cannot be used together with resume_run_id")
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def transformed_env(check: bool = False) -> TransformedEnv:
@@ -51,31 +69,24 @@ def train(config: dict, run_name: str | None = None):
     checkpoint_enabled = config.get("checkpointing", {}).get("enabled", False)
     checkpoint_interval = config.get("checkpointing", {}).get("checkpoint_interval", 50000)
     checkpoint_dir = config.get("checkpointing", {}).get("checkpoint_dir", "checkpoints")
-    resume_from = config.get("checkpointing", {}).get("resume_from", None)
 
     pbar = tqdm(total=total_steps)
 
     collection_device = config["collector"]["device"]
+    if resume_run_id:
+        run_context = mlflow.start_run(run_id=resume_run_id)
+    elif run_name:
+        run_context = mlflow.start_run(run_name=run_name)
+    else:
+        run_context = mlflow.start_run()
+
     with (
-        mlflow.start_run(run_name=run_name), 
+        run_context,
         create_collector(algorithm.exploratory_policy, collection_device, transformed_env, config) as collector
     ):
         try:
-            mlflow.log_params(config)
-            
-            # Resolve checkpoint directory path relative to mlflow artifact directory
-            if checkpoint_enabled:
-                artifact_uri = mlflow.get_artifact_uri()
-                # artifact_uri is like "file:///path/to/mlruns/0/run_id/artifacts"
-                # We want to save checkpoints alongside artifacts in the run directory
-                if artifact_uri.startswith("file://"):
-                    run_dir = Path(artifact_uri[7:]).parent  # Remove "file://" and go up to run directory
-                    checkpoint_dir_path = run_dir / checkpoint_dir
-                else:
-                    # If not a local file URI, use relative path from current directory
-                    checkpoint_dir_path = Path(checkpoint_dir)
-            else:
-                checkpoint_dir_path = Path(checkpoint_dir)
+            if not resume_run_id:
+                mlflow.log_params(config)
 
             metrics_logger = EnvironmentMetricsCollector(device)
             learning_logger = LearningMetricsCollector(device)
@@ -84,16 +95,24 @@ def train(config: dict, run_name: str | None = None):
             last_metric_log = 0
             iteration = 0
             last_checkpoint_steps = 0
-            
-            # Load checkpoint if resuming
-            if resume_from and Path(resume_from).exists():
-                checkpoint_data = load_checkpoint(resume_from, algorithm, metrics_logger, learning_logger)
+
+            if resume_checkpoint is not None or (checkpoint_enabled and resume_run_id):
+                active_run = mlflow.active_run()
+                if active_run is None:
+                    raise RuntimeError("Expected an active MLflow run before loading checkpoints")
+                checkpoint_data = load_checkpoint(
+                    resume_checkpoint,
+                    algorithm,
+                    metrics_logger,
+                    learning_logger,
+                    run_id=active_run.info.run_id,
+                    artifact_dir=checkpoint_dir,
+                )
                 experience_steps = checkpoint_data["experience_steps"]
                 iteration = checkpoint_data["iteration"]
-                # Align to checkpoint interval boundaries to maintain consistent intervals
                 last_checkpoint_steps = (experience_steps // checkpoint_interval) * checkpoint_interval
                 pbar.update(experience_steps)
-                print(f"Resumed from checkpoint: {resume_from} at step {experience_steps}")
+                print(f"Resumed training from checkpoint at step {experience_steps}")
 
             # Training/collection iterations
             for batch in collector:
@@ -121,17 +140,17 @@ def train(config: dict, run_name: str | None = None):
                 
                 # Checkpointing
                 if checkpoint_enabled and experience_steps - last_checkpoint_steps >= checkpoint_interval:
-                    checkpoint_path = checkpoint_dir_path / f"checkpoint_step_{experience_steps}.pt"
-                    save_checkpoint(
-                        checkpoint_path,
+                    checkpoint_artifact_path = save_checkpoint(
                         algorithm,
                         experience_steps,
                         iteration,
                         metrics_logger,
-                        learning_logger
+                        learning_logger,
+                        artifact_dir=checkpoint_dir,
                     )
+                    save_checkpoint_policy_model(algorithm)
                     last_checkpoint_steps = experience_steps
-                    print(f"Checkpoint saved at step {experience_steps}")
+                    print(f"Checkpoint saved at step {experience_steps}: {checkpoint_artifact_path}")
 
                 pbar.update(current_frames)
                 experience_steps += current_frames

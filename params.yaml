@@ -136,8 +136,6 @@ checkpointing:
   checkpoint_dir: checkpoints
   # Save checkpoint every N steps
   checkpoint_interval: 50000
-  # Path to a checkpoint file to resume from (optional, empty means start fresh)
-  resume_from: null
 
 # Flexible multi-head encoder configuration (optional replacement for MultiAgentMLP)
 flex_encoder:

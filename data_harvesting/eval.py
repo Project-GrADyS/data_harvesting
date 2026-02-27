@@ -40,8 +40,12 @@ def _metric_stats(values: list[float]) -> dict[str, float]:
 def _resolve_model_id_from_run(
     run_id: str,
     *,
+    model_id: str | None = None,
     model_name: str = "policy_model",
 ) -> str:
+    if model_id:
+        return model_id
+
     client = MlflowClient()
     run = client.get_run(run_id)
     experiment_id = run.info.experiment_id
@@ -64,15 +68,23 @@ def load_policy_from_mlflow_run(
     run_id: str,
     *,
     tracking_uri: str | None = None,
+    model_id: str | None = None,
+    load: str = "final",
     model_name: str = "policy_model",
+    checkpoint_model_name: str = "policy_checkpoint",
 ):
     if tracking_uri:
         mlflow.set_tracking_uri(tracking_uri)
 
-    model_id = _resolve_model_id_from_run(run_id, model_name=model_name)
-    model_uri = f"models:/{model_id}"
+    selected_name = model_name if load == "final" else checkpoint_model_name
+    resolved_model_id = _resolve_model_id_from_run(
+        run_id,
+        model_id=model_id,
+        model_name=selected_name,
+    )
+    model_uri = f"models:/{resolved_model_id}"
     policy = mlflow_pytorch.load_model(model_uri)
-    return policy, model_id
+    return policy, resolved_model_id
 
 
 def eval(
