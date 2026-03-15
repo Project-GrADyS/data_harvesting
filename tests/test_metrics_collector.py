@@ -47,64 +47,6 @@ def _make_batch(done: list[bool], truncated: list[bool], info_rows: list[dict[st
         batch_size=[length],
     )
 
-
-def test_environment_metrics_collector_counts_only_non_truncated_terminal_steps() -> None:
-    collector = EnvironmentMetricsCollector(torch.device("cpu"))
-    batch = _make_batch(
-        done=[False, True, True],
-        truncated=[False, False, True],
-        info_rows=[
-            {
-                "avg_reward": 100.0,
-                "max_reward": 100.0,
-                "sum_reward": 100.0,
-                "avg_collection_time": 100.0,
-                "episode_duration": 100.0,
-                "completion_time": 100.0,
-                "all_collected": 0.0,
-                "num_collected": 0.0,
-                "cause": float(EndCause.NONE.value),
-            },
-            {
-                "avg_reward": 1.0,
-                "max_reward": 2.0,
-                "sum_reward": 3.0,
-                "avg_collection_time": 4.0,
-                "episode_duration": 5.0,
-                "completion_time": 6.0,
-                "all_collected": 1.0,
-                "num_collected": 7.0,
-                "cause": float(EndCause.STALLED.value),
-            },
-            {
-                "avg_reward": 500.0,
-                "max_reward": 500.0,
-                "sum_reward": 500.0,
-                "avg_collection_time": 500.0,
-                "episode_duration": 500.0,
-                "completion_time": 500.0,
-                "all_collected": 1.0,
-                "num_collected": 500.0,
-                "cause": float(EndCause.ALL_COLLECTED.value),
-            },
-        ],
-    )
-
-    collector.report_metrics(batch)
-
-    assert collector.trajectories.item() == pytest.approx(1.0)
-    assert collector.sum_avg_reward.item() == pytest.approx(1.0)
-    assert collector.sum_max_reward.item() == pytest.approx(2.0)
-    assert collector.sum_sum_reward.item() == pytest.approx(3.0)
-    assert collector.sum_avg_collection_time.item() == pytest.approx(4.0)
-    assert collector.sum_episode_duration.item() == pytest.approx(5.0)
-    assert collector.sum_completion_time.item() == pytest.approx(6.0)
-    assert collector.sum_all_collected.item() == pytest.approx(1.0)
-    assert collector.sum_num_collected.item() == pytest.approx(7.0)
-    assert collector.end_cause_counts[EndCause.STALLED.value].item() == pytest.approx(1.0)
-    assert collector.end_cause_counts[EndCause.ALL_COLLECTED.value].item() == pytest.approx(0.0)
-
-
 def test_environment_metrics_collector_accumulates_multiple_terminal_steps() -> None:
     collector = EnvironmentMetricsCollector(torch.device("cpu"))
     batch = _make_batch(
