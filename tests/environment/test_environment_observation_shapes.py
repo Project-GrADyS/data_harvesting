@@ -1,6 +1,6 @@
 import pytest
 
-from data_harvesting.environment import make_env
+from data_harvesting.environment import make_data_collection_env
 
 
 def _shape_config(
@@ -36,7 +36,7 @@ def _shape_config(
 @pytest.mark.parametrize("closest_sensors,closest_drones", [(1, 2), (4, 3)])
 def test_sequential_observation_and_spec_shapes_with_agent_id(closest_sensors: int, closest_drones: int) -> None:
     num_drones = 3
-    env = make_env(
+    env = make_data_collection_env(
         _shape_config(
             sequential_obs=True,
             id_on_state=True,
@@ -63,7 +63,7 @@ def test_sequential_observation_and_spec_shapes_without_agent_id() -> None:
     num_drones = 3
     closest_sensors = 2
     closest_drones = 4
-    env = make_env(
+    env = make_data_collection_env(
         _shape_config(
             sequential_obs=True,
             id_on_state=False,
@@ -86,7 +86,7 @@ def test_sequential_observation_and_spec_shapes_without_agent_id() -> None:
 @pytest.mark.parametrize("closest_sensors,closest_drones", [(3, 4), (2, 1)])
 def test_flat_observation_and_spec_shapes_with_agent_id(closest_sensors: int, closest_drones: int) -> None:
     num_drones = 2
-    env = make_env(
+    env = make_data_collection_env(
         _shape_config(
             sequential_obs=False,
             id_on_state=True,
@@ -115,7 +115,7 @@ def test_flat_observation_and_spec_shapes_without_agent_id() -> None:
     num_drones = 2
     closest_sensors = 3
     closest_drones = 4
-    env = make_env(
+    env = make_data_collection_env(
         _shape_config(
             sequential_obs=False,
             id_on_state=False,

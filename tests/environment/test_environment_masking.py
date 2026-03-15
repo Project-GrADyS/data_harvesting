@@ -1,7 +1,7 @@
 from typing import cast
 import torch
 
-from data_harvesting.environment import make_env
+from data_harvesting.environment import make_data_collection_env
 
 
 def _masking_config(*, sequential_obs: bool = True) -> dict:
@@ -36,7 +36,7 @@ def _reset_until(env, predicate, max_seed: int = 200):
 
 
 def test_mask_marks_only_active_agents_on_reset() -> None:
-    env = make_env(_masking_config())
+    env = make_data_collection_env(_masking_config())
     try:
         td = _reset_until(env, lambda active, max_drones: active < max_drones)
 
@@ -57,7 +57,7 @@ def test_mask_marks_only_active_agents_on_reset() -> None:
 
 
 def test_mask_stays_consistent_after_step() -> None:
-    env = make_env(_masking_config())
+    env = make_data_collection_env(_masking_config())
     try:
         td = _reset_until(env, lambda active, max_drones: active < max_drones)
         active = cast(int, env.active_num_drones)
@@ -78,7 +78,7 @@ def test_mask_stays_consistent_after_step() -> None:
 
 
 def test_mask_all_true_when_active_equals_max() -> None:
-    env = make_env(_masking_config())
+    env = make_data_collection_env(_masking_config())
     try:
         td = _reset_until(env, lambda active, max_drones: active == max_drones)
 
@@ -89,7 +89,7 @@ def test_mask_all_true_when_active_equals_max() -> None:
 
 
 def test_mask_spec_shape_matches_max_drones() -> None:
-    env = make_env(_masking_config(sequential_obs=False))
+    env = make_data_collection_env(_masking_config(sequential_obs=False))
     try:
         assert tuple(env.observation_spec["agents", "mask"].shape) == (4,)
     finally:

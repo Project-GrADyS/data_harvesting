@@ -2,7 +2,7 @@ import torch
 
 from data_harvesting.algorithm import MADDPGAlgorithm
 from data_harvesting.collector import create_collector
-from data_harvesting.environment import make_env
+from data_harvesting.environment import make_data_collection_env
 
 
 def _flex_maddpg_config() -> dict:
@@ -97,7 +97,7 @@ def _collect_training_batch(algorithm: MADDPGAlgorithm, config: dict) -> torch.T
     with create_collector(
         algorithm.exploratory_policy,
         torch.device("cpu"),
-        lambda: make_env(config),
+        lambda: make_data_collection_env(config),
         config,
     ) as collector:
         batch = next(iter(collector))
@@ -118,7 +118,7 @@ def _any_changed(before: list[torch.Tensor], after: list[torch.Tensor]) -> bool:
 
 def test_flex_maddpg_single_learn_step_updates_models_and_targets() -> None:
     config = _flex_maddpg_config()
-    env = make_env(config)
+    env = make_data_collection_env(config)
     try:
         algorithm = MADDPGAlgorithm(env, torch.device("cpu"), config)
         batch = _collect_training_batch(algorithm, config)

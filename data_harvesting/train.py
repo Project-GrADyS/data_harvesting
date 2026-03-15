@@ -2,7 +2,7 @@ import mlflow
 import torch
 from torchrl.envs import check_env_specs, TransformedEnv, RewardSum
 
-from data_harvesting.environment import make_env
+from data_harvesting.environment import make_data_collection_env
 from data_harvesting.collector import create_collector
 from data_harvesting.metrics import EnvironmentMetricsCollector, LearningMetricsCollector
 from data_harvesting.algorithm import MADDPGAlgorithm, MAPPOAlgorithm
@@ -23,7 +23,7 @@ def train(config: dict, run_name: str | None = None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def transformed_env(check: bool = False) -> TransformedEnv:
-        base_env = make_env(config)
+        base_env = make_data_collection_env(config)
         env = TransformedEnv(
             base_env,
             RewardSum(

@@ -4,7 +4,7 @@ from tensordict.nn import TensorDictSequential
 from torchrl.modules import AdditiveGaussianModule
 
 from data_harvesting.actor import create_actor, create_exploratory_actor
-from data_harvesting.environment import make_env
+from data_harvesting.environment import make_data_collection_env
 
 
 def _exploration_test_config(*, sigma_init: float = 0.2, sigma_end: float = 0.1, anneal_steps: int = 5) -> dict:
@@ -79,7 +79,7 @@ def _exploration_test_config(*, sigma_init: float = 0.2, sigma_end: float = 0.1,
 
 def test_create_exploratory_actor_returns_expected_modules() -> None:
     config = _exploration_test_config(sigma_init=0.2, sigma_end=0.1, anneal_steps=5)
-    env = make_env(config)
+    env = make_data_collection_env(config)
     try:
         actor = create_actor(env, torch.device("cpu"), config)
         exploratory_actor, exploration_noise = create_exploratory_actor(actor, torch.device("cpu"), config)
@@ -94,7 +94,7 @@ def test_create_exploratory_actor_returns_expected_modules() -> None:
 
 def test_exploration_noise_sigma_anneals_until_end() -> None:
     config = _exploration_test_config(sigma_init=0.2, sigma_end=0.1, anneal_steps=5)
-    env = make_env(config)
+    env = make_data_collection_env(config)
     try:
         actor = create_actor(env, torch.device("cpu"), config)
         _, exploration_noise = create_exploratory_actor(actor, torch.device("cpu"), config)
@@ -113,7 +113,7 @@ def test_exploration_noise_sigma_anneals_until_end() -> None:
 
 def test_exploratory_actor_matches_actor_when_sigma_is_zero() -> None:
     config = _exploration_test_config(sigma_init=0.0, sigma_end=0.0, anneal_steps=1)
-    env = make_env(config)
+    env = make_data_collection_env(config)
     try:
         torch.manual_seed(0)
         actor = create_actor(env, torch.device("cpu"), config)
@@ -130,7 +130,7 @@ def test_exploratory_actor_matches_actor_when_sigma_is_zero() -> None:
 
 def test_exploratory_actor_changes_actions_when_sigma_positive() -> None:
     config = _exploration_test_config(sigma_init=0.5, sigma_end=0.5, anneal_steps=1)
-    env = make_env(config)
+    env = make_data_collection_env(config)
     try:
         torch.manual_seed(0)
         actor = create_actor(env, torch.device("cpu"), config)

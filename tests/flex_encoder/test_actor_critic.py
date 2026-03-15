@@ -3,7 +3,7 @@ import torch
 
 from data_harvesting.actor import create_actor
 from data_harvesting.critic import create_critic
-from data_harvesting.environment import make_env
+from data_harvesting.environment import make_data_collection_env
 
 
 def _base_config() -> dict:
@@ -127,7 +127,7 @@ def _make_config(*, actor_mode: str = "shared", critic_mode: str = "centralized"
 @pytest.mark.parametrize("actor_mode", ["shared", "per_agent", "centralized"])
 def test_flex_actor_outputs_shape_bounds_and_device(actor_mode: str) -> None:
     config = _make_config(actor_mode=actor_mode, critic_mode="centralized")
-    env = make_env(config)
+    env = make_data_collection_env(config)
 
     try:
         actor = create_actor(env, torch.device("cpu"), config)
@@ -147,7 +147,7 @@ def test_flex_actor_outputs_shape_bounds_and_device(actor_mode: str) -> None:
 @pytest.mark.parametrize("critic_mode", ["shared", "per_agent", "centralized"])
 def test_flex_critic_outputs_shape_and_finite(critic_mode: str) -> None:
     config = _make_config(actor_mode="shared", critic_mode=critic_mode)
-    env = make_env(config)
+    env = make_data_collection_env(config)
 
     try:
         actor = create_actor(env, torch.device("cpu"), config)
@@ -167,7 +167,7 @@ def test_flex_critic_outputs_shape_and_finite(critic_mode: str) -> None:
 
 def test_flex_centralized_actor_outputs_match_across_agents() -> None:
     config = _make_config(actor_mode="centralized", critic_mode="centralized")
-    env = make_env(config)
+    env = make_data_collection_env(config)
 
     try:
         actor = create_actor(env, torch.device("cpu"), config)
@@ -183,7 +183,7 @@ def test_flex_centralized_actor_outputs_match_across_agents() -> None:
 
 def test_flex_critic_mask_changes_values_when_agent_is_masked() -> None:
     config = _make_config(actor_mode="shared", critic_mode="centralized")
-    env = make_env(config)
+    env = make_data_collection_env(config)
 
     try:
         actor = create_actor(env, torch.device("cpu"), config)

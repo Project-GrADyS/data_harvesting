@@ -4,7 +4,7 @@ from typing import cast
 import pytest
 import torch
 
-from data_harvesting.environment import make_env
+from data_harvesting.environment import make_data_collection_env
 from gradysim.simulator.simulation import Simulator
 
 
@@ -53,7 +53,7 @@ def _step_once(env, *, direction: float, speed: float, seed: int | None = None) 
 
 
 def test_drone_is_ready_after_reset() -> None:
-    env = make_env(_single_drone_config())
+    env = make_data_collection_env(_single_drone_config())
     try:
         env.reset(seed=999)
         protocol = cast(Simulator, env.simulator).get_node(cast(list[int], env.agent_node_ids)[0]).protocol_encapsulator.protocol
@@ -64,7 +64,7 @@ def test_drone_is_ready_after_reset() -> None:
 
 
 def test_one_drone_moves_right_with_right_action() -> None:
-    env = make_env(_single_drone_config())
+    env = make_data_collection_env(_single_drone_config())
     try:
         start, end = _step_once(env, direction=RIGHT, speed=1.0, seed=123)
     finally:
@@ -74,7 +74,7 @@ def test_one_drone_moves_right_with_right_action() -> None:
 
 
 def test_one_drone_moves_left_with_left_action() -> None:
-    env = make_env(_single_drone_config())
+    env = make_data_collection_env(_single_drone_config())
     try:
         start, end = _step_once(env, direction=LEFT, speed=1.0, seed=456)
     finally:
@@ -84,7 +84,7 @@ def test_one_drone_moves_left_with_left_action() -> None:
 
 
 def test_one_drone_does_not_move_with_zero_speed() -> None:
-    env = make_env(_single_drone_config())
+    env = make_data_collection_env(_single_drone_config())
     try:
         start, end = _step_once(env, direction=RIGHT, speed=0.0, seed=789)
     finally:
@@ -95,7 +95,7 @@ def test_one_drone_does_not_move_with_zero_speed() -> None:
 
 
 def test_one_drone_moves_half_distance_at_half_speed() -> None:
-    env = make_env(_single_drone_config())
+    env = make_data_collection_env(_single_drone_config())
     try:
         start_half, end_half = _step_once(env, direction=RIGHT, speed=0.5, seed=31415)
         start_full, end_full = _step_once(env, direction=RIGHT, speed=1.0, seed=31415)

@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from data_harvesting.environment import make_env
+from data_harvesting.environment import make_data_collection_env
 
 
 RIGHT = 0.0
@@ -60,7 +60,7 @@ def _step_and_get_reward(env, td, *, direction: float = RIGHT, speed: float = 0.
 
 @pytest.mark.parametrize("num_sensors", [1, 2])
 def test_reward_is_proportional_to_number_of_collected_sensors(num_sensors: int) -> None:
-    env = make_env(_reward_config(num_sensors=num_sensors, communication_range=3.0))
+    env = make_data_collection_env(_reward_config(num_sensors=num_sensors, communication_range=3.0))
     try:
         td = env.reset(seed=31)
         _prepare_scenario(
@@ -78,7 +78,7 @@ def test_reward_is_proportional_to_number_of_collected_sensors(num_sensors: int)
 
 
 def test_reward_punishes_for_each_remaining_sensor() -> None:
-    env = make_env(_reward_config(num_sensors=2, communication_range=0.0))
+    env = make_data_collection_env(_reward_config(num_sensors=2, communication_range=0.0))
     try:
         td = env.reset(seed=32)
         _prepare_scenario(
@@ -96,7 +96,7 @@ def test_reward_punishes_for_each_remaining_sensor() -> None:
 
 
 def test_reward_is_full_penalty_when_no_sensor_collected() -> None:
-    env = make_env(_reward_config(num_sensors=2, communication_range=0.0))
+    env = make_data_collection_env(_reward_config(num_sensors=2, communication_range=0.0))
     try:
         td = env.reset(seed=34)
         _prepare_scenario(
@@ -114,7 +114,7 @@ def test_reward_is_full_penalty_when_no_sensor_collected() -> None:
 
 
 def test_reward_penalty_ceases_when_all_sensors_already_collected() -> None:
-    env = make_env(_reward_config(num_sensors=2, communication_range=0.0))
+    env = make_data_collection_env(_reward_config(num_sensors=2, communication_range=0.0))
     try:
         td = env.reset(seed=33)
         _prepare_scenario(

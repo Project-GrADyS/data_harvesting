@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from data_harvesting.environment import EndCause, make_env
+from data_harvesting.environment import EndCause, make_data_collection_env
 
 
 RIGHT = 0.0
@@ -89,7 +89,7 @@ def _metrics(next_td) -> dict[str, float]:
 
 
 def test_all_collected_metrics_are_reported_correctly() -> None:
-    env = make_env(_metrics_config(num_sensors=2, communication_range=3.0, max_seconds_stalled=20, max_episode_length=50))
+    env = make_data_collection_env(_metrics_config(num_sensors=2, communication_range=3.0, max_seconds_stalled=20, max_episode_length=50))
     try:
         td = env.reset(seed=41)
         _prepare_scenario(
@@ -117,7 +117,7 @@ def test_all_collected_metrics_are_reported_correctly() -> None:
 
 
 def test_stalled_metrics_are_reported_correctly() -> None:
-    env = make_env(_metrics_config(num_sensors=1, communication_range=0.0, max_seconds_stalled=2, max_episode_length=50))
+    env = make_data_collection_env(_metrics_config(num_sensors=1, communication_range=0.0, max_seconds_stalled=2, max_episode_length=50))
     try:
         td = env.reset(seed=42)
         _prepare_scenario(
@@ -152,7 +152,7 @@ def test_stalled_metrics_are_reported_correctly() -> None:
 
 
 def test_metrics_are_zero_when_episode_not_ended() -> None:
-    env = make_env(_metrics_config(num_sensors=1, communication_range=0.0, max_seconds_stalled=20, max_episode_length=50))
+    env = make_data_collection_env(_metrics_config(num_sensors=1, communication_range=0.0, max_seconds_stalled=20, max_episode_length=50))
     try:
         td = env.reset(seed=43)
         _prepare_scenario(
@@ -173,7 +173,7 @@ def test_metrics_are_zero_when_episode_not_ended() -> None:
 
 
 def test_done_flag_ignores_inactive_agent_done_states() -> None:
-    env = make_env(
+    env = make_data_collection_env(
         _metrics_config(
             num_sensors=1,
             communication_range=0.0,
@@ -201,7 +201,7 @@ def test_done_flag_ignores_inactive_agent_done_states() -> None:
 
 def test_end_when_all_collected_false_reports_all_collected_on_terminal_step() -> None:
     max_episode_length = 50
-    env = make_env(
+    env = make_data_collection_env(
         _metrics_config(
             num_sensors=1,
             communication_range=3.0,
@@ -243,7 +243,7 @@ def test_end_when_all_collected_false_reports_all_collected_on_terminal_step() -
 
 def test_timeout_or_stall_without_full_collection_sets_max_completion_time() -> None:
     max_episode_length = 50
-    env = make_env(
+    env = make_data_collection_env(
         _metrics_config(
             num_sensors=2,
             communication_range=3.0,

@@ -10,7 +10,7 @@ from data_harvesting.encoder import (
     SequentialEncoderConfig,
     SequentialEncoderInput,
 )
-from data_harvesting.environment import make_env
+from data_harvesting.environment import make_data_collection_env
 
 
 def _sequential_config(*, max_agents: int = 4, agentic_encoding: bool = False) -> SequentialEncoderConfig:
@@ -301,7 +301,7 @@ def test_flex_shared_encoder_mask_changes_outputs_and_gradients() -> None:
 
 def test_flex_actor_and_critic_integration_smoke() -> None:
     config = _actor_critic_flex_config()
-    env = make_env(config)
+    env = make_data_collection_env(config)
 
     try:
         actor = create_actor(env, torch.device("cpu"), config)

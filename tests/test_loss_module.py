@@ -2,7 +2,7 @@ import torch
 
 from data_harvesting.algorithm import MADDPGAlgorithm
 from data_harvesting.collector import create_collector
-from data_harvesting.environment import make_env
+from data_harvesting.environment import make_data_collection_env
 from data_harvesting.loss import _reduce
 
 
@@ -80,7 +80,7 @@ def _collect_batch(algorithm: MADDPGAlgorithm, config: dict) -> torch.Tensor:
     with create_collector(
         algorithm.exploratory_policy,
         torch.device("cpu"),
-        lambda: make_env(config),
+        lambda: make_data_collection_env(config),
         config,
     ) as collector:
         batch = next(iter(collector))
@@ -107,7 +107,7 @@ def test_reduce_with_mask_matches_expected_mean_and_sum() -> None:
 
 def test_masked_ddpg_loss_ignores_masked_agent_corruption() -> None:
     config = _loss_test_config()
-    env = make_env(config)
+    env = make_data_collection_env(config)
     try:
         algorithm = MADDPGAlgorithm(env, torch.device("cpu"), config)
         loss_module = algorithm.loss_module

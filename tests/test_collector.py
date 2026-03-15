@@ -4,7 +4,7 @@ from torch import nn
 from tensordict.nn import TensorDictModule
 
 from data_harvesting.collector import create_collector
-from data_harvesting.environment import make_env
+from data_harvesting.environment import make_data_collection_env
 
 
 class ConstantDirectionPolicy(nn.Module):
@@ -83,7 +83,7 @@ def test_collector_modes_return_expected_shapes_and_device(
     )
     policy = _make_policy(direction=0.5, speed=1.0)
 
-    with create_collector(policy, torch.device("cpu"), lambda: make_env(config), config) as collector:
+    with create_collector(policy, torch.device("cpu"), lambda: make_data_collection_env(config), config) as collector:
         iterator = iter(collector)
         batch = next(iterator)
 
@@ -116,7 +116,7 @@ def test_collector_policy_update_changes_actions_and_observation_trend(
     )
     policy = _make_policy(direction=0.5, speed=1.0)
 
-    with create_collector(policy, torch.device("cpu"), lambda: make_env(config), config) as collector:
+    with create_collector(policy, torch.device("cpu"), lambda: make_data_collection_env(config), config) as collector:
         iterator = iter(collector)
         batch_left = next(iterator)
 

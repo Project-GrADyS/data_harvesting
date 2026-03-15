@@ -1,6 +1,6 @@
 import torch
 
-from data_harvesting.environment import EndCause, make_env
+from data_harvesting.environment import EndCause, make_data_collection_env
 
 
 RIGHT = 0.0
@@ -56,7 +56,7 @@ def _terminal_cause(next_td) -> int:
 
 
 def test_sensor_at_origin_is_collected_and_episode_ends_first_step() -> None:
-    env = make_env(_one_drone_one_sensor_config())
+    env = make_data_collection_env(_one_drone_one_sensor_config())
     try:
         td = env.reset(seed=123)
         _, sensor_node = _prepare_scenario(env, drone_x=0.0, sensor_x=0.0)
@@ -74,7 +74,7 @@ def test_sensor_at_origin_is_collected_and_episode_ends_first_step() -> None:
 
 
 def test_sensor_at_right_edge_collected_when_moving_right() -> None:
-    env = make_env(_one_drone_one_sensor_config())
+    env = make_data_collection_env(_one_drone_one_sensor_config())
     try:
         td = env.reset(seed=123)
         _, sensor_node = _prepare_scenario(env, drone_x=0.0, sensor_x=10.0)
@@ -92,7 +92,7 @@ def test_sensor_at_right_edge_collected_when_moving_right() -> None:
 
 
 def test_sensor_not_collected_when_moving_away_and_episode_ends_stalled() -> None:
-    env = make_env(_one_drone_one_sensor_config())
+    env = make_data_collection_env(_one_drone_one_sensor_config())
     try:
         td = env.reset(seed=123)
         _, sensor_node = _prepare_scenario(env, drone_x=0.0, sensor_x=10.0)
@@ -120,7 +120,7 @@ def test_sensor_not_collected_when_moving_away_and_episode_ends_stalled() -> Non
 
 
 def test_sensor_not_collected_when_moving_away_and_episode_ends_timeout() -> None:
-    env = make_env(
+    env = make_data_collection_env(
         _config_with_overrides(
             max_episode_length=3,
             max_seconds_stalled=100,

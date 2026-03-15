@@ -2,7 +2,7 @@ from typing import cast
 import numpy as np
 import pytest
 
-from data_harvesting.environment import make_env
+from data_harvesting.environment import make_data_collection_env
 
 
 def _two_drone_config() -> dict:
@@ -80,7 +80,7 @@ def _observe(env) -> dict:
 
 
 def test_drones_on_opposite_ends_have_opposite_relative_positions() -> None:
-    env = make_env(_two_drone_config())
+    env = make_data_collection_env(_two_drone_config())
     try:
         env.reset(seed=1)
         size = cast(int, env.scenario_size)
@@ -103,7 +103,7 @@ def test_drones_on_opposite_ends_have_opposite_relative_positions() -> None:
 
 
 def test_two_drones_at_origin_have_zero_relative_offset() -> None:
-    env = make_env(_two_drone_config())
+    env = make_data_collection_env(_two_drone_config())
     try:
         env.reset(seed=2)
         _set_drone_positions(env, [(0.0, 0.0), (0.0, 0.0)])
@@ -120,7 +120,7 @@ def test_two_drones_at_origin_have_zero_relative_offset() -> None:
 
 
 def test_empty_drone_slots_are_filled_with_minus_one() -> None:
-    env = make_env(_two_drone_config())
+    env = make_data_collection_env(_two_drone_config())
     try:
         env.reset(seed=3)
         _set_drone_positions(env, [(-1.0, 0.0), (1.0, 0.0)])
@@ -135,7 +135,7 @@ def test_empty_drone_slots_are_filled_with_minus_one() -> None:
 
 
 def test_sensor_on_opposite_end_has_expected_relative_position() -> None:
-    env = make_env(_two_drone_config())
+    env = make_data_collection_env(_two_drone_config())
     try:
         env.reset(seed=4)
         size = cast(int, env.scenario_size)
@@ -153,7 +153,7 @@ def test_sensor_on_opposite_end_has_expected_relative_position() -> None:
 
 
 def test_drone_and_sensor_at_origin_have_zero_relative_sensor_offset() -> None:
-    env = make_env(_two_drone_config())
+    env = make_data_collection_env(_two_drone_config())
     try:
         env.reset(seed=5)
         _set_drone_positions(env, [(0.0, 0.0), (1.0, 0.0)])
@@ -170,7 +170,7 @@ def test_drone_and_sensor_at_origin_have_zero_relative_sensor_offset() -> None:
 
 
 def test_visited_sensor_is_excluded_from_observation() -> None:
-    env = make_env(_two_drone_config())
+    env = make_data_collection_env(_two_drone_config())
     try:
         env.reset(seed=6)
         size = cast(int, env.scenario_size)
@@ -186,7 +186,7 @@ def test_visited_sensor_is_excluded_from_observation() -> None:
 
 
 def test_empty_sensor_slots_are_filled_with_minus_one() -> None:
-    env = make_env(_two_drone_config())
+    env = make_data_collection_env(_two_drone_config())
     try:
         env.reset(seed=7)
         _set_drone_positions(env, [(0.0, 0.0), (0.0, 0.0)])
@@ -201,7 +201,7 @@ def test_empty_sensor_slots_are_filled_with_minus_one() -> None:
 
 
 def test_drones_on_each_side_of_sensor_have_opposite_relative_signs() -> None:
-    env = make_env(_two_drone_config())
+    env = make_data_collection_env(_two_drone_config())
     try:
         env.reset(seed=8)
         _set_drone_positions(env, [(-2.0, 0.0), (2.0, 0.0)])
@@ -220,7 +220,7 @@ def test_drones_on_each_side_of_sensor_have_opposite_relative_signs() -> None:
 
 
 def test_too_many_drones_keeps_only_closest_ones() -> None:
-    env = make_env(_many_entities_config())
+    env = make_data_collection_env(_many_entities_config())
     try:
         env.reset(seed=9)
         _set_drone_positions(
@@ -245,7 +245,7 @@ def test_too_many_drones_keeps_only_closest_ones() -> None:
 
 
 def test_too_many_sensors_keeps_only_closest_ones() -> None:
-    env = make_env(_many_entities_config())
+    env = make_data_collection_env(_many_entities_config())
     try:
         env.reset(seed=10)
         _set_drone_positions(env, [(0.0, 0.0)] * 5)
@@ -271,7 +271,7 @@ def test_too_many_sensors_keeps_only_closest_ones() -> None:
 
 
 def test_agent_id_two_drones_has_expected_values() -> None:
-    env = make_env(_two_drone_config())
+    env = make_data_collection_env(_two_drone_config())
     try:
         env.reset(seed=11)
         _set_drone_positions(env, [(0.0, 0.0), (1.0, 0.0)])
@@ -288,7 +288,7 @@ def test_agent_id_two_drones_has_expected_values() -> None:
 
 
 def test_agent_id_many_drones_is_evenly_spaced() -> None:
-    env = make_env(_many_entities_config())
+    env = make_data_collection_env(_many_entities_config())
     try:
         env.reset(seed=12)
         _set_drone_positions(env, [(float(i), 0.0) for i in range(5)])
@@ -303,7 +303,7 @@ def test_agent_id_many_drones_is_evenly_spaced() -> None:
 
 
 def test_agent_id_not_present_when_disabled() -> None:
-    env = make_env(_config_with_overrides(_two_drone_config(), id_on_state=False))
+    env = make_data_collection_env(_config_with_overrides(_two_drone_config(), id_on_state=False))
     try:
         env.reset(seed=13)
         _set_drone_positions(env, [(0.0, 0.0), (1.0, 0.0)])

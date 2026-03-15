@@ -1,4 +1,4 @@
-from data_harvesting.environment.environment import make_env
-from data_harvesting.environment.data_collection import DataCollectionEnvironment, EndCause, GrADySEnvironmentConfig
+from .environment import EndCause
+from .data_collection import DataCollectionEnvironment, DataCollectionEnvironmentConfig, make_data_collection_env
 
-__all__ = ["make_env", "DataCollectionEnvironment", "EndCause", "GrADySEnvironmentConfig"]
+__all__ = ["make_data_collection_env", "DataCollectionEnvironment", "EndCause", "DataCollectionEnvironmentConfig"]

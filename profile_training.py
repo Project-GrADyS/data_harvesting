@@ -8,12 +8,12 @@ import mlflow
 
 from data_harvesting.algorithm import MADDPGAlgorithm, MAPPOAlgorithm
 from data_harvesting.collector import create_collector
-from data_harvesting.environment import make_env
+from data_harvesting.environment import make_data_collection_env
 from train import train
 
 
 def _build_env(config: Dict, check: bool = False) -> TransformedEnv:
-    base_env = make_env(config)
+    base_env = make_data_collection_env(config)
     env = TransformedEnv(
         base_env,
         RewardSum(

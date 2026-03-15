@@ -1,6 +1,4 @@
 import dataclasses
-import enum
-import enum
 import math
 import random
 from typing import Optional
@@ -17,11 +15,12 @@ from torchrl.data import Bounded
 from torchrl.data.tensor_specs import Categorical, Composite, Unbounded
 from torchrl.envs import EnvBase
 
+from data_harvesting.environment import EndCause
 from data_harvesting.environment.gradys_env import BaseGrADySEnvironment
 from data_harvesting.environment.protocols import DroneProtocol, SensorProtocol
 
 @dataclasses.dataclass
-class GrADySEnvironmentConfig:
+class DataCollectionEnvironmentConfig:
     """Configuration for GrADyS environment (only 'relative' observation mode retained)."""
 
     render_mode: Optional[str] = None  # "visual" | "console"
@@ -48,11 +47,6 @@ class GrADySEnvironmentConfig:
     speed_action: bool = True
     end_when_all_collected: bool = True
 
-class EndCause(enum.Enum):
-    NONE = 0
-    TIMEOUT = 1
-    ALL_COLLECTED = 2
-    STALLED = 3
 
 class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
     """
@@ -64,7 +58,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
 
     batch_locked: bool = True
 
-    def __init__(self, config: GrADySEnvironmentConfig, *, device=None):
+    def __init__(self, config: DataCollectionEnvironmentConfig, *, device=None):
         BaseGrADySEnvironment.__init__(self, config.algorithm_iteration_interval, visual_mode=(config.render_mode == "visual"))
         EnvBase.__init__(self, device=device)
 
@@ -358,8 +352,8 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         # We do not end the simulation when all sensors are collected unless self.end_when_all_collected is True. We've found that training
         # benefits from time after collection where agents can "enjoy" the reward signal for success.
         simulation_ended = (
-            (all_sensors_collected and self.end_when_all_collected)
-            or end_cause != EndCause.NONE
+                (all_sensors_collected and self.end_when_all_collected)
+                or end_cause != EndCause.NONE
         )
 
         # Filling the output tensordict for the step

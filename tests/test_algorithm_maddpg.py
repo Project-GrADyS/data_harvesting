@@ -3,7 +3,7 @@ import torch.nn.utils as nn_utils
 
 from data_harvesting.algorithm import MADDPGAlgorithm
 from data_harvesting.collector import create_collector
-from data_harvesting.environment import make_env
+from data_harvesting.environment import make_data_collection_env
 
 
 def _maddpg_test_config() -> dict:
@@ -88,7 +88,7 @@ def _collect_training_batch(algorithm: MADDPGAlgorithm, config: dict) -> torch.T
     with create_collector(
         algorithm.exploratory_policy,
         torch.device("cpu"),
-        lambda: make_env(config),
+        lambda: make_data_collection_env(config),
         config,
     ) as collector:
         batch = next(iter(collector))
@@ -109,7 +109,7 @@ def _any_changed(before: list[torch.Tensor], after: list[torch.Tensor]) -> bool:
 
 def test_maddpg_learn_returns_finite_losses_and_updates_models() -> None:
     config = _maddpg_test_config()
-    env = make_env(config)
+    env = make_data_collection_env(config)
     try:
         algorithm = MADDPGAlgorithm(env, torch.device("cpu"), config)
         batch = _collect_training_batch(algorithm, config)
@@ -134,7 +134,7 @@ def test_maddpg_learn_returns_finite_losses_and_updates_models() -> None:
 
 def test_maddpg_target_network_updates_after_learn() -> None:
     config = _maddpg_test_config()
-    env = make_env(config)
+    env = make_data_collection_env(config)
     try:
         algorithm = MADDPGAlgorithm(env, torch.device("cpu"), config)
         batch = _collect_training_batch(algorithm, config)
@@ -162,7 +162,7 @@ def test_maddpg_learn_anneals_exploration_noise_by_collected_frames() -> None:
             "collector.frames_per_batch": 16,
         }
     )
-    env = make_env(config)
+    env = make_data_collection_env(config)
     try:
         algorithm = MADDPGAlgorithm(env, torch.device("cpu"), config)
         batch = _collect_training_batch(algorithm, config)
@@ -184,7 +184,7 @@ def test_maddpg_learn_applies_grad_clip_when_enabled(monkeypatch) -> None:
             "optimization.num_optimizer_steps": 2,
         }
     )
-    env = make_env(config)
+    env = make_data_collection_env(config)
     try:
         algorithm = MADDPGAlgorithm(env, torch.device("cpu"), config)
         batch = _collect_training_batch(algorithm, config)
