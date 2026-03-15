@@ -19,7 +19,7 @@ def create_mlp_critic(env: EnvBase, config: Dict[str, Any], device: torch.device
     if config["environment"]["sequential_obs"]:
         raise NotImplementedError("MLP Critic not implemented for sequential observations.")
     
-    if config["environment"]["min_num_drones"] != config["environment"]["max_num_drones"]:
+    if config["environment"]["min_num_agents"] != config["environment"]["max_num_agents"]:
         raise NotImplementedError("MLP Critic not implemented for variable number of drones.")
 
     cat_module = TensorDictModule(
@@ -36,7 +36,7 @@ def create_mlp_critic(env: EnvBase, config: Dict[str, Any], device: torch.device
             n_agent_inputs=env.observation_spec["agents", "observation"].shape[-1]
                            + env.full_action_spec["agents", "action"].shape[-1],
             n_agent_outputs=1,
-            n_agents=config["environment"]["max_num_drones"],
+            n_agents=config["environment"]["max_num_agents"],
             centralised=critic_params["centralized"],
             share_params=critic_params["share_parameters"],
             device=device,
@@ -64,7 +64,7 @@ def create_flex_critic(env: EnvBase, config: Dict[str, Any], device: torch.devic
         ff_dim=seq_heads_cfg["ff_dim"],
         depth=seq_heads_cfg["depth"],
         dropout=seq_heads_cfg["dropout"],
-        max_num_agents=config["environment"]["max_num_drones"],
+        max_num_agents=config["environment"]["max_num_agents"],
         agentic_encoding=seq_heads_cfg["critic_agent_embedding"]
     )
     flat_inputs = []
@@ -132,7 +132,7 @@ def create_flex_critic(env: EnvBase, config: Dict[str, Any], device: torch.devic
         mix_layer_num_cells=flex_cfg["mix_layer_num_cells"],
         mix_activation_class=get_activation_class(flex_cfg["mix_activation_function"]),
         output_dim=1,
-        n_agents=config["environment"]["max_num_drones"],
+        n_agents=config["environment"]["max_num_agents"],
         centralized=config["critic"]["centralized"],
         share_params=config["critic"]["share_parameters"],
         device=device
@@ -154,7 +154,7 @@ def create_critic(env, device, config):
 
 def create_ppo_value_net(env, device, config):
     """Creates a multi-agent value network V(s) for PPO/MAPPO."""
-    if config["environment"]["max_num_drones"] != config["environment"]["min_num_drones"]:
+    if config["environment"]["max_num_agents"] != config["environment"]["min_num_agents"]:
         raise NotImplementedError("PPO Value Network not implemented for variable number of drones.")
 
     critic_params = config["critic"]
@@ -164,7 +164,7 @@ def create_ppo_value_net(env, device, config):
         module=MultiAgentMLP(
             n_agent_inputs=env.observation_spec["agents", "observation"].shape[-1],
             n_agent_outputs=1,
-            n_agents=config["environment"]["max_num_drones"],
+            n_agents=config["environment"]["max_num_agents"],
             centralised=critic_params["centralized"],
             share_params=critic_params["share_parameters"],
             device=device,

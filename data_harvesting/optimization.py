@@ -30,7 +30,7 @@ def create_loss(policy: torch.nn.Module, critic: torch.nn.Module, config: Dict[s
         terminated=("agents", "terminated"),
     )
 
-    if config["environment"]["max_num_drones"] != config["environment"]["min_num_drones"]:
+    if config["environment"]["max_num_agents"] != config["environment"]["min_num_agents"]:
         loss_module.set_keys(mask=("agents", "mask"))
 
     loss_module.make_value_estimator(ValueEstimators.TD0, gamma=gamma, device=device)

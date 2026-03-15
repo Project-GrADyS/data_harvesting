@@ -25,10 +25,10 @@ class DataCollectionEnvironmentConfig:
 
     render_mode: Optional[str] = None  # "visual" | "console"
     algorithm_iteration_interval: float = 0.5
-    # Number of drone agents is samples from [min_num_drones, max_num_drones].
-    # To fix the number, set min_num_drones == max_num_drones.
-    min_num_drones: int = 1
-    max_num_drones: int = 1
+    # Number of drone agents is sampled from [min_num_agents, max_num_agents].
+    # To fix the number, set min_num_agents == max_num_agents.
+    min_num_agents: int = 1
+    max_num_agents: int = 1
     # Number of sensors is always sampled each reset from [min_num_sensors, max_num_sensors].
     # To fix the number, set min_num_sensors == max_num_sensors.
     min_num_sensors: int = 2
@@ -70,8 +70,8 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
 
         self.min_num_sensors = config.min_num_sensors
         self.max_num_sensors = config.max_num_sensors
-        self.min_num_drones = config.min_num_drones
-        self.max_num_drones = config.max_num_drones
+        self.min_num_agents = config.min_num_agents
+        self.max_num_agents = config.max_num_agents
 
         self.scenario_size = config.scenario_size
         self.max_episode_length = config.max_episode_length
@@ -88,7 +88,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         self.speed_action = config.speed_action
         self.end_when_all_collected = config.end_when_all_collected
 
-        self.possible_agents = [f"drone{i}" for i in range(self.max_num_drones)]
+        self.possible_agents = [f"drone{i}" for i in range(self.max_num_agents)]
         self.group_map = {"agents": self.possible_agents}
 
         self.active_num_sensors: int = -1
@@ -186,13 +186,13 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         device = self.device
 
         action_dim = 2 if self.speed_action else 1
-        sensors_shape = (self.max_num_drones, self.state_num_closest_sensors, 2)
-        drones_shape = (self.max_num_drones, self.state_num_closest_drones, 2)
-        agent_id_shape = (self.max_num_drones, 1)
-        mask_shape = (self.max_num_drones,)
-        action_shape = (self.max_num_drones, action_dim)
-        reward_shape = (self.max_num_drones, 1)
-        done_shape = (self.max_num_drones, 1)
+        sensors_shape = (self.max_num_agents, self.state_num_closest_sensors, 2)
+        drones_shape = (self.max_num_agents, self.state_num_closest_drones, 2)
+        agent_id_shape = (self.max_num_agents, 1)
+        mask_shape = (self.max_num_agents,)
+        action_shape = (self.max_num_agents, action_dim)
+        reward_shape = (self.max_num_agents, 1)
+        done_shape = (self.max_num_agents, 1)
 
         obs_inner = {
             "sensors": Bounded(
@@ -233,7 +233,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
                         "info": Composite(
                             {
                                 key: Unbounded(
-                                    shape=(self.max_num_drones,),
+                                    shape=(self.max_num_agents,),
                                     device=device,
                                     dtype=torch.float32,
                                 )
@@ -378,7 +378,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
     def _reset(self, tensordict: TensorDictBase, **kwargs) -> TensorDictBase:
         # Picking number of sensors and drones for this episode
         self.active_num_sensors = random.randint(self.min_num_sensors, self.max_num_sensors)
-        self.active_num_drones = random.randint(self.min_num_drones, self.max_num_drones)
+        self.active_num_drones = random.randint(self.min_num_agents, self.max_num_agents)
         self.agents = [f"drone{i}" for i in range(self.active_num_drones)]
 
         self._reset_statistics()
@@ -400,7 +400,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         # The initial observation has to contain observations for all possible agents
         # We repeat the last active agent's observation for the inactive agents
         # This is not a problem because these agents will be truncated immediately
-        for i in range(self.active_num_drones, self.max_num_drones):
+        for i in range(self.active_num_drones, self.max_num_agents):
             all_obs[f"drone{i}"] = all_obs[f"drone{self.active_num_drones - 1}"]
         tensordict_out = self._cached_reset_zero.clone()
         self._fill_observation(tensordict_out, all_obs)
@@ -533,7 +533,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
             }
             if self.id_on_state:
                 state[f"drone{agent_index}"]["agent_id"] = np.array([
-                    agent_index / (self.max_num_drones - 1) if self.max_num_drones > 1 else 0
+                    agent_index / (self.max_num_agents - 1) if self.max_num_agents > 1 else 0
                 ])
         return state
 
@@ -609,7 +609,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
             terminated[:active, 0] = True
             done[:active, 0] = True
 
-        if active < self.max_num_drones:
+        if active < self.max_num_agents:
             truncated[active:, 0] = True
             done[active:, 0] = True
 

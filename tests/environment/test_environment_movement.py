@@ -17,8 +17,8 @@ def _single_drone_config() -> dict:
         "environment": {
             "sequential_obs": True,
             "algorithm_iteration_interval": 1.0,
-            "min_num_drones": 1,
-            "max_num_drones": 1,
+            "min_num_agents": 1,
+            "max_num_agents": 1,
             "min_num_sensors": 1,
             "max_num_sensors": 1,
             "scenario_size": 100.0,

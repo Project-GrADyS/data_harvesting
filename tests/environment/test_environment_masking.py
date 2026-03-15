@@ -9,8 +9,8 @@ def _masking_config(*, sequential_obs: bool = True) -> dict:
         "environment": {
             "sequential_obs": sequential_obs,
             "algorithm_iteration_interval": 1.0,
-            "min_num_drones": 1,
-            "max_num_drones": 4,
+            "min_num_agents": 1,
+            "max_num_agents": 4,
             "min_num_sensors": 1,
             "max_num_sensors": 1,
             "scenario_size": 10.0,
@@ -30,7 +30,7 @@ def _masking_config(*, sequential_obs: bool = True) -> dict:
 def _reset_until(env, predicate, max_seed: int = 200):
     for seed in range(max_seed):
         td = env.reset(seed=seed)
-        if predicate(env.active_num_drones, env.max_num_drones):
+        if predicate(env.active_num_drones, env.max_num_agents):
             return td
     raise AssertionError("Could not find reset matching mask test condition")
 
@@ -41,7 +41,7 @@ def test_mask_marks_only_active_agents_on_reset() -> None:
         td = _reset_until(env, lambda active, max_drones: active < max_drones)
 
         active = cast(int, env.active_num_drones)
-        max_drones = cast(int, env.max_num_drones)
+        max_drones = cast(int, env.max_num_agents)
         mask = td.get(("agents", "mask"))
         assert tuple(mask.shape) == (max_drones,)
         assert mask.dtype == torch.bool
@@ -61,7 +61,7 @@ def test_mask_stays_consistent_after_step() -> None:
     try:
         td = _reset_until(env, lambda active, max_drones: active < max_drones)
         active = cast(int, env.active_num_drones)
-        max_drones = cast(int, env.max_num_drones)
+        max_drones = cast(int, env.max_num_agents)
 
         action = torch.zeros((max_drones, 2), dtype=torch.float32, device=env.device)
         td.set(("agents", "action"), action)
@@ -83,7 +83,7 @@ def test_mask_all_true_when_active_equals_max() -> None:
         td = _reset_until(env, lambda active, max_drones: active == max_drones)
 
         mask = td.get(("agents", "mask"))
-        assert mask.tolist() == [True] * cast(int, env.max_num_drones)
+        assert mask.tolist() == [True] * cast(int, env.max_num_agents)
     finally:
         env.close()
 

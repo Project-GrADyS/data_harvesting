@@ -11,8 +11,8 @@ def _loss_test_config() -> dict:
         "environment": {
             "sequential_obs": False,
             "algorithm_iteration_interval": 1.0,
-            "min_num_drones": 2,
-            "max_num_drones": 2,
+            "min_num_agents": 2,
+            "max_num_agents": 2,
             "min_num_sensors": 2,
             "max_num_sensors": 2,
             "scenario_size": 20.0,

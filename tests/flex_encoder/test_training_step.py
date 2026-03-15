@@ -10,8 +10,8 @@ def _flex_maddpg_config() -> dict:
         "environment": {
             "sequential_obs": True,
             "algorithm_iteration_interval": 1.0,
-            "min_num_drones": 3,
-            "max_num_drones": 3,
+            "min_num_agents": 3,
+            "max_num_agents": 3,
             "min_num_sensors": 3,
             "max_num_sensors": 3,
             "scenario_size": 20.0,

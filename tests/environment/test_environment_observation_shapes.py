@@ -15,8 +15,8 @@ def _shape_config(
         "environment": {
             "sequential_obs": sequential_obs,
             "algorithm_iteration_interval": 1.0,
-            "min_num_drones": num_drones,
-            "max_num_drones": num_drones,
+            "min_num_agents": num_drones,
+            "max_num_agents": num_drones,
             "min_num_sensors": 2,
             "max_num_sensors": 2,
             "scenario_size": 10.0,

@@ -10,8 +10,8 @@ def _two_drone_config() -> dict:
         "environment": {
             "sequential_obs": True,
             "algorithm_iteration_interval": 1.0,
-            "min_num_drones": 2,
-            "max_num_drones": 2,
+            "min_num_agents": 2,
+            "max_num_agents": 2,
             "min_num_sensors": 2,
             "max_num_sensors": 2,
             "scenario_size": 10.0,
@@ -33,8 +33,8 @@ def _many_entities_config() -> dict:
         "environment": {
             "sequential_obs": True,
             "algorithm_iteration_interval": 1.0,
-            "min_num_drones": 5,
-            "max_num_drones": 5,
+            "min_num_agents": 5,
+            "max_num_agents": 5,
             "min_num_sensors": 5,
             "max_num_sensors": 5,
             "scenario_size": 20.0,

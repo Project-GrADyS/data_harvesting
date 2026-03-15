@@ -12,8 +12,8 @@ def _reward_config(*, num_sensors: int, communication_range: float = 2.0) -> dic
         "environment": {
             "sequential_obs": True,
             "algorithm_iteration_interval": 1.0,
-            "min_num_drones": 1,
-            "max_num_drones": 1,
+            "min_num_agents": 1,
+            "max_num_agents": 1,
             "min_num_sensors": num_sensors,
             "max_num_sensors": num_sensors,
             "scenario_size": 10.0,

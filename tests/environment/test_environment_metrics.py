@@ -14,15 +14,15 @@ def _metrics_config(
     max_seconds_stalled: int,
     max_episode_length: int = 50,
     end_when_all_collected: bool = True,
-    min_num_drones: int = 1,
-    max_num_drones: int = 1,
+    min_num_agents: int = 1,
+    max_num_agents: int = 1,
 ) -> dict:
     return {
         "environment": {
             "sequential_obs": True,
             "algorithm_iteration_interval": 1.0,
-            "min_num_drones": min_num_drones,
-            "max_num_drones": max_num_drones,
+            "min_num_agents": min_num_agents,
+            "max_num_agents": max_num_agents,
             "min_num_sensors": num_sensors,
             "max_num_sensors": num_sensors,
             "scenario_size": 10.0,
@@ -42,7 +42,7 @@ def _metrics_config(
 def _reset_until(env, predicate, max_seed: int = 200):
     for seed in range(max_seed):
         td = env.reset(seed=seed)
-        if predicate(env.active_num_drones, env.max_num_drones):
+        if predicate(env.active_num_drones, env.max_num_agents):
             return td
     raise AssertionError("Could not find reset matching requested condition")
 
@@ -178,8 +178,8 @@ def test_done_flag_ignores_inactive_agent_done_states() -> None:
             num_sensors=1,
             communication_range=0.0,
             max_seconds_stalled=20,
-            min_num_drones=1,
-            max_num_drones=2,
+            min_num_agents=1,
+            max_num_agents=2,
         )
     )
     try:
@@ -188,7 +188,7 @@ def test_done_flag_ignores_inactive_agent_done_states() -> None:
         assert bool(td.get("terminated").item()) is False
         assert bool(td.get("truncated").item()) is False
 
-        action = torch.zeros((env.max_num_drones, 2), dtype=torch.float32, device=env.device)
+        action = torch.zeros((env.max_num_agents, 2), dtype=torch.float32, device=env.device)
         td.set(("agents", "action"), action)
         next_td = env.step(td).get("next")
 
