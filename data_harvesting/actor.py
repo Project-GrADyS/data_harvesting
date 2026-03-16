@@ -1,5 +1,5 @@
 import torch
-from typing import Dict, Any
+from typing import Dict, Any, TypedDict
 from tensordict.nn import TensorDictModule, TensorDictSequential
 from torchrl.envs import EnvBase
 from torchrl.modules import (
@@ -16,8 +16,8 @@ from data_harvesting.encoder import (
     FlatEncoderConfig,
     SequentialEncoderInput,
 )
+from data_harvesting.environment.data_collection.make import make_output_dict
 from data_harvesting.utils import get_faster_tanh_delta, get_activation_class
-
 
 def create_mlp_module(env: EnvBase, config: Dict[str, Any], device: torch.device) -> TensorDictModule:
     if config["environment"]["sequential_obs"]:
@@ -51,11 +51,10 @@ def create_flex_policy_module(env: EnvBase, config: Dict[str, Any], device: torc
     seq_heads_cfg = flex_cfg["sequential_heads"]
     flat_heads_cfg = flex_cfg["flat_heads"]
 
+    output_keys = make_output_dict(config)
     sequential_inputs = []
     flat_inputs = []
     in_keys = {}
-
-    env_is_sequential = config["environment"]["sequential_obs"]
     
     sequential_config = SequentialEncoderConfig(
         embed_dim=seq_heads_cfg["embed_dim"],
@@ -74,41 +73,23 @@ def create_flex_policy_module(env: EnvBase, config: Dict[str, Any], device: torc
         activation_class=get_activation_class(flat_heads_cfg["activation_function"])
     )
 
-    if env_is_sequential:
-        # Configuration for the drones part of the observation
-        sequential_inputs.append(
-            SequentialEncoderInput(
-                key="drones",
-                input_size=env.observation_spec[("agents", "observation","drones")].shape[-1],
-            )
-        )
-        in_keys["drones"] = ("agents", "observation", "drones")
-        # Sequential config for the sensors part of the observation
-        sequential_inputs.append(
-            SequentialEncoderInput(
-                key="sensors",
-                input_size=env.observation_spec[("agents", "observation","sensors")].shape[-1]
-            )
-        )
-        in_keys["sensors"] = ("agents", "observation", "sensors")
-        if config["environment"]["id_on_state"]:
-            # Flat config for the agent_id part of the observation
-            flat_inputs.append(
-                FlatEncoderInput(
-                    key="agent_id",
-                    input_size=env.observation_spec[("agents", "observation","agent_id")].shape[-1],
-                )
-            )
-            in_keys["agent_id"] = ("agents", "observation", "agent_id")
-    else:
-        # Flat config for the entire observation when not sequential
+    for key, path in output_keys["flat"].items():
         flat_inputs.append(
             FlatEncoderInput(
-                key="observation",
-                input_size=env.observation_spec[("agents", "observation")].shape[-1]
+                key=key,
+                input_size=env.observation_spec[path].shape[-1],
             )
         )
-        in_keys["observation"] = ("agents", "observation")
+        in_keys[key] = path
+
+    for key, path in output_keys["sequential"].items():
+        sequential_inputs.append(
+            SequentialEncoderInput(
+                key=key,
+                input_size=env.observation_spec[path].shape[-1],
+            )
+        )
+        in_keys[key] = path
 
     encoder = MultiAgentFlexModule(
         sequential_inputs=sequential_inputs, 

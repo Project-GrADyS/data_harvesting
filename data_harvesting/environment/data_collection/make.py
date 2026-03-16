@@ -1,6 +1,7 @@
 
 from torchrl.envs import EnvBase
 
+from data_harvesting.encoder.output import ActorOutputKeys
 from data_harvesting.environment.data_collection import DataCollectionEnvironment, DataCollectionEnvironmentConfig
 
 def make_data_collection_env(config: dict) -> EnvBase:
@@ -34,3 +35,29 @@ def make_data_collection_env(config: dict) -> EnvBase:
             del_keys=False
         ))
     return env
+
+def make_output_dict(config: dict) -> ActorOutputKeys:
+    """
+    Extract the configuration for the flexible actor from the overall config.
+    """
+    env_is_sequential = config["environment"]["sequential_obs"]
+
+    sequential_keys: dict[str, tuple[str, ...]] = {}
+    flat_keys: dict[str, tuple[str, ...]] = {}
+
+    if env_is_sequential:
+        # Configuration for the drones part of the observation
+        sequential_keys["drones"] = ("agents", "observation", "drones")
+        # Sequential config for the sensors part of the observation
+        sequential_keys["sensors"] = ("agents", "observation", "sensors")
+        if config["environment"]["id_on_state"]:
+            # Flat config for the agent_id part of the observation
+            flat_keys["agent_id"] = ("agents", "observation", "agent_id")
+    else:
+        # Flat config for the entire observation when not sequential
+        flat_keys["observation"] = ("agents", "observation")
+
+    return ActorOutputKeys(
+        sequential=sequential_keys,
+        flat=flat_keys
+    )
