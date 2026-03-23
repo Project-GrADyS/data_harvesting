@@ -2,7 +2,7 @@ import mlflow
 import torch
 from torchrl.envs import check_env_specs, TransformedEnv, RewardSum
 
-from data_harvesting.environment import make_data_collection_env
+from data_harvesting.environment.data_collection import make_data_collection_env
 from data_harvesting.collector import create_collector
 from data_harvesting.metrics import EnvironmentMetricsCollector, LearningMetricsCollector
 from data_harvesting.algorithm import MADDPGAlgorithm, MAPPOAlgorithm

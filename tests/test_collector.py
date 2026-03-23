@@ -4,7 +4,7 @@ from torch import nn
 from tensordict.nn import TensorDictModule
 
 from data_harvesting.collector import create_collector
-from data_harvesting.environment import make_data_collection_env
+from data_harvesting.environment.data_collection import make_data_collection_env
 
 
 class ConstantDirectionPolicy(nn.Module):

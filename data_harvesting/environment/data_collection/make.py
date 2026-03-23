@@ -2,7 +2,7 @@
 from torchrl.envs import EnvBase
 
 from data_harvesting.encoder.output import ActorOutputKeys
-from data_harvesting.environment.data_collection import DataCollectionEnvironment, DataCollectionEnvironmentConfig
+from .data_collection import DataCollectionEnvironment, DataCollectionEnvironmentConfig
 
 def make_data_collection_env(config: dict) -> EnvBase:
     """
@@ -36,9 +36,9 @@ def make_data_collection_env(config: dict) -> EnvBase:
         ))
     return env
 
-def make_output_dict(config: dict) -> ActorOutputKeys:
+def make_data_collection_output_dict(config: dict) -> ActorOutputKeys:
     """
-    Extract the configuration for the flexible actor from the overall config.
+    Create the output key configuration for the data collection environment based on the provided config.
     """
     env_is_sequential = config["environment"]["sequential_obs"]
 

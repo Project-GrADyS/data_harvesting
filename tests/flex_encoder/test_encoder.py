@@ -10,7 +10,7 @@ from data_harvesting.encoder import (
     SequentialEncoderConfig,
     SequentialEncoderInput,
 )
-from data_harvesting.environment import make_data_collection_env
+from data_harvesting.environment.data_collection import make_data_collection_env
 
 
 def _sequential_config(*, max_agents: int = 4, agentic_encoding: bool = False) -> SequentialEncoderConfig:

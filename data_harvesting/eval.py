@@ -9,8 +9,7 @@ from mlflow import pytorch as mlflow_pytorch
 from mlflow import MlflowClient
 from torchrl.envs.utils import ExplorationType, set_exploration_type
 
-from data_harvesting.environment import EndCause, make_data_collection_env
-
+from data_harvesting.environment import EndCause, make_env
 
 _METRIC_KEYS = (
     "avg_reward",
@@ -90,7 +89,7 @@ def eval(
     env_config = eval_config.setdefault("environment", {})
     env_config["render_mode"] = "visual" if visual else None
 
-    env = make_data_collection_env(eval_config)
+    env = make_env(eval_config)
 
     if hasattr(policy, "eval"):
         policy.eval()

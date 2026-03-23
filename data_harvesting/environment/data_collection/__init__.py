@@ -1,5 +1,3 @@
-from .data_collection import DataCollectionEnvironmentConfig, DataCollectionEnvironment
-from .make import make_data_collection_env
+from .make import make_data_collection_env, make_data_collection_output_dict
 
-__all__ = ["DataCollectionEnvironmentConfig", "DataCollectionEnvironment", "DataCollectionEnvironment",
-           "make_data_collection_env"]
+__all__ = ["make_data_collection_env", "make_data_collection_output_dict"]

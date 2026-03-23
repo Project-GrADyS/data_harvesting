@@ -1,7 +1,7 @@
 from typing import cast
 import torch
 
-from data_harvesting.environment import make_data_collection_env
+from data_harvesting.environment.data_collection import make_data_collection_env
 
 
 def _masking_config(*, sequential_obs: bool = True) -> dict:

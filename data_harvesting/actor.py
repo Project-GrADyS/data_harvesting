@@ -1,5 +1,5 @@
 import torch
-from typing import Dict, Any, TypedDict
+from typing import Dict, Any
 from tensordict.nn import TensorDictModule, TensorDictSequential
 from torchrl.envs import EnvBase
 from torchrl.modules import (
@@ -16,7 +16,7 @@ from data_harvesting.encoder import (
     FlatEncoderConfig,
     SequentialEncoderInput,
 )
-from data_harvesting.environment.data_collection.make import make_output_dict
+from data_harvesting.environment import make_output_dict
 from data_harvesting.utils import get_faster_tanh_delta, get_activation_class
 
 def create_mlp_module(env: EnvBase, config: Dict[str, Any], device: torch.device) -> TensorDictModule:

@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from data_harvesting.environment import make_data_collection_env
+from data_harvesting.environment.data_collection import make_data_collection_env
 
 
 RIGHT = 0.0

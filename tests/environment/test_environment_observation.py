@@ -2,7 +2,7 @@ from typing import cast
 import numpy as np
 import pytest
 
-from data_harvesting.environment import make_data_collection_env
+from data_harvesting.environment.data_collection import make_data_collection_env
 
 
 def _two_drone_config() -> dict:

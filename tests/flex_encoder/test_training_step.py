@@ -2,7 +2,7 @@ import torch
 
 from data_harvesting.algorithm import MADDPGAlgorithm
 from data_harvesting.collector import create_collector
-from data_harvesting.environment import make_data_collection_env
+from data_harvesting.environment.data_collection import make_data_collection_env
 
 
 def _flex_maddpg_config() -> dict:

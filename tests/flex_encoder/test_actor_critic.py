@@ -3,7 +3,7 @@ import torch
 
 from data_harvesting.actor import create_actor
 from data_harvesting.critic import create_critic
-from data_harvesting.environment import make_data_collection_env
+from data_harvesting.environment.data_collection import make_data_collection_env
 
 
 def _base_config() -> dict:

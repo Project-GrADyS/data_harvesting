@@ -4,7 +4,7 @@ from tensordict.nn import TensorDictSequential
 from torchrl.modules import AdditiveGaussianModule
 
 from data_harvesting.actor import create_actor, create_exploratory_actor
-from data_harvesting.environment import make_data_collection_env
+from data_harvesting.environment.data_collection import make_data_collection_env
 
 
 def _exploration_test_config(*, sigma_init: float = 0.2, sigma_end: float = 0.1, anneal_steps: int = 5) -> dict:

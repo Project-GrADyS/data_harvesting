@@ -1,4 +1,4 @@
 from .environment import EndCause
-from .data_collection import DataCollectionEnvironment, DataCollectionEnvironmentConfig, make_data_collection_env
+from .make import make_output_dict, make_env
 
-__all__ = ["make_data_collection_env", "DataCollectionEnvironment", "EndCause", "DataCollectionEnvironmentConfig"]
+__all__ = ["EndCause", "make_env", "make_output_dict"]
