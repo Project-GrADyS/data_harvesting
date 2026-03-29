@@ -60,6 +60,22 @@ def main() -> None:
         default="policy_model",
         help="Preferred logged model name for the given run",
     )
+    parser.add_argument(
+        "--load",
+        choices=["final", "checkpoint"],
+        default="final",
+        help="Load final model or latest checkpoint model",
+    )
+    parser.add_argument(
+        "--checkpoint-model-name",
+        default="policy_checkpoint",
+        help="Model name used for checkpoint snapshots",
+    )
+    parser.add_argument(
+        "--model-id",
+        default=None,
+        help="Optional explicit model ID to load",
+    )
     args = parser.parse_args()
 
     mlflow.set_tracking_uri(args.tracking_uri)
@@ -70,10 +86,14 @@ def main() -> None:
     policy, model_id = load_policy_from_mlflow_run(
         args.run_id,
         tracking_uri=args.tracking_uri,
+        model_id=args.model_id,
+        load=args.load,
         model_name=args.model_name,
+        checkpoint_model_name=args.checkpoint_model_name,
     )
 
     print(f"Evaluating run_id={args.run_id}")
+    print(f"Load source={args.load}")
     print(f"Loaded model_id={model_id}")
     print(f"Visual mode={'on' if args.visual else 'off'}")
 

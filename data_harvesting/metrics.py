@@ -78,6 +78,34 @@ class EnvironmentMetricsCollector:
 
         mlflow.log_metrics(metrics, step=step)
 
+    def state_dict(self):
+        """Returns the state dictionary for checkpointing."""
+        return {
+            "trajectories": self.trajectories.clone(),
+            "sum_avg_reward": self.sum_avg_reward,
+            "sum_max_reward": self.sum_max_reward,
+            "sum_sum_reward": self.sum_sum_reward,
+            "sum_avg_collection_time": self.sum_avg_collection_time,
+            "sum_episode_duration": self.sum_episode_duration,
+            "sum_completion_time": self.sum_completion_time,
+            "sum_all_collected": self.sum_all_collected,
+            "sum_num_collected": self.sum_num_collected,
+            "end_cause_counts": self.end_cause_counts.copy(),
+        }
+    
+    def load_state_dict(self, state_dict):
+        """Loads the state dictionary from a checkpoint."""
+        self.trajectories = state_dict["trajectories"].to(self._device)
+        self.sum_avg_reward = state_dict["sum_avg_reward"].to(self._device)
+        self.sum_max_reward = state_dict["sum_max_reward"].to(self._device)
+        self.sum_sum_reward = state_dict["sum_sum_reward"].to(self._device)
+        self.sum_avg_collection_time = state_dict["sum_avg_collection_time"].to(self._device)
+        self.sum_episode_duration = state_dict["sum_episode_duration"].to(self._device)
+        self.sum_completion_time = state_dict["sum_completion_time"].to(self._device)
+        self.sum_all_collected = state_dict["sum_all_collected"].to(self._device)
+        self.sum_num_collected = state_dict["sum_num_collected"].to(self._device)
+        self.end_cause_counts = state_dict["end_cause_counts"].copy()
+
 class LearningMetricsCollector:
     def __init__(self, device: torch.device):
         self._device = device
@@ -114,3 +142,17 @@ class LearningMetricsCollector:
             mlflow.log_metrics(metrics, step=step)
         self.losses.clear()
         self.iterations.zero_()
+
+    def state_dict(self):
+        """Returns the state dictionary for checkpointing."""
+        return {
+            "losses": {name: loss.clone() for name, loss in self.losses.items()},
+            "iterations": self.iterations,
+            "start_time": self.start_time,
+        }
+    
+    def load_state_dict(self, state_dict):
+        """Loads the state dictionary from a checkpoint."""
+        self.losses = {name: loss.to(self._device) for name, loss in state_dict["losses"].items()}
+        self.iterations = state_dict["iterations"].to(self._device)
+        self.start_time = state_dict["start_time"]
