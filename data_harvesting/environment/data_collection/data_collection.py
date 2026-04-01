@@ -19,6 +19,22 @@ from data_harvesting.environment import EndCause
 from data_harvesting.environment.gradys_env import BaseGrADySEnvironment
 from data_harvesting.environment.protocols import DroneProtocol, SensorProtocol
 
+@dataclasses.dataclass(slots=True)
+class EpisodeAgentState:
+    """Bookkeeping for a single stable agent slot in the current episode."""
+
+    slot_index: int
+    name: str
+    exists: bool = False
+    """Whether this agent slot is occupied by an actual agent in the current episode. If False, this slot is a 
+    placeholder that gets truncated immediately at reset and should not be filled with meaningful data."""
+
+    active: bool = False
+    """Whether this agent slot is currently active and should be stepped. If False, this agent should not be stepped or
+     filled with meaningful data, but it may still exist in the simulation if it was active in the past"""
+
+    node_id: int | None = None
+
 @dataclasses.dataclass
 class DataCollectionEnvironmentConfig:
     """Configuration for GrADyS environment (only 'relative' observation mode retained)."""
@@ -52,6 +68,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
     """
     A specialized environment for data collection in simulations, extending the GrADySEnvironment.
     This environment simulates sensor data collection with autonomous agents.
+    Per-episode agent state is centralized in `episode_agents`.
     """
 
     _simulation_configuration: SimulationConfiguration
@@ -91,14 +108,12 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         self.possible_agents = [f"drone{i}" for i in range(self.max_num_agents)]
         self.group_map = {"agents": self.possible_agents}
 
+        self.episode_agents: list[EpisodeAgentState] = []
         self.active_num_sensors: int = -1
-        self.active_num_drones: int = -1
-        self.agents: list[str] = []
         self.episode_duration = 0
         self.stall_duration = 0
         self.reward_sum = 0.0
         self.max_reward = -math.inf
-        self.sensors_collected = 0
         self.collection_times: list[float] = []
 
         self._info_keys = [
@@ -126,6 +141,18 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         self._cached_step_zero = self.full_observation_spec.zero()
         self._cached_step_zero.update(self.full_reward_spec.zero())
         self._cached_step_zero.update(self.full_done_spec.zero())
+
+    def _existing_episode_agents(self) -> list[EpisodeAgentState]:
+        """Return episode slots that exist in the current episode, in slot order."""
+        return [agent for agent in self.episode_agents if agent.exists]
+
+    def _active_episode_agents(self) -> list[EpisodeAgentState]:
+        """Return the episode slots that are currently active and should act."""
+        return [agent for agent in self.episode_agents if agent.exists and agent.active]
+
+    def _agent_slot_tensor(self, agents: list[EpisodeAgentState]) -> torch.Tensor:
+        """Return the given episode agents' slot indices on the environment device."""
+        return torch.tensor([agent.slot_index for agent in agents], device=self.device, dtype=torch.long)
 
     def _build_simulation(self, builder: SimulationBuilder):
         """
@@ -162,23 +189,23 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
                 0
             )))
 
-        self.agent_node_ids = []
         DroneProtocol.speed_action = self.speed_action
         DroneProtocol.algorithm_interval = self.algorithm_iteration_interval
 
-        for _ in range(self.active_num_drones):
+        # The episode state keeps stable slot identity; only existing agents get simulator nodes.
+        for agent in self._existing_episode_agents():
             if self.full_random_drone_position:
-                self.agent_node_ids.append(builder.add_node(DroneProtocol, (
+                agent.node_id = builder.add_node(DroneProtocol, (
                     random.uniform(-self.scenario_size, self.scenario_size),
                     random.uniform(-self.scenario_size, self.scenario_size),
                     0
-                )))
+                ))
             else:
-                self.agent_node_ids.append(builder.add_node(DroneProtocol, (
+                agent.node_id = builder.add_node(DroneProtocol, (
                     random.uniform(-2, 2),
                     random.uniform(-2, 2),
                     0
-                )))
+                ))
 
         self.simulator = builder.build()
 
@@ -372,20 +399,28 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         self.stall_duration = 0
         self.reward_sum = 0
         self.max_reward = -math.inf
-        self.sensors_collected = 0
         self.collection_times = [self.max_episode_length for _ in range(self.active_num_sensors)]
 
     def _reset(self, tensordict: TensorDictBase, **kwargs) -> TensorDictBase:
         # Picking number of sensors and drones for this episode
         self.active_num_sensors = random.randint(self.min_num_sensors, self.max_num_sensors)
-        self.active_num_drones = random.randint(self.min_num_agents, self.max_num_agents)
-        self.agents = [f"drone{i}" for i in range(self.active_num_drones)]
+        num_active_agents = random.randint(self.min_num_agents, self.max_num_agents)
+        self.episode_agents = [
+            EpisodeAgentState(
+                slot_index=i,
+                name=f"drone{i}",
+                exists=i < num_active_agents,
+                active=i < num_active_agents,
+            )
+            for i in range(self.max_num_agents)
+        ]
 
         self._reset_statistics()
 
         self.reset_simulation(self._simulation_configuration)
 
-        max_ready_steps = self.active_num_drones * 10  # Arbitrary large number of steps to wait for drones to be ready
+        active_agents = self._active_episode_agents()
+        max_ready_steps = len(active_agents) * 10  # Arbitrary large number of steps to wait for drones to be ready
         ready_steps = 0
         while not self._all_active_drones_ready():
             status = self.step_simulation()
@@ -394,14 +429,21 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
                 raise RuntimeError("Simulation ended before all drones received initial telemetry")
             if ready_steps >= max_ready_steps:
                 raise RuntimeError("Timed out waiting for initial telemetry for all drones")
-        
+
         all_obs = self._observe_simulation()
 
         # The initial observation has to contain observations for all possible agents
         # We repeat the last active agent's observation for the inactive agents
         # This is not a problem because these agents will be truncated immediately
-        for i in range(self.active_num_drones, self.max_num_agents):
-            all_obs[f"drone{i}"] = all_obs[f"drone{self.active_num_drones - 1}"]
+        active_agents = self._active_episode_agents()
+        if not active_agents:
+            raise RuntimeError("No active agents after reset")
+        # TorchRL still expects a dense agent axis, so padded slots reuse the last active observation and are
+        # immediately truncated.
+        for agent in self.episode_agents:
+            if not agent.exists:
+                all_obs[agent.name] = all_obs[active_agents[-1].name]
+
         tensordict_out = self._cached_reset_zero.clone()
         self._fill_observation(tensordict_out, all_obs)
         self._fill_done(tensordict_out, EndCause.NONE)
@@ -409,12 +451,11 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         return tensordict_out
 
     def _all_active_drones_ready(self) -> bool:
-        for index in range(self.active_num_drones):
-            agent_node = self.simulator.get_node(self.agent_node_ids[index])
-            protocol = agent_node.protocol_encapsulator.protocol
-            if not getattr(protocol, "ready", False):
-                return False
-        return True
+        """Return True once every active agent has received initial telemetry."""
+        return all(
+            getattr(self.simulator.get_node(agent.node_id).protocol_encapsulator.protocol, "ready", False)
+            for agent in self._active_episode_agents()
+        )
     
     def _set_seed(self, seed: int | None) -> None:
         if seed is not None:
@@ -424,12 +465,12 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         self.reset(seed=seed)
 
     def _apply_actions(self, actions: torch.Tensor) -> None:
-        if self.active_num_drones <= 0:
-            return
+        active_agents = self._active_episode_agents()
+        actions_cpu = actions.detach().cpu()
 
-        for index in range(self.active_num_drones):
-            agent_node = self.simulator.get_node(self.agent_node_ids[index])
-            action = actions[index].detach().cpu().tolist()
+        for agent in active_agents:
+            agent_node = self.simulator.get_node(agent.node_id)
+            action = actions_cpu[agent.slot_index].tolist()
             agent_node.protocol_encapsulator.protocol.act(action, self.scenario_size)
 
     def _get_sensor_collected(self) -> list[bool]:
@@ -461,7 +502,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
                 self.collection_times[index] = current_timestamp
 
     def _reward_sum_update(self, reward: float) -> None:
-        if self.active_num_drones > 0:
+        if self._active_episode_agents():
             self.reward_sum += reward
             self.max_reward = max(self.max_reward, reward)
 
@@ -484,15 +525,16 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         ])
         unvisited_sensor_nodes = sensor_nodes[unvisited_sensor_mask]
 
+        existing_agents = self._existing_episode_agents()
         agent_nodes = np.array([
-            self.simulator.get_node(agent_id).position[:2]
-            for agent_id in self.agent_node_ids
+            self.simulator.get_node(agent.node_id).position[:2]
+            for agent in existing_agents
         ])
 
         max_distance = self.scenario_size * 2
 
         state = {}
-        for agent_index in range(self.active_num_drones):
+        for agent_index, agent in enumerate(existing_agents):
             agent_position = agent_nodes[agent_index]
 
             sensor_distances = np.linalg.norm(
@@ -527,31 +569,15 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
                     closest_unvisited_sensors[:len(sorted_sensor_indices)] - agent_position + max_distance
                 ) / (max_distance * 2)
 
-            state[f"drone{agent_index}"] = {
+            state[agent.name] = {
                 "drones": closest_agents,
                 "sensors": closest_unvisited_sensors,
             }
             if self.id_on_state:
-                state[f"drone{agent_index}"]["agent_id"] = np.array([
+                state[agent.name]["agent_id"] = np.array([
                     agent_index / (self.max_num_agents - 1) if self.max_num_agents > 1 else 0
                 ])
         return state
-
-    def _blank_info(self) -> dict:
-        return {
-            agent: {
-                "avg_reward": 0.0,
-                "max_reward": 0.0,
-                "sum_reward": 0.0,
-                "avg_collection_time": 0.0,
-                "episode_duration": 0.0,
-                "completion_time": 0.0,
-                "all_collected": 0.0,
-                "num_collected": 0.0,
-                "cause": EndCause.NONE.value,
-            }
-            for agent in self.possible_agents
-        }
 
     def _fill_observation(
         self,
@@ -579,22 +605,48 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         mask = agents_td.get("mask")
         mask.zero_()
 
-        for i in range(self.active_num_drones):
-            agent_name = f"drone{i}"
-            obs = observation_dict[agent_name]
-            sensors[i].copy_(torch.as_tensor(obs["sensors"], device=self.device))
-            drones[i].copy_(torch.as_tensor(obs["drones"], device=self.device))
-            if self.id_on_state:
-                agent_id[i].copy_(
-                    torch.as_tensor(obs["agent_id"], device=self.device)
-                )
-            mask[i] = True
+        active_agents = self._active_episode_agents()
+        if not active_agents:
+            return
+
+        active_slots = self._agent_slot_tensor(active_agents)
+        sensors.index_copy_(
+            0,
+            active_slots,
+            torch.as_tensor(
+                np.stack([observation_dict[agent.name]["sensors"] for agent in active_agents]),
+                device=self.device,
+                dtype=sensors.dtype,
+            ),
+        )
+        drones.index_copy_(
+            0,
+            active_slots,
+            torch.as_tensor(
+                np.stack([observation_dict[agent.name]["drones"] for agent in active_agents]),
+                device=self.device,
+                dtype=drones.dtype,
+            ),
+        )
+        if self.id_on_state:
+            agent_id.index_copy_(
+                0,
+                active_slots,
+                torch.as_tensor(
+                    np.stack([observation_dict[agent.name]["agent_id"] for agent in active_agents]),
+                    device=self.device,
+                    dtype=agent_id.dtype,
+                ),
+            )
+        mask.index_fill_(0, active_slots, True)
 
     def _fill_rewards(self, td: TensorDictBase, reward_value: float) -> None:
         reward = td.get(("agents", "reward"))
         reward.zero_()
-        if self.active_num_drones > 0:
-            reward[: self.active_num_drones, 0] = reward_value
+        active_agents = self._active_episode_agents()
+        if active_agents:
+            active_slots = self._agent_slot_tensor(active_agents)
+            reward.index_fill_(0, active_slots, reward_value)
 
     def _fill_done(self, td: TensorDictBase, end_cause: EndCause) -> None:
         done = td.get(("agents", "done"))
@@ -604,19 +656,23 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         terminated.zero_()
         truncated.zero_()
 
-        active = self.active_num_drones
-        if end_cause != EndCause.NONE:
-            terminated[:active, 0] = True
-            done[:active, 0] = True
+        active_agents = self._active_episode_agents()
+        inactive_agents = [agent for agent in self.episode_agents if not agent.exists]
+        active_slots = self._agent_slot_tensor(active_agents)
+        inactive_slots = self._agent_slot_tensor(inactive_agents)
 
-        if active < self.max_num_agents:
-            truncated[active:, 0] = True
-            done[active:, 0] = True
+        if end_cause != EndCause.NONE and active_slots.numel() > 0:
+            terminated.index_fill_(0, active_slots, True)
+            done.index_fill_(0, active_slots, True)
 
-        if active > 0:
-            done_any = bool(done[:active].any())
-            terminated_any = bool(terminated[:active].any())
-            truncated_any = bool(truncated[:active].any())
+        # Padded slots are always truncated so TorchRL can drop them from rollout bookkeeping.
+        truncated.index_fill_(0, inactive_slots, True)
+        done.index_fill_(0, inactive_slots, True)
+
+        if active_slots.numel() > 0:
+            done_any = bool(done.index_select(0, active_slots).any())
+            terminated_any = bool(terminated.index_select(0, active_slots).any())
+            truncated_any = bool(truncated.index_select(0, active_slots).any())
         else:
             done_any = False
             terminated_any = False
@@ -632,8 +688,10 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         for key in self._info_keys:
             info_td.get(key).zero_()
 
-        if not ended or self.active_num_drones == 0:
+        active_agents = self._active_episode_agents()
+        if not ended or not active_agents:
             return
+        active_slots = self._agent_slot_tensor(active_agents)
 
         avg_reward = self.reward_sum / max(1, self.episode_duration)
         avg_collection_time = (
@@ -660,7 +718,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         }
 
         for key, value in metrics.items():
-            info_td.get(key)[: self.active_num_drones] = value
+            info_td.get(key).index_fill_(0, active_slots, value)
 
     def close(self, *, raise_if_closed: bool = True):
         super().close(raise_if_closed=raise_if_closed)
