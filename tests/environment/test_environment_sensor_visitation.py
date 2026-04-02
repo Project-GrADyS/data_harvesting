@@ -38,7 +38,8 @@ def _config_with_overrides(**env_overrides) -> dict:
 
 
 def _prepare_scenario(env, *, drone_x: float, sensor_x: float) -> tuple:
-    drone_node = env.simulator.get_node(env.agent_node_ids[0])
+    active_agent = next(agent for agent in env.episode_agents if agent.exists and agent.active)
+    drone_node = env.simulator.get_node(active_agent.node_id)
     sensor_node = env.simulator.get_node(env.sensor_node_ids[0])
 
     drone_node.position = (drone_x, 0.0, 0.0)

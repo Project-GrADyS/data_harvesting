@@ -3,6 +3,7 @@ from typing import Any, Dict, TypedDict
 from torchrl.objectives import ValueEstimators, SoftUpdate
 from torchrl.objectives.ppo import ClipPPOLoss
 
+from data_harvesting.environment import requires_masking
 from data_harvesting.loss import MaskedDDPGLoss
 
 def create_loss(policy: torch.nn.Module, critic: torch.nn.Module, config: Dict[str, Any], device: torch.device) -> MaskedDDPGLoss:
@@ -30,7 +31,7 @@ def create_loss(policy: torch.nn.Module, critic: torch.nn.Module, config: Dict[s
         terminated=("agents", "terminated"),
     )
 
-    if config["environment"]["max_num_agents"] != config["environment"]["min_num_agents"]:
+    if requires_masking(config):
         loss_module.set_keys(mask=("agents", "mask"))
 
     loss_module.make_value_estimator(ValueEstimators.TD0, gamma=gamma, device=device)
@@ -73,6 +74,9 @@ def create_updater(loss_module: MaskedDDPGLoss, config: Dict[str, Any]) -> SoftU
 
 def create_ppo_loss(policy: torch.nn.Module, value_net: torch.nn.Module, config: Dict[str, Any]) -> ClipPPOLoss:
     """Create a PPO loss with GAE value estimator and proper key bindings."""
+    if requires_masking(config):
+        raise NotImplementedError("PPO Loss does not support environments that require masking.")
+
     ppo_cfg = config["ppo"]
     clip_epsilon = ppo_cfg["clip_epsilon"]
     entropy_coef = ppo_cfg["entropy_coef"]

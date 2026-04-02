@@ -37,7 +37,8 @@ def _prepare_scenario(
     sensor_positions: list[tuple[float, float]],
     collected_flags: list[bool],
 ) -> None:
-    drone_node = env.simulator.get_node(env.agent_node_ids[0])
+    active_agent = next(agent for agent in env.episode_agents if agent.exists and agent.active)
+    drone_node = env.simulator.get_node(active_agent.node_id)
     drone_node.position = (drone_pos[0], drone_pos[1], 0.0)
     drone_protocol = drone_node.protocol_encapsulator.protocol
     drone_protocol.current_position = (drone_pos[0], drone_pos[1], 0.0)

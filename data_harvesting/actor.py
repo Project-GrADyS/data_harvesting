@@ -16,15 +16,18 @@ from data_harvesting.encoder import (
     FlatEncoderConfig,
     SequentialEncoderInput,
 )
-from data_harvesting.environment import make_output_dict
+from data_harvesting.environment import make_output_dict, requires_masking
 from data_harvesting.utils import get_faster_tanh_delta, get_activation_class
 
 def create_mlp_module(env: EnvBase, config: Dict[str, Any], device: torch.device) -> TensorDictModule:
+    if requires_masking(config):
+        raise NotImplementedError(
+            "MLP Actor does not support environments that require masking. "
+            "Enable the flex encoder backend instead."
+        )
+
     if config["environment"]["sequential_obs"]:
         raise NotImplementedError("MLP Actor not implemented for sequential observations.")
-    
-    if config["environment"]["min_num_agents"] != config["environment"]["max_num_agents"]:
-        raise NotImplementedError("MLP Actor not implemented for variable number of drones.")
 
     activation_class = get_activation_class(config["actor"]["activation_function"])
     policy_net = MultiAgentMLP(
@@ -190,8 +193,8 @@ def create_ppo_actor(
     Returns a ProbabilisticActor that emits actions within the environment bounds and stores
     the log probability under the key ("agents", "sample_log_prob") for PPO updates.
     """
-    if config["environment"]["min_num_agents"] != config["environment"]["max_num_agents"]:
-        raise NotImplementedError("PPO Actor not implemented for variable number of drones.")
+    if requires_masking(config):
+        raise NotImplementedError("PPO Actor does not support environments that require masking.")
 
     activation_class = get_activation_class(config["actor"]["activation_function"])
     action_dim = env.full_action_spec[("agents", "action")].shape[-1]

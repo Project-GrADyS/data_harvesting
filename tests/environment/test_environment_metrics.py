@@ -43,7 +43,7 @@ def _metrics_config(
 def _reset_until(env, predicate, max_seed: int = 200):
     for seed in range(max_seed):
         td = env.reset(seed=seed)
-        if predicate(env.active_num_drones, env.max_num_agents):
+        if predicate(env):
             return td
     raise AssertionError("Could not find reset matching requested condition")
 
@@ -55,7 +55,8 @@ def _prepare_scenario(
     sensor_positions: list[tuple[float, float]],
     collected_flags: list[bool],
 ) -> None:
-    drone_node = env.simulator.get_node(env.agent_node_ids[0])
+    active_agent = next(agent for agent in env.episode_agents if agent.exists and agent.active)
+    drone_node = env.simulator.get_node(active_agent.node_id)
     drone_node.position = (drone_pos[0], drone_pos[1], 0.0)
     drone_protocol = drone_node.protocol_encapsulator.protocol
     drone_protocol.current_position = (drone_pos[0], drone_pos[1], 0.0)
@@ -184,7 +185,7 @@ def test_done_flag_ignores_inactive_agent_done_states() -> None:
         )
     )
     try:
-        td = _reset_until(env, lambda active, max_drones: active < max_drones)
+        td = _reset_until(env, lambda env: any(not agent.exists for agent in env.episode_agents))
         assert bool(td.get("done").item()) is False
         assert bool(td.get("terminated").item()) is False
         assert bool(td.get("truncated").item()) is False

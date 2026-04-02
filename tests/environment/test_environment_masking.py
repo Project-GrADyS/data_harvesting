@@ -27,10 +27,24 @@ def _masking_config(*, sequential_obs: bool = True) -> dict:
     }
 
 
+def _episode_agent_slots(env) -> tuple[list[int], list[int]]:
+    active_slots = [
+        agent.slot_index
+        for agent in env.episode_agents
+        if agent.exists and agent.active
+    ]
+    inactive_slots = [
+        agent.slot_index
+        for agent in env.episode_agents
+        if not agent.exists
+    ]
+    return active_slots, inactive_slots
+
+
 def _reset_until(env, predicate, max_seed: int = 200):
     for seed in range(max_seed):
         td = env.reset(seed=seed)
-        if predicate(env.active_num_drones, env.max_num_agents):
+        if predicate(env):
             return td
     raise AssertionError("Could not find reset matching mask test condition")
 
@@ -38,20 +52,23 @@ def _reset_until(env, predicate, max_seed: int = 200):
 def test_mask_marks_only_active_agents_on_reset() -> None:
     env = make_data_collection_env(_masking_config())
     try:
-        td = _reset_until(env, lambda active, max_drones: active < max_drones)
+        td = _reset_until(env, lambda env: any(not agent.exists for agent in env.episode_agents))
 
-        active = cast(int, env.active_num_drones)
+        active, inactive = _episode_agent_slots(env)
         max_drones = cast(int, env.max_num_agents)
+        assert len(env.episode_agents) == max_drones
         mask = td.get(("agents", "mask"))
         assert tuple(mask.shape) == (max_drones,)
         assert mask.dtype == torch.bool
-        assert mask[:active].tolist() == [True] * active
-        assert mask[active:].tolist() == [False] * (max_drones - active)
+        assert mask[active].tolist() == [True] * len(active)
+        assert mask[inactive].tolist() == [False] * len(inactive)
+        assert [agent.exists for agent in env.episode_agents] == [True] * len(active) + [False] * len(inactive)
+        assert [agent.active for agent in env.episode_agents] == [True] * len(active) + [False] * len(inactive)
 
-        inactive_done = td.get(("agents", "done"))[active:, 0]
-        inactive_truncated = td.get(("agents", "truncated"))[active:, 0]
-        assert inactive_done.tolist() == [True] * (max_drones - active)
-        assert inactive_truncated.tolist() == [True] * (max_drones - active)
+        inactive_done = td.get(("agents", "done"))[inactive, 0]
+        inactive_truncated = td.get(("agents", "truncated"))[inactive, 0]
+        assert inactive_done.tolist() == [True] * len(inactive)
+        assert inactive_truncated.tolist() == [True] * len(inactive)
     finally:
         env.close()
 
@@ -59,8 +76,8 @@ def test_mask_marks_only_active_agents_on_reset() -> None:
 def test_mask_stays_consistent_after_step() -> None:
     env = make_data_collection_env(_masking_config())
     try:
-        td = _reset_until(env, lambda active, max_drones: active < max_drones)
-        active = cast(int, env.active_num_drones)
+        td = _reset_until(env, lambda env: any(not agent.exists for agent in env.episode_agents))
+        active, inactive = _episode_agent_slots(env)
         max_drones = cast(int, env.max_num_agents)
 
         action = torch.zeros((max_drones, 2), dtype=torch.float32, device=env.device)
@@ -70,9 +87,9 @@ def test_mask_stays_consistent_after_step() -> None:
         next_td = td.get("next")
         mask = next_td.get(("agents", "mask"))
 
-        assert mask[:active].tolist() == [True] * active
-        assert mask[active:].tolist() == [False] * (max_drones - active)
-        assert next_td.get(("agents", "truncated"))[active:, 0].tolist() == [True] * (max_drones - active)
+        assert mask[active].tolist() == [True] * len(active)
+        assert mask[inactive].tolist() == [False] * len(inactive)
+        assert next_td.get(("agents", "truncated"))[inactive, 0].tolist() == [True] * len(inactive)
     finally:
         env.close()
 
@@ -80,7 +97,7 @@ def test_mask_stays_consistent_after_step() -> None:
 def test_mask_all_true_when_active_equals_max() -> None:
     env = make_data_collection_env(_masking_config())
     try:
-        td = _reset_until(env, lambda active, max_drones: active == max_drones)
+        td = _reset_until(env, lambda env: all(agent.exists for agent in env.episode_agents))
 
         mask = td.get(("agents", "mask"))
         assert mask.tolist() == [True] * cast(int, env.max_num_agents)

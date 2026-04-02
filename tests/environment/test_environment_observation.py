@@ -60,8 +60,9 @@ def _config_with_overrides(base_config: dict, **env_overrides) -> dict:
 
 
 def _set_drone_positions(env, positions: list[tuple[float, float]]) -> None:
-    for index, (x, y) in enumerate(positions):
-        node = env.simulator.get_node(env.agent_node_ids[index])
+    active_agents = [agent for agent in env.episode_agents if agent.exists and agent.active]
+    for agent, (x, y) in zip(active_agents, positions, strict=True):
+        node = env.simulator.get_node(agent.node_id)
         node.position = (x, y, 0.0)
         protocol = node.protocol_encapsulator.protocol
         protocol.current_position = (x, y, 0.0)

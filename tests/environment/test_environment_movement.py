@@ -36,7 +36,8 @@ def _single_drone_config() -> dict:
 
 
 def _get_drone_xy(env) -> tuple[float, float]:
-    node = env.simulator.get_node(env.agent_node_ids[0])
+    active_agent = next(agent for agent in env.episode_agents if agent.exists and agent.active)
+    node = env.simulator.get_node(active_agent.node_id)
     return float(node.position[0]), float(node.position[1])
 
 
@@ -56,7 +57,8 @@ def test_drone_is_ready_after_reset() -> None:
     env = make_data_collection_env(_single_drone_config())
     try:
         env.reset(seed=999)
-        protocol = cast(Simulator, env.simulator).get_node(cast(list[int], env.agent_node_ids)[0]).protocol_encapsulator.protocol
+        active_agent = next(agent for agent in env.episode_agents if agent.exists and agent.active)
+        protocol = cast(Simulator, env.simulator).get_node(cast(int, active_agent.node_id)).protocol_encapsulator.protocol
         assert protocol.ready is True
         assert protocol.current_position is not None
     finally:

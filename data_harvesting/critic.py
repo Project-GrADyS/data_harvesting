@@ -6,6 +6,7 @@ from torchrl.modules import MultiAgentMLP
 from torchrl.envs import EnvBase
 
 from data_harvesting.utils import get_activation_class
+from data_harvesting.environment import requires_masking
 from data_harvesting.encoder import (
     FlatEncoderInput,
     MultiAgentFlexModule,
@@ -16,11 +17,14 @@ from data_harvesting.encoder import (
 
 def create_mlp_critic(env: EnvBase, config: Dict[str, Any], device: torch.device) -> TensorDictModule:
     """Creates a multi-agent critic Q(s, a) for MADDPG."""
+    if requires_masking(config):
+        raise NotImplementedError(
+            "MLP Critic does not support environments that require masking. "
+            "Enable the flex encoder backend instead."
+        )
+
     if config["environment"]["sequential_obs"]:
         raise NotImplementedError("MLP Critic not implemented for sequential observations.")
-    
-    if config["environment"]["min_num_agents"] != config["environment"]["max_num_agents"]:
-        raise NotImplementedError("MLP Critic not implemented for variable number of drones.")
 
     cat_module = TensorDictModule(
         lambda obs, action: torch.cat([obs, action], dim=-1),
@@ -154,8 +158,8 @@ def create_critic(env, device, config):
 
 def create_ppo_value_net(env, device, config):
     """Creates a multi-agent value network V(s) for PPO/MAPPO."""
-    if config["environment"]["max_num_agents"] != config["environment"]["min_num_agents"]:
-        raise NotImplementedError("PPO Value Network not implemented for variable number of drones.")
+    if requires_masking(config):
+        raise NotImplementedError("PPO Value Network does not support environments that require masking.")
 
     critic_params = config["critic"]
     activation_class = get_activation_class(critic_params["activation_function"])
