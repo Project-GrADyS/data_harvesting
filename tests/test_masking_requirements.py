@@ -22,6 +22,7 @@ def _base_env_config(
     max_num_agents: int,
     sequential_obs: bool = False,
     reward: str = "punish",
+    agent_death_probability: float = 0.0,
 ) -> dict:
     return {
         "sequential_obs": sequential_obs,
@@ -43,6 +44,7 @@ def _base_env_config(
         "reward": reward,
         "speed_action": True,
         "end_when_all_collected": False,
+        "agent_death_probability": agent_death_probability,
     }
 
 
@@ -53,12 +55,14 @@ def _base_config(
     sequential_obs: bool = False,
     flex_enabled: bool = False,
     algorithm: str = "maddpg",
+    agent_death_probability: float = 0.0,
 ) -> dict:
     return {
         "environment": _base_env_config(
             min_num_agents=min_num_agents,
             max_num_agents=max_num_agents,
             sequential_obs=sequential_obs,
+            agent_death_probability=agent_death_probability,
         ),
         "actor": {
             "share_parameters": True,
@@ -178,6 +182,44 @@ def test_requires_masking_helpers_match_environment_config(
 
     assert requires_data_collection_masking(data_collection_config) is expected
     assert requires_environment_masking(full_config) is expected
+
+
+def test_requires_masking_when_mid_episode_death_is_enabled() -> None:
+    data_collection_config = DataCollectionEnvironmentConfig(
+        render_mode=None,
+        algorithm_iteration_interval=1.0,
+        min_num_agents=2,
+        max_num_agents=2,
+        min_num_sensors=2,
+        max_num_sensors=2,
+        scenario_size=20.0,
+        max_episode_length=50,
+        max_seconds_stalled=20,
+        communication_range=0.0,
+        state_num_closest_sensors=2,
+        state_num_closest_drones=1,
+        id_on_state=True,
+        min_sensor_priority=1.0,
+        max_sensor_priority=1.0,
+        full_random_drone_position=False,
+        reward="punish",
+        speed_action=True,
+        end_when_all_collected=False,
+        agent_death_probability=0.1,
+    )
+    full_config = {
+        "environment": {
+            **_base_env_config(
+                min_num_agents=2,
+                max_num_agents=2,
+                sequential_obs=True,
+                agent_death_probability=0.1,
+            )
+        }
+    }
+
+    assert requires_data_collection_masking(data_collection_config) is True
+    assert requires_environment_masking(full_config) is True
 
 
 def test_mlp_actor_and_critic_reject_masking_required_environments() -> None:

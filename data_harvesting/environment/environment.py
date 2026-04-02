@@ -6,3 +6,4 @@ class EndCause(enum.Enum):
     TIMEOUT = 1
     ALL_COLLECTED = 2
     STALLED = 3
+    ALL_AGENTS_INACTIVE = 4

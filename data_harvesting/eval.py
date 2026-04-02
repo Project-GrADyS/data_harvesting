@@ -105,7 +105,6 @@ def eval(
             rollout = env.rollout(
                 max_steps=eval_config["environment"]["max_episode_length"],
                 policy=policy,
-                break_when_any_done=True,
             )
             episode_info = rollout.get(("next", "agents", "info"))[-1, 0]
 

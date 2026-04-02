@@ -75,7 +75,6 @@ def _loss_test_config() -> dict:
         },
     }
 
-
 def _collect_batch(algorithm: MADDPGAlgorithm, config: dict) -> torch.Tensor:
     with create_collector(
         algorithm.exploratory_policy,
@@ -139,3 +138,64 @@ def test_masked_ddpg_loss_ignores_masked_agent_corruption() -> None:
         assert actor_diff > 1e-5 or value_diff > 1e-5
     finally:
         env.close()
+
+
+def test_dying_agent_current_mask_controls_both_losses_even_when_next_mask_is_false() -> None:
+    config = _loss_test_config()
+    env = make_data_collection_env(config)
+    try:
+        algorithm = MADDPGAlgorithm(env, torch.device("cpu"), config)
+        loss_module = algorithm.loss_module
+        loss_module.set_keys(mask=("agents", "mask"))
+
+        batch = _collect_batch(algorithm, config)
+        sample = batch[:4].clone()
+        sample.get(("next", "agents", "mask"))[:, 1] = False
+        sample.get(("next", "agents", "done"))[:, 1, 0] = True
+        sample.get(("next", "agents", "terminated"))[:, 1, 0] = True
+
+        current_alive = sample.clone()
+        current_alive.get(("agents", "mask"))[:, 1] = True
+        _corrupt_agent_1(current_alive)
+
+        current_dead = current_alive.clone()
+        current_dead.get(("agents", "mask"))[:, 1] = False
+
+        out_alive = loss_module(current_alive)
+        out_dead = loss_module(current_dead)
+
+        assert not torch.allclose(out_alive["loss_actor"], out_dead["loss_actor"], atol=1e-6, rtol=1e-6)
+        assert not torch.allclose(out_alive["loss_value"], out_dead["loss_value"], atol=1e-6, rtol=1e-6)
+    finally:
+        env.close()
+
+
+def test_dead_agent_with_current_and_next_mask_false_is_fully_ignored() -> None:
+    config = _loss_test_config()
+    env = make_data_collection_env(config)
+    try:
+        algorithm = MADDPGAlgorithm(env, torch.device("cpu"), config)
+        loss_module = algorithm.loss_module
+        loss_module.set_keys(mask=("agents", "mask"))
+
+        batch = _collect_batch(algorithm, config)
+
+        clean = batch[:4].clone()
+        clean.get(("agents", "mask"))[:, 1] = False
+        clean.get(("next", "agents", "mask"))[:, 1] = False
+        clean.get(("agents", "done"))[:, 1, 0] = True
+        clean.get(("agents", "terminated"))[:, 1, 0] = False
+        clean.get(("next", "agents", "done"))[:, 1, 0] = True
+        clean.get(("next", "agents", "terminated"))[:, 1, 0] = False
+
+        corrupt = clean.clone()
+        _corrupt_agent_1(corrupt)
+
+        out_clean = loss_module(clean)
+        out_corrupt = loss_module(corrupt)
+
+        assert torch.allclose(out_clean["loss_actor"], out_corrupt["loss_actor"], atol=1e-6, rtol=1e-6)
+        assert torch.allclose(out_clean["loss_value"], out_corrupt["loss_value"], atol=1e-6, rtol=1e-6)
+    finally:
+        env.close()
+

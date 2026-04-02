@@ -149,10 +149,13 @@ class DroneProtocol(IProtocol):
     """
     current_position: tuple[float, float, float] | None
     ready: bool
+    dead: bool
     speed_action: bool = False
     algorithm_interval: float = 0.1
 
     def act(self, action: List[float], coordinate_limit: float) -> None:
+        if self.dead:
+            return
         if self.current_position is None:
             raise RuntimeError("Called act before receiving initial telemetry")
         
@@ -189,6 +192,7 @@ class DroneProtocol(IProtocol):
     def initialize(self) -> None:
         self.current_position = None
         self.ready = False
+        self.dead = False
         self._collect_packets()
         if not self.speed_action:
             self.provider.schedule_timer("", self.provider.current_time() + 0.1)
@@ -197,6 +201,8 @@ class DroneProtocol(IProtocol):
         self.controller.paint_node(self.provider.get_id(), color=(0, 0, 0))
 
     def handle_timer(self, timer: str) -> None:
+        if self.dead:
+            return
         self._collect_packets()
         if not self.speed_action:
             self.provider.schedule_timer("", self.provider.current_time() + 0.1)
@@ -209,8 +215,24 @@ class DroneProtocol(IProtocol):
         self.ready = True
 
     def _collect_packets(self) -> None:
+        if self.dead:
+            return
         command = BroadcastMessageCommand("")
         self.provider.send_communication_command(command)
+
+    def die(self) -> None:
+        self.dead = True
+        if self.current_position is None:
+            return
+
+        grounded_position = (
+            self.current_position[0],
+            self.current_position[1],
+            0.0,
+        )
+        self.current_position = grounded_position
+        self.provider.send_mobility_command(GotoCoordsMobilityCommand(*grounded_position))
+        self.controller.paint_node(self.provider.get_id(), color=(128, 128, 128))
 
     def finish(self) -> None:
         pass

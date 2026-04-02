@@ -17,7 +17,7 @@ from torchrl.envs import EnvBase
 
 from data_harvesting.environment import EndCause
 from data_harvesting.environment.gradys_env import BaseGrADySEnvironment
-from data_harvesting.environment.protocols import DroneProtocol, SensorProtocol
+from .protocols import DroneProtocol, SensorProtocol
 
 @dataclasses.dataclass(slots=True)
 class EpisodeAgentState:
@@ -62,6 +62,7 @@ class DataCollectionEnvironmentConfig:
     reward: str = 'punish'  # Fixed reward mode: punish
     speed_action: bool = True
     end_when_all_collected: bool = True
+    agent_death_probability: float = 0.0
 
 
 class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
@@ -102,8 +103,11 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         self.full_random_drone_position = config.full_random_drone_position
         if config.reward != "punish":
             raise ValueError("Only reward='punish' is supported.")
+        if not 0.0 <= config.agent_death_probability <= 1.0:
+            raise ValueError("agent_death_probability must be in [0, 1].")
         self.speed_action = config.speed_action
         self.end_when_all_collected = config.end_when_all_collected
+        self.agent_death_probability = config.agent_death_probability
 
         self.possible_agents = [f"drone{i}" for i in range(self.max_num_agents)]
         self.group_map = {"agents": self.possible_agents}
@@ -149,6 +153,10 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
     def _active_episode_agents(self) -> list[EpisodeAgentState]:
         """Return the episode slots that are currently active and should act."""
         return [agent for agent in self.episode_agents if agent.exists and agent.active]
+
+    def _inactive_existing_episode_agents(self) -> list[EpisodeAgentState]:
+        """Return real episode slots that are currently inactive."""
+        return [agent for agent in self.episode_agents if agent.exists and not agent.active]
 
     def _agent_slot_tensor(self, agents: list[EpisodeAgentState]) -> torch.Tensor:
         """Return the given episode agents' slot indices on the environment device."""
@@ -346,6 +354,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         tensordict: TensorDictBase,
     ) -> TensorDictBase:
         actions = tensordict.get(("agents", "action"))
+        stepped_agents = self._active_episode_agents()
         self._apply_actions(actions)
 
         # We record the collected sensors before stepping the simulation so we can compare with
@@ -365,30 +374,28 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         # Check if all sensors have been collected
         all_sensors_collected = sum(collected_after) == self.active_num_sensors
 
-        if self.stall_duration > self.max_seconds_stalled:
+        reward = self._compute_reward(collected_before, collected_after)
+        self._update_collection_times(collected_after)
+        dying_agents = self._sample_dying_agents(stepped_agents)
+        self._deactivate_agents(dying_agents)
+        self._reward_sum_update(reward, stepped_agents)
+
+        active_agents_after = self._active_episode_agents()
+        if all_sensors_collected and self.end_when_all_collected:
+            end_cause = EndCause.ALL_COLLECTED
+        elif not active_agents_after:
+            end_cause = EndCause.ALL_AGENTS_INACTIVE
+        elif self.stall_duration > self.max_seconds_stalled:
             end_cause = EndCause.STALLED
         elif status.has_ended:
             end_cause = EndCause.TIMEOUT
-        elif all_sensors_collected and self.end_when_all_collected:
-            end_cause = EndCause.ALL_COLLECTED
-
-        reward = self._compute_reward(collected_before, collected_after)
-        self._update_collection_times(collected_after)
-        self._reward_sum_update(reward)
-
-        # We do not end the simulation when all sensors are collected unless self.end_when_all_collected is True. We've found that training
-        # benefits from time after collection where agents can "enjoy" the reward signal for success.
-        simulation_ended = (
-                (all_sensors_collected and self.end_when_all_collected)
-                or end_cause != EndCause.NONE
-        )
 
         # Filling the output tensordict for the step
         tensordict_out = self._cached_step_zero.clone()
         self._fill_observation(tensordict_out, self._observe_simulation())
-        self._fill_rewards(tensordict_out, reward)
-        self._fill_done(tensordict_out, end_cause)
-        self._fill_info(tensordict_out, sum(collected_after), end_cause, simulation_ended)
+        self._fill_rewards(tensordict_out, reward, stepped_agents)
+        self._fill_done(tensordict_out, end_cause, dying_agents)
+        self._fill_info(tensordict_out, sum(collected_after), end_cause, end_cause != EndCause.NONE)
         return tensordict_out
 
     def _reset_statistics(self):
@@ -446,7 +453,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
 
         tensordict_out = self._cached_reset_zero.clone()
         self._fill_observation(tensordict_out, all_obs)
-        self._fill_done(tensordict_out, EndCause.NONE)
+        self._fill_done(tensordict_out, EndCause.NONE, [])
         self._fill_info(tensordict_out, 0, EndCause.NONE, False)
         return tensordict_out
 
@@ -472,6 +479,22 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
             agent_node = self.simulator.get_node(agent.node_id)
             action = actions_cpu[agent.slot_index].tolist()
             agent_node.protocol_encapsulator.protocol.act(action, self.scenario_size)
+
+    def _sample_dying_agents(self, stepped_agents: list[EpisodeAgentState]) -> list[EpisodeAgentState]:
+        if self.agent_death_probability <= 0.0:
+            return []
+        return [
+            agent for agent in stepped_agents
+            if random.random() < self.agent_death_probability
+        ]
+
+    def _deactivate_agents(self, agents: list[EpisodeAgentState]) -> None:
+        for agent in agents:
+            if not agent.active or agent.node_id is None:
+                continue
+            protocol = self.simulator.get_node(agent.node_id).protocol_encapsulator.protocol
+            protocol.die()
+            agent.active = False
 
     def _get_sensor_collected(self) -> list[bool]:
         return [
@@ -501,8 +524,8 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
             if collected_after[index] and self.collection_times[index] == self.max_episode_length:
                 self.collection_times[index] = current_timestamp
 
-    def _reward_sum_update(self, reward: float) -> None:
-        if self._active_episode_agents():
+    def _reward_sum_update(self, reward: float, stepped_agents: list[EpisodeAgentState]) -> None:
+        if stepped_agents:
             self.reward_sum += reward
             self.max_reward = max(self.max_reward, reward)
 
@@ -525,7 +548,9 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         ])
         unvisited_sensor_nodes = sensor_nodes[unvisited_sensor_mask]
 
-        existing_agents = self._existing_episode_agents()
+        existing_agents = self._active_episode_agents()
+        if not existing_agents:
+            return {}
         agent_nodes = np.array([
             self.simulator.get_node(agent.node_id).position[:2]
             for agent in existing_agents
@@ -640,15 +665,24 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
             )
         mask.index_fill_(0, active_slots, True)
 
-    def _fill_rewards(self, td: TensorDictBase, reward_value: float) -> None:
+    def _fill_rewards(
+        self,
+        td: TensorDictBase,
+        reward_value: float,
+        rewarded_agents: list[EpisodeAgentState],
+    ) -> None:
         reward = td.get(("agents", "reward"))
         reward.zero_()
-        active_agents = self._active_episode_agents()
-        if active_agents:
-            active_slots = self._agent_slot_tensor(active_agents)
-            reward.index_fill_(0, active_slots, reward_value)
+        if rewarded_agents:
+            rewarded_slots = self._agent_slot_tensor(rewarded_agents)
+            reward.index_fill_(0, rewarded_slots, reward_value)
 
-    def _fill_done(self, td: TensorDictBase, end_cause: EndCause) -> None:
+    def _fill_done(
+        self,
+        td: TensorDictBase,
+        end_cause: EndCause,
+        dying_agents: list[EpisodeAgentState],
+    ) -> None:
         done = td.get(("agents", "done"))
         terminated = td.get(("agents", "terminated"))
         truncated = td.get(("agents", "truncated"))
@@ -657,30 +691,33 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         truncated.zero_()
 
         active_agents = self._active_episode_agents()
+        dead_agents = [
+            agent for agent in self._inactive_existing_episode_agents()
+            if agent not in dying_agents
+        ]
         inactive_agents = [agent for agent in self.episode_agents if not agent.exists]
         active_slots = self._agent_slot_tensor(active_agents)
+        dying_slots = self._agent_slot_tensor(dying_agents)
+        dead_slots = self._agent_slot_tensor(dead_agents)
         inactive_slots = self._agent_slot_tensor(inactive_agents)
 
         if end_cause != EndCause.NONE and active_slots.numel() > 0:
             terminated.index_fill_(0, active_slots, True)
             done.index_fill_(0, active_slots, True)
+        if dying_slots.numel() > 0:
+            terminated.index_fill_(0, dying_slots, True)
+            done.index_fill_(0, dying_slots, True)
 
-        # Padded slots are always truncated so TorchRL can drop them from rollout bookkeeping.
+        # Previously dead real slots and padded slots are bookkeeping only.
+        truncated.index_fill_(0, dead_slots, True)
+        done.index_fill_(0, dead_slots, True)
         truncated.index_fill_(0, inactive_slots, True)
         done.index_fill_(0, inactive_slots, True)
 
-        if active_slots.numel() > 0:
-            done_any = bool(done.index_select(0, active_slots).any())
-            terminated_any = bool(terminated.index_select(0, active_slots).any())
-            truncated_any = bool(truncated.index_select(0, active_slots).any())
-        else:
-            done_any = False
-            terminated_any = False
-            truncated_any = False
-
-        td.set("done", torch.tensor([done_any], device=self.device))
-        td.set("terminated", torch.tensor([terminated_any], device=self.device))
-        td.set("truncated", torch.tensor([truncated_any], device=self.device))
+        episode_done = end_cause != EndCause.NONE
+        td.set("done", torch.tensor([episode_done], device=self.device))
+        td.set("terminated", torch.tensor([episode_done], device=self.device))
+        td.set("truncated", torch.tensor([False], device=self.device))
 
     def _fill_info(self, td: TensorDictBase, num_collected: int, end_cause: EndCause, ended: bool) -> None:
         all_collected = num_collected == self.active_num_sensors
@@ -688,10 +725,10 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         for key in self._info_keys:
             info_td.get(key).zero_()
 
-        active_agents = self._active_episode_agents()
-        if not ended or not active_agents:
+        existing_agents = self._existing_episode_agents()
+        if not ended or not existing_agents:
             return
-        active_slots = self._agent_slot_tensor(active_agents)
+        existing_slots = self._agent_slot_tensor(existing_agents)
 
         avg_reward = self.reward_sum / max(1, self.episode_duration)
         avg_collection_time = (
@@ -718,7 +755,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         }
 
         for key, value in metrics.items():
-            info_td.get(key).index_fill_(0, active_slots, value)
+            info_td.get(key).index_fill_(0, existing_slots, value)
 
     def close(self, *, raise_if_closed: bool = True):
         super().close(raise_if_closed=raise_if_closed)

@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from data_harvesting.environment.protocols import (
+from data_harvesting.environment.data_collection.protocols import (
     coords_away_from_edge,
     direction_to_unit_vector,
     extend_unit_vector_to_edge,
