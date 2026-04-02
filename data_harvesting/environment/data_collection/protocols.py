@@ -156,6 +156,8 @@ class DroneProtocol(IProtocol):
     def act(self, action: List[float], coordinate_limit: float) -> None:
         if self.dead:
             return
+        self.controller.paint_node(self.provider.get_id(), color=(0, 0, 0))
+
         if self.current_position is None:
             raise RuntimeError("Called act before receiving initial telemetry")
         
