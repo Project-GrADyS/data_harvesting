@@ -29,6 +29,31 @@ def _print_summary(results: dict) -> None:
     for cause_name in counts:
         print(f"- {cause_name}: count={counts[cause_name]}, rate={rates[cause_name]:.2%}")
 
+    scenario_metrics = results.get("scenario_metrics", {})
+    if scenario_metrics:
+        print("\nScenario breakdown:")
+        for scenario_key, scenario_results in sorted(scenario_metrics.items()):
+            scenario = scenario_results["scenario"]
+            print(
+                f"\n[{scenario_key}] "
+                f"agents={scenario['agents']}, sensors={scenario['sensors']}, runs={scenario_results['num_runs']}"
+            )
+            for metric_name, values in scenario_results["metrics"].items():
+                print(
+                    f"- {metric_name}: "
+                    f"mean={values['mean']:.4f}, "
+                    f"std={values['std']:.4f}, "
+                    f"min={values['min']:.4f}, "
+                    f"max={values['max']:.4f}"
+                )
+            counts = scenario_results["end_cause_counts"]
+            rates = scenario_results["end_cause_rate"]
+            for cause_name in counts:
+                print(
+                    f"- end_cause[{cause_name}]: "
+                    f"count={counts[cause_name]}, rate={rates[cause_name]:.2%}"
+                )
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate a saved MLflow model run.")

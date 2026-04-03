@@ -63,3 +63,12 @@ def test_eval_summarizes_dynamic_scalar_and_categorical_metrics() -> None:
     assert results["end_cause_counts"]["STALLED"] == 3
     assert results["end_cause_rate"]["STALLED"] == pytest.approx(1.0)
     assert results["end_cause_counts"]["ALL_COLLECTED"] == 0
+    assert "scenario_metrics" in results
+
+    scenario_results = results["scenario_metrics"]["agents_1__sensors_1"]
+    assert scenario_results["scenario"] == {"agents": 1, "sensors": 1}
+    assert scenario_results["num_runs"] == 3
+    assert scenario_results["metrics"]["avg_reward"]["mean"] == pytest.approx(-1.0)
+    assert scenario_results["metrics"]["completion_time"]["mean"] == pytest.approx(3.0)
+    assert scenario_results["end_cause_counts"]["STALLED"] == 3
+    assert scenario_results["end_cause_rate"]["STALLED"] == pytest.approx(1.0)

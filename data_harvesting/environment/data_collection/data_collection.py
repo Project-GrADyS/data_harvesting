@@ -124,6 +124,8 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
 
         self._metrics_spec: EnvironmentMetricsSpec = make_data_collection_metrics_spec()
         self._info_keys = self._metrics_spec.info_keys
+        self._extra_info_keys = ("num_sensors", "num_agents")
+        self._all_info_keys = self._info_keys + self._extra_info_keys
 
         self._simulation_configuration = SimulationConfiguration(
             debug=False,
@@ -265,7 +267,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
                                     device=device,
                                     dtype=torch.float32,
                                 )
-                                for key in self._info_keys
+                                for key in self._all_info_keys
                             },
                             device=device,
                         ),
@@ -715,7 +717,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
     def _fill_info(self, td: TensorDictBase, num_collected: int, end_cause: EndCause, ended: bool) -> None:
         all_collected = num_collected == self.active_num_sensors
         info_td = td.get(("agents", "info"))
-        for key in self._info_keys:
+        for key in self._all_info_keys:
             info_td.get(key).zero_()
 
         existing_agents = self._existing_episode_agents()
@@ -745,6 +747,8 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
             "all_collected": float(int(all_collected)),
             "num_collected": float(num_collected),
             "cause": float(end_cause.value),
+            "num_sensors": float(self.active_num_sensors),
+            "num_agents": float(len(existing_agents))
         }
 
         for key, value in metrics.items():

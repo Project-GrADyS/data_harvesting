@@ -25,6 +25,65 @@ def _metric_stats(values: list[float]) -> dict[str, float]:
     }
 
 
+def _scenario_key(num_agents: int, num_sensors: int) -> str:
+    return f"agents_{num_agents}__sensors_{num_sensors}"
+
+
+def _empty_categorical_counts(metrics_spec) -> dict[str, dict[str, int]]:
+    return {
+        metric.logging_prefix: {
+            label: 0 for label in (metric.value_labels or {}).values()
+        }
+        for metric in metrics_spec.categorical_metrics
+    }
+
+
+def _empty_scenario_bucket(metrics_spec, *, num_agents: int, num_sensors: int) -> dict[str, Any]:
+    return {
+        "scenario": {"agents": num_agents, "sensors": num_sensors},
+        "num_runs": 0,
+        "scalar_samples": {
+            metric.key: []
+            for metric in metrics_spec.scalar_metrics
+        },
+        "categorical_counts": _empty_categorical_counts(metrics_spec),
+    }
+
+
+def _get_episode_scenario(episode_info) -> tuple[int, int]:
+    try:
+        num_agents = int(float(episode_info["num_agents"]))
+        num_sensors = int(float(episode_info["num_sensors"]))
+    except KeyError as exc:
+        missing_key = exc.args[0]
+        raise KeyError(
+            f"Evaluation requires '{missing_key}' in terminal agents.info to group scenario metrics."
+        ) from exc
+    return num_agents, num_sensors
+
+
+def _finalize_scenario_metrics(scenarios: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    finalized: dict[str, dict[str, Any]] = {}
+    for key, bucket in scenarios.items():
+        num_runs = bucket["num_runs"]
+        scenario_result = {
+            "scenario": bucket["scenario"],
+            "num_runs": num_runs,
+            "metrics": {
+                metric_name: _metric_stats(values)
+                for metric_name, values in bucket["scalar_samples"].items()
+            },
+        }
+        for prefix, counts in bucket["categorical_counts"].items():
+            scenario_result[f"{prefix}_counts"] = counts
+            scenario_result[f"{prefix}_rate"] = {
+                label: (count / num_runs if num_runs else 0.0)
+                for label, count in counts.items()
+            }
+        finalized[key] = scenario_result
+    return finalized
+
+
 def _resolve_model_id_from_run(
     run_id: str,
     *,
@@ -88,12 +147,8 @@ def eval(
         metric.key: []
         for metric in metrics_spec.scalar_metrics
     }
-    categorical_counts: dict[str, dict[str, int]] = {
-        metric.logging_prefix: {
-            label: 0 for label in (metric.value_labels or {}).values()
-        }
-        for metric in metrics_spec.categorical_metrics
-    }
+    categorical_counts = _empty_categorical_counts(metrics_spec)
+    scenario_buckets: dict[str, dict[str, Any]] = {}
 
     with torch.no_grad(), set_exploration_type(ExplorationType.MODE):
         for run_index in range(num_runs):
@@ -102,19 +157,33 @@ def eval(
 
             rollout = env.rollout(
                 max_steps=eval_config["environment"]["max_episode_length"],
-                policy=policy,
+                policy=policy
             )
             episode_info = rollout.get(("next", "agents", "info"))[-1, 0]
+            num_agents, num_sensors = _get_episode_scenario(episode_info)
+            scenario_key = _scenario_key(num_agents, num_sensors)
+            scenario_bucket = scenario_buckets.setdefault(
+                scenario_key,
+                _empty_scenario_bucket(
+                    metrics_spec,
+                    num_agents=num_agents,
+                    num_sensors=num_sensors,
+                ),
+            )
+            scenario_bucket["num_runs"] += 1
 
             for metric in metrics_spec.metrics:
                 if metric.kind == MetricKind.SCALAR:
-                    scalar_samples[metric.key].append(float(episode_info[metric.key]))
+                    value = float(episode_info[metric.key])
+                    scalar_samples[metric.key].append(value)
+                    scenario_bucket["scalar_samples"][metric.key].append(value)
                     continue
 
                 value = int(float(episode_info[metric.key]))
                 label = (metric.value_labels or {}).get(value)
                 if label is not None:
                     categorical_counts[metric.logging_prefix][label] += 1
+                    scenario_bucket["categorical_counts"][metric.logging_prefix][label] += 1
 
     if hasattr(env, "close"):
         env.close()
@@ -122,6 +191,7 @@ def eval(
     results: dict[str, Any] = {
         "num_runs": num_runs,
         "metrics": {key: _metric_stats(values) for key, values in scalar_samples.items()},
+        "scenario_metrics": _finalize_scenario_metrics(scenario_buckets),
     }
     for prefix, counts in categorical_counts.items():
         results[f"{prefix}_counts"] = counts
