@@ -9,18 +9,7 @@ from mlflow import pytorch as mlflow_pytorch
 from mlflow import MlflowClient
 from torchrl.envs.utils import ExplorationType, set_exploration_type
 
-from data_harvesting.environment import EndCause, make_env
-
-_METRIC_KEYS = (
-    "avg_reward",
-    "max_reward",
-    "sum_reward",
-    "avg_collection_time",
-    "episode_duration",
-    "completion_time",
-    "all_collected",
-    "num_collected",
-)
+from data_harvesting.environment import MetricKind, make_env, make_metrics_spec
 
 
 def _metric_stats(values: list[float]) -> dict[str, float]:
@@ -90,12 +79,21 @@ def eval(
     env_config["render_mode"] = "visual" if visual else None
 
     env = make_env(eval_config)
+    metrics_spec = make_metrics_spec()
 
     if hasattr(policy, "eval"):
         policy.eval()
 
-    metric_samples: dict[str, list[float]] = {key: [] for key in _METRIC_KEYS}
-    cause_counts = {cause: 0 for cause in EndCause}
+    scalar_samples: dict[str, list[float]] = {
+        metric.key: []
+        for metric in metrics_spec.scalar_metrics
+    }
+    categorical_counts: dict[str, dict[str, int]] = {
+        metric.logging_prefix: {
+            label: 0 for label in (metric.value_labels or {}).values()
+        }
+        for metric in metrics_spec.categorical_metrics
+    }
 
     with torch.no_grad(), set_exploration_type(ExplorationType.MODE):
         for run_index in range(num_runs):
@@ -108,25 +106,27 @@ def eval(
             )
             episode_info = rollout.get(("next", "agents", "info"))[-1, 0]
 
-            for key in _METRIC_KEYS:
-                metric_samples[key].append(float(episode_info[key]))
+            for metric in metrics_spec.metrics:
+                if metric.kind == MetricKind.SCALAR:
+                    scalar_samples[metric.key].append(float(episode_info[metric.key]))
+                    continue
 
-            cause_key = "cause" if "cause" in episode_info.keys() else "end_cause"
-            cause_value = int(float(episode_info[cause_key]))
-            cause = EndCause(cause_value) if cause_value in [c.value for c in EndCause] else EndCause.NONE
-            cause_counts[cause] += 1
+                value = int(float(episode_info[metric.key]))
+                label = (metric.value_labels or {}).get(value)
+                if label is not None:
+                    categorical_counts[metric.logging_prefix][label] += 1
 
     if hasattr(env, "close"):
         env.close()
 
-    end_cause_counts = {cause.name: cause_counts[cause] for cause in EndCause}
-    end_cause_rate = {
-        cause.name: cause_counts[cause] / num_runs for cause in EndCause
-    }
-
-    return {
+    results: dict[str, Any] = {
         "num_runs": num_runs,
-        "metrics": {key: _metric_stats(values) for key, values in metric_samples.items()},
-        "end_cause_counts": end_cause_counts,
-        "end_cause_rate": end_cause_rate,
+        "metrics": {key: _metric_stats(values) for key, values in scalar_samples.items()},
     }
+    for prefix, counts in categorical_counts.items():
+        results[f"{prefix}_counts"] = counts
+        results[f"{prefix}_rate"] = {
+            label: count / num_runs for label, count in counts.items()
+        }
+
+    return results

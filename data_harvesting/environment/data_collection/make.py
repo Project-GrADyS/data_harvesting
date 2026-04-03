@@ -1,8 +1,9 @@
-
 from torchrl.envs import EnvBase
 
 from data_harvesting.encoder.output import ActorOutputKeys
 from .data_collection import DataCollectionEnvironment, DataCollectionEnvironmentConfig
+from .metrics import make_data_collection_metrics_spec
+
 
 def make_data_collection_env(config: dict) -> EnvBase:
     """
@@ -35,6 +36,7 @@ def make_data_collection_env(config: dict) -> EnvBase:
             del_keys=False
         ))
     return env
+
 
 def make_data_collection_output_dict(config: dict) -> ActorOutputKeys:
     """

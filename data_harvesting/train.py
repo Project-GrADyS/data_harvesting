@@ -2,7 +2,7 @@ import mlflow
 import torch
 from torchrl.envs import check_env_specs, TransformedEnv, RewardSum
 
-from data_harvesting.environment.data_collection import make_data_collection_env
+from data_harvesting.environment import make_env, make_metrics_spec
 from data_harvesting.collector import create_collector
 from data_harvesting.metrics import EnvironmentMetricsCollector, LearningMetricsCollector
 from data_harvesting.algorithm import MADDPGAlgorithm, MAPPOAlgorithm
@@ -21,9 +21,10 @@ def save_model(algorithm: MADDPGAlgorithm | MAPPOAlgorithm):
 
 def train(config: dict, run_name: str | None = None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    metrics_spec = make_metrics_spec()
 
     def transformed_env(check: bool = False) -> TransformedEnv:
-        base_env = make_data_collection_env(config)
+        base_env = make_env(config)
         env = TransformedEnv(
             base_env,
             RewardSum(
@@ -55,7 +56,7 @@ def train(config: dict, run_name: str | None = None):
         try:
             mlflow.log_params(config)
 
-            metrics_logger = EnvironmentMetricsCollector(device)
+            metrics_logger = EnvironmentMetricsCollector(device, metrics_spec)
             learning_logger = LearningMetricsCollector(device)
 
             experience_steps = 0
@@ -97,5 +98,7 @@ def train(config: dict, run_name: str | None = None):
 
     # Returning the final average reward as a simple measure of performance
     # Useful for hyperparameter tuning
-    avg_reward = (metrics_logger.sum_avg_reward / metrics_logger.trajectories).item()
-    return avg_reward
+    if "avg_reward" in metrics_logger.scalar_totals:
+        return metrics_logger.metric_value("avg_reward")
+    else:
+        raise Exception("A avg_reward metric is required to report training results")

@@ -2,7 +2,7 @@ import pytest
 import torch
 from tensordict import TensorDict
 
-from data_harvesting.environment import EndCause
+from data_harvesting.environment.data_collection.metrics import make_data_collection_metrics_spec
 from data_harvesting.metrics import EnvironmentMetricsCollector
 
 
@@ -47,8 +47,10 @@ def _make_batch(done: list[bool], truncated: list[bool], info_rows: list[dict[st
         batch_size=[length],
     )
 
+
 def test_environment_metrics_collector_accumulates_multiple_terminal_steps() -> None:
-    collector = EnvironmentMetricsCollector(torch.device("cpu"))
+    metrics_spec = make_data_collection_metrics_spec()
+    collector = EnvironmentMetricsCollector(torch.device("cpu"), metrics_spec)
     batch = _make_batch(
         done=[False, True, False, True],
         truncated=[False, False, False, False],
@@ -62,7 +64,7 @@ def test_environment_metrics_collector_accumulates_multiple_terminal_steps() -> 
                 "completion_time": 0.0,
                 "all_collected": 0.0,
                 "num_collected": 0.0,
-                "cause": float(EndCause.NONE.value),
+                "cause": 0.0,
             },
             {
                 "avg_reward": 2.0,
@@ -73,7 +75,7 @@ def test_environment_metrics_collector_accumulates_multiple_terminal_steps() -> 
                 "completion_time": 7.0,
                 "all_collected": 1.0,
                 "num_collected": 8.0,
-                "cause": float(EndCause.ALL_COLLECTED.value),
+                "cause": 2.0,
             },
             {
                 "avg_reward": 0.0,
@@ -84,7 +86,7 @@ def test_environment_metrics_collector_accumulates_multiple_terminal_steps() -> 
                 "completion_time": 0.0,
                 "all_collected": 0.0,
                 "num_collected": 0.0,
-                "cause": float(EndCause.NONE.value),
+                "cause": 0.0,
             },
             {
                 "avg_reward": 10.0,
@@ -95,7 +97,7 @@ def test_environment_metrics_collector_accumulates_multiple_terminal_steps() -> 
                 "completion_time": 15.0,
                 "all_collected": 0.0,
                 "num_collected": 16.0,
-                "cause": float(EndCause.TIMEOUT.value),
+                "cause": 1.0,
             },
         ],
     )
@@ -103,16 +105,16 @@ def test_environment_metrics_collector_accumulates_multiple_terminal_steps() -> 
     collector.report_metrics(batch)
 
     assert collector.trajectories.item() == pytest.approx(2.0)
-    assert collector.sum_avg_reward.item() == pytest.approx(12.0)
-    assert collector.sum_completion_time.item() == pytest.approx(22.0)
-    assert collector.sum_all_collected.item() == pytest.approx(1.0)
-    assert collector.sum_num_collected.item() == pytest.approx(24.0)
-    assert collector.end_cause_counts[EndCause.ALL_COLLECTED.value].item() == pytest.approx(1.0)
-    assert collector.end_cause_counts[EndCause.TIMEOUT.value].item() == pytest.approx(1.0)
+    assert collector.scalar_totals["avg_reward"].item() == pytest.approx(12.0)
+    assert collector.scalar_totals["completion_time"].item() == pytest.approx(22.0)
+    assert collector.scalar_totals["all_collected"].item() == pytest.approx(1.0)
+    assert collector.scalar_totals["num_collected"].item() == pytest.approx(24.0)
+    assert collector.categorical_counts["cause"]["ALL_COLLECTED"].item() == pytest.approx(1.0)
+    assert collector.categorical_counts["cause"]["TIMEOUT"].item() == pytest.approx(1.0)
 
 
 def test_environment_metrics_collector_ignores_non_terminal_batches() -> None:
-    collector = EnvironmentMetricsCollector(torch.device("cpu"))
+    collector = EnvironmentMetricsCollector(torch.device("cpu"), make_data_collection_metrics_spec())
     batch = _make_batch(
         done=[False, False, False],
         truncated=[False, False, False],
@@ -126,7 +128,7 @@ def test_environment_metrics_collector_ignores_non_terminal_batches() -> None:
                 "completion_time": 1.0,
                 "all_collected": 1.0,
                 "num_collected": 1.0,
-                "cause": float(EndCause.ALL_COLLECTED.value),
+                "cause": 2.0,
             }
             for _ in range(3)
         ],
@@ -135,12 +137,12 @@ def test_environment_metrics_collector_ignores_non_terminal_batches() -> None:
     collector.report_metrics(batch)
 
     assert collector.trajectories.item() == pytest.approx(0.0)
-    assert collector.sum_sum_reward.item() == pytest.approx(0.0)
-    assert collector.end_cause_counts.sum().item() == pytest.approx(0.0)
+    assert collector.scalar_totals["sum_reward"].item() == pytest.approx(0.0)
+    assert sum(count.item() for count in collector.categorical_counts["cause"].values()) == pytest.approx(0.0)
 
 
 def test_environment_metrics_collector_logs_average_metrics(monkeypatch) -> None:
-    collector = EnvironmentMetricsCollector(torch.device("cpu"))
+    collector = EnvironmentMetricsCollector(torch.device("cpu"), make_data_collection_metrics_spec())
     batch = _make_batch(
         done=[True, True],
         truncated=[False, False],
@@ -154,7 +156,7 @@ def test_environment_metrics_collector_logs_average_metrics(monkeypatch) -> None
                 "completion_time": 12.0,
                 "all_collected": 1.0,
                 "num_collected": 2.0,
-                "cause": float(EndCause.ALL_COLLECTED.value),
+                "cause": 2.0,
             },
             {
                 "avg_reward": 6.0,
@@ -165,7 +167,7 @@ def test_environment_metrics_collector_logs_average_metrics(monkeypatch) -> None
                 "completion_time": 16.0,
                 "all_collected": 0.0,
                 "num_collected": 1.0,
-                "cause": float(EndCause.STALLED.value),
+                "cause": 3.0,
             },
         ],
     )

@@ -16,7 +16,9 @@ from torchrl.data.tensor_specs import Categorical, Composite, Unbounded
 from torchrl.envs import EnvBase
 
 from data_harvesting.environment import EndCause
+from data_harvesting.environment.metrics import EnvironmentMetricsSpec
 from data_harvesting.environment.gradys_env import BaseGrADySEnvironment
+from .metrics import make_data_collection_metrics_spec
 from .protocols import DroneProtocol, SensorProtocol
 
 @dataclasses.dataclass(slots=True)
@@ -120,17 +122,8 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         self.max_reward = -math.inf
         self.collection_times: list[float] = []
 
-        self._info_keys = [
-            "avg_reward",
-            "max_reward",
-            "sum_reward",
-            "avg_collection_time",
-            "episode_duration",
-            "completion_time",
-            "all_collected",
-            "num_collected",
-            "cause",
-        ]
+        self._metrics_spec: EnvironmentMetricsSpec = make_data_collection_metrics_spec()
+        self._info_keys = self._metrics_spec.info_keys
 
         self._simulation_configuration = SimulationConfiguration(
             debug=False,
