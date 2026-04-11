@@ -4,3 +4,7 @@ __pycache__
 mlruns/
 mlartifacts/
 .env
+mlflow_server/rclone/
+mlflow_server/backup_work/
+mlflow_server/*.dump
+mlflow_server/*.sql

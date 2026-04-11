@@ -56,19 +56,49 @@ access.
 
 ## Backups
 
-Back up both named Docker volumes:
+The Compose stack includes a `backup` service that backs up both durable stores:
 
-- `mlflow_server_postgres_data`: MLflow metadata.
-- `mlflow_server_minio_data`: artifact objects and logged models.
+- Postgres MLflow metadata via `pg_dump -Fc`.
+- MinIO artifacts via rclone's S3 backend.
 
-For Postgres, prefer a logical dump:
+Backups are uploaded to OneDrive with rclone. By default they run daily at
+03:00 São Paulo time and keep 30 days of Postgres dumps and artifact manifests.
+Artifact objects are copied into a rolling `artifacts/current/` directory.
+
+First configure rclone on the VPS:
 
 ```bash
-docker compose exec postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > mlflow_postgres.sql
+mkdir -p rclone
+docker run --rm -it \
+  -v "$PWD/rclone:/config/rclone" \
+  rclone/rclone config
 ```
 
-For MinIO, use your VPS backup tooling or an S3-compatible copy tool against the
-`mlflow-artifacts` bucket.
+Create a OneDrive remote named `onedrive`. The rclone config file under
+`mlflow_server/rclone/` contains credentials and is ignored by git. The backup
+container mounts this directory read-write because rclone needs to persist
+refreshed OneDrive tokens.
+
+Start the scheduler with the rest of the stack:
+
+```bash
+docker compose up -d --build
+```
+
+Run a one-off backup:
+
+```bash
+docker compose run --rm backup /backup/backup.sh
+```
+
+Run a dry-run backup that verifies local dump/listing behavior and rclone
+operations without changing OneDrive:
+
+```bash
+docker compose run --rm backup /backup/backup.sh --dry-run
+```
+
+Restore instructions are in `backup/RESTORE.md`.
 
 ## Security notes
 
