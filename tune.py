@@ -36,9 +36,14 @@ parser.add_argument(
     help="Number of hyperparameter configurations to try (default: 30)",
     dest="num_trials",
 )
+parser.add_argument(
+    "--tracking-uri",
+    default=os.environ.get("MLFLOW_TRACKING_URI", "file:./mlruns"),
+    help="MLflow tracking URI (defaults to MLFLOW_TRACKING_URI or file:./mlruns)",
+)
 args = parser.parse_args()
 
-MLFLOW_TRACKING_URI = "file:./mlruns"
+MLFLOW_TRACKING_URI = args.tracking_uri
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
 if __name__ == "__main__":

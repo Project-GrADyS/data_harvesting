@@ -1,5 +1,22 @@
 # Data Harvesting
 
+## MLflow tracking
+
+Local file-backed MLflow runs still work by default, but the preferred setup for
+new runs is the private server in `mlflow_server/`.
+
+```bash
+export MLFLOW_TRACKING_URI=http://<vpn-host>:5000
+uv run python main.py -E default
+```
+
+You can also pass the URI per command:
+
+```bash
+uv run python main.py --tracking-uri http://<vpn-host>:5000 -E default
+uv run python tune.py --tracking-uri http://<vpn-host>:5000 -E tuning
+```
+
 ## Evaluate a trained run
 
 Use `evaluate.py` to load a saved model from an MLflow **run ID**, execute it in eval mode for `N` runs, and print a terminal summary of metrics.
