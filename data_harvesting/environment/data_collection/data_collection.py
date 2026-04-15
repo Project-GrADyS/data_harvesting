@@ -65,6 +65,7 @@ class DataCollectionEnvironmentConfig:
     speed_action: bool = True
     end_when_all_collected: bool = True
     agent_death_probability: float = 0.0
+    prevent_last_agent_death: bool = True
 
 
 class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
@@ -110,6 +111,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         self.speed_action = config.speed_action
         self.end_when_all_collected = config.end_when_all_collected
         self.agent_death_probability = config.agent_death_probability
+        self.prevent_last_agent_death = config.prevent_last_agent_death
 
         self.possible_agents = [f"drone{i}" for i in range(self.max_num_agents)]
         self.group_map = {"agents": self.possible_agents}
@@ -478,10 +480,16 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
     def _sample_dying_agents(self, stepped_agents: list[EpisodeAgentState]) -> list[EpisodeAgentState]:
         if self.agent_death_probability <= 0.0:
             return []
-        return [
+        if self.prevent_last_agent_death and len(stepped_agents) <= 1:
+            return []
+        dying_agents = [
             agent for agent in stepped_agents
             if random.random() < self.agent_death_probability
         ]
+        if self.prevent_last_agent_death and len(dying_agents) == len(stepped_agents):
+            # Keep one active slot alive to avoid ending episodes solely from random deaths.
+            return dying_agents[:-1]
+        return dying_agents
 
     def _deactivate_agents(self, agents: list[EpisodeAgentState]) -> None:
         for agent in agents:

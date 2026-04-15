@@ -37,6 +37,8 @@ environment:
   end_when_all_collected: false
   # Probability that each active agent dies after a step.
   agent_death_probability: 0.0005
+  # If true, random death cannot remove the final active agent in an episode.
+  prevent_last_agent_death: true
   # If true, the observations are shaped as a sequence, if false it is a flat vector.
   sequential_obs: true
 

@@ -5,7 +5,12 @@ from data_harvesting.environment import EndCause
 from data_harvesting.environment.data_collection import make_data_collection_env
 
 
-def _death_config(*, min_num_agents: int = 2, max_num_agents: int = 2) -> dict:
+def _death_config(
+    *,
+    min_num_agents: int = 2,
+    max_num_agents: int = 2,
+    prevent_last_agent_death: bool = True,
+) -> dict:
     return {
         "environment": {
             "sequential_obs": True,
@@ -25,6 +30,7 @@ def _death_config(*, min_num_agents: int = 2, max_num_agents: int = 2) -> dict:
             "speed_action": True,
             "end_when_all_collected": False,
             "agent_death_probability": 1.0,
+            "prevent_last_agent_death": prevent_last_agent_death,
         }
     }
 
@@ -120,14 +126,39 @@ def test_dead_agent_becomes_truncated_bookkeeping_on_later_steps() -> None:
         env.close()
 
 
-def test_last_agent_death_ends_episode_with_all_agents_dead_cause() -> None:
+def test_last_agent_death_is_prevented_by_default() -> None:
     env = make_data_collection_env(_death_config(min_num_agents=1, max_num_agents=1))
     try:
         td = env.reset(seed=13)
         _set_drone_position(env, 0, 0.0, 0.0)
         _set_single_sensor(env, 9.0, 0.0, collected=False)
 
-        env._sample_dying_agents = lambda stepped_agents: list(stepped_agents)
+        td.set(("agents", "action"), _zero_action(env))
+        next_td = env.step(td).get("next")
+
+        assert env.episode_agents[0].active is True
+        assert bool(next_td.get("done").item()) is False
+        assert bool(next_td.get("terminated").item()) is False
+        assert bool(next_td.get("truncated").item()) is False
+        assert next_td.get(("agents", "done"))[:, 0].tolist() == [False]
+        assert next_td.get(("agents", "terminated"))[:, 0].tolist() == [False]
+        assert next_td.get(("agents", "truncated"))[:, 0].tolist() == [False]
+    finally:
+        env.close()
+
+
+def test_last_agent_death_can_be_enabled_with_opt_out_flag() -> None:
+    env = make_data_collection_env(
+        _death_config(
+            min_num_agents=1,
+            max_num_agents=1,
+            prevent_last_agent_death=False,
+        )
+    )
+    try:
+        td = env.reset(seed=13)
+        _set_drone_position(env, 0, 0.0, 0.0)
+        _set_single_sensor(env, 9.0, 0.0, collected=False)
 
         td.set(("agents", "action"), _zero_action(env))
         next_td = env.step(td).get("next")
