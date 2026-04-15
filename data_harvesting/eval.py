@@ -149,6 +149,7 @@ def eval(
     }
     categorical_counts = _empty_categorical_counts(metrics_spec)
     scenario_buckets: dict[str, dict[str, Any]] = {}
+    episode_rows: list[dict[str, Any]] = []
 
     with torch.no_grad(), set_exploration_type(ExplorationType.MODE):
         for run_index in range(num_runs):
@@ -172,18 +173,30 @@ def eval(
             )
             scenario_bucket["num_runs"] += 1
 
+            episode_row: dict[str, Any] = {
+                "run_index": run_index,
+                "scenario_key": scenario_key,
+                "num_agents": num_agents,
+                "num_sensors": num_sensors,
+            }
+
             for metric in metrics_spec.metrics:
                 if metric.kind == MetricKind.SCALAR:
                     value = float(episode_info[metric.key])
                     scalar_samples[metric.key].append(value)
                     scenario_bucket["scalar_samples"][metric.key].append(value)
+                    episode_row[metric.key] = value
                     continue
 
                 value = int(float(episode_info[metric.key]))
+                episode_row[metric.key] = value
                 label = (metric.value_labels or {}).get(value)
                 if label is not None:
                     categorical_counts[metric.logging_prefix][label] += 1
                     scenario_bucket["categorical_counts"][metric.logging_prefix][label] += 1
+                    episode_row[f"{metric.logging_prefix}_label"] = label
+
+            episode_rows.append(episode_row)
 
     if hasattr(env, "close"):
         env.close()
@@ -192,6 +205,7 @@ def eval(
         "num_runs": num_runs,
         "metrics": {key: _metric_stats(values) for key, values in scalar_samples.items()},
         "scenario_metrics": _finalize_scenario_metrics(scenario_buckets),
+        "episodes": episode_rows,
     }
     for prefix, counts in categorical_counts.items():
         results[f"{prefix}_counts"] = counts
