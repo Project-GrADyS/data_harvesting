@@ -20,6 +20,7 @@ def make_data_collection_metrics_spec() -> EnvironmentMetricsSpec:
             EnvironmentMetricSpec("completion_time", MetricKind.SCALAR, MetricReducer.MEAN),
             EnvironmentMetricSpec("all_collected", MetricKind.SCALAR, MetricReducer.MEAN),
             EnvironmentMetricSpec("num_collected", MetricKind.SCALAR, MetricReducer.MEAN),
+            EnvironmentMetricSpec("num_dead", MetricKind.SCALAR, MetricReducer.MEAN),
             EnvironmentMetricSpec(
                 "cause",
                 MetricKind.CATEGORICAL,

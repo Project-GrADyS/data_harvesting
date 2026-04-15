@@ -737,6 +737,8 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
             else self.simulator._current_timestamp
         )
 
+        num_dead = len([agent for agent in existing_agents if not agent.active])
+
         metrics = {
             "avg_reward": avg_reward,
             "max_reward": self.max_reward,
@@ -748,7 +750,8 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
             "num_collected": float(num_collected),
             "cause": float(end_cause.value),
             "num_sensors": float(self.active_num_sensors),
-            "num_agents": float(len(existing_agents))
+            "num_agents": float(len(existing_agents)),
+            "num_dead": float(num_dead),
         }
 
         for key, value in metrics.items():
