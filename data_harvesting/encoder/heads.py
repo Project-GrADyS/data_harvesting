@@ -78,15 +78,6 @@ class SequentialEncoder(nn.Module):
         if mask is not None:
             padded_input_mask |= ~mask.reshape(-1, seq_len)
 
-        # Nested-tensor transformer execution fails when an entire sequence row is
-        # padding. Keep one token temporarily unmasked for those rows to avoid the
-        # runtime error, then still pool with the original validity mask below.
-        transformer_input_mask = padded_input_mask
-        all_padded_rows = padded_input_mask.all(dim=-1)
-        if torch.any(all_padded_rows):
-            transformer_input_mask = padded_input_mask.clone()
-            transformer_input_mask[all_padded_rows, 0] = False
-
         embed_output = self.obs_encoder(x_flat)
 
         # If agentic encoding is enabled, add the agent embedding to every step in the sequence.
@@ -100,7 +91,7 @@ class SequentialEncoder(nn.Module):
                 agent_embeddings = agent_embeddings.unsqueeze(-2)
             embed_output += agent_embeddings
 
-        seq_output = self.transformer(embed_output, src_key_padding_mask=transformer_input_mask)
+        seq_output = self.transformer(embed_output, src_key_padding_mask=padded_input_mask)
 
         # Aggregate only valid timesteps so masked entries do not influence the output.
         valid_timestep_mask = ~padded_input_mask
