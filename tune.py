@@ -62,9 +62,6 @@ if __name__ == "__main__":
     mlflow.set_experiment(experiment_name)
     
     space = {
-        "training": {
-            "batch_size": hp.choice("batch_size", [256, 512, 1024]),
-        },
         "optimization": {
             "num_optimizer_steps": hp.choice("num_optimizer_steps", [1, 2, 5, 10, 20, 40]),
             "lr": hp.loguniform("lr", math.log(1e-5), math.log(3e-3)),

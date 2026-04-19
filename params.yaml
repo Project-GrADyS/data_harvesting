@@ -64,7 +64,7 @@ training:
   # Number of steps to anneal sigma from init to end (AdditiveGaussianModule).
   exploration_annealing_steps: 500_000
   # Batch size for training updates.
-  batch_size: 1024
+  batch_size: 2048
   # Algorithm to use. Options: "maddpg", "mappo"
   algorithm: maddpg
 
@@ -92,7 +92,7 @@ collector:
 
 replay_buffer:
   # Size of the replay buffer (number of transitions it can store).
-  buffer_size: 1000000
+  buffer_size: 3000000
   # Number of batches to prefetch asynchronously (0 disables prefetching).
   prefetch: 32
   # Device to store the buffer on ("cpu" or "cuda").
@@ -143,24 +143,24 @@ flex_encoder:
   # key whose tensor shape is (batch, n_agents, seq_len, input_dim).
   # Provide one block per sequential sub-observation you wish to encode.
   sequential_heads:
-    embed_dim: 64 # Output embedding size of this head
-    head_dim: 32 # Dimension per attention head
+    embed_dim: 128 # Output embedding size of this head
+    head_dim: 64 # Dimension per attention head
     num_heads: 8 # Number of attention heads
     ff_dim: 256 # Feed-forward (Transformer MLP) inner dim
-    depth: 2 # Number of Transformer layers
+    depth: 6 # Number of Transformer layers
     dropout: 0.1 # Dropout probability inside Transformer
     critic_agent_embedding: true # Enrich observation encoding with agent ID embeddings
 
   # MLP-based flat heads. Each entry corresponds to an observation key whose
   # tensor shape is (batch, n_agents, input_dim) (no temporal dimension).
   flat_heads:
-    embed_dim: 64 # Output embedding size of this flat head
-    depth: 1 # Hidden layer count inside this head MLP
-    num_cells: 64 # Hidden layer width of this head MLP
+    embed_dim: 128 # Output embedding size of this flat head
+    depth: 3 # Hidden layer count inside this head MLP
+    num_cells: 128 # Hidden layer width of this head MLP
     activation_function: Tanh # One of: Tanh, ReLU, LeakyReLU
 
   # Final mixing MLP that fuses ALL head outputs per-agent (or centrally) into
   # a unified embedding of size output_dim below.
   mix_layer_depth: 3 # Hidden layer count of mixing MLP
-  mix_layer_num_cells: 128 # Hidden layer width of mixing MLP
+  mix_layer_num_cells: 256 # Hidden layer width of mixing MLP
   mix_activation_function: Tanh # Activation for mixing MLP
