@@ -84,7 +84,7 @@ collector:
   # Number of parallel environment instances.
   num_collectors: 4
   # Number of frames collected per batch.
-  frames_per_batch: 1024
+  frames_per_batch: 512
   # Whether to use async collectors
   async_collector: true
   # Device used for collecting experiences ("cpu" or "cuda").
@@ -100,15 +100,15 @@ replay_buffer:
 
 optimization:
   # Discount factor for future rewards.
-  gamma: 0.96
+  gamma: 0.954
   # Learning rate for optimizers.
-  lr: 0.0004
+  lr: 0.00016
   # Tau for the soft-update of the target network.
-  tau: 0.002
+  tau: 0.007
   # Number of optimizer steps per batch.
   num_optimizer_steps: 40
   # Gradient clipping value (0 disables clipping).
-  grad_clip: 10.0
+  grad_clip: 5.0
   # Whether to use automatic mixed precision (AMP) during training.
   use_amp: true
 

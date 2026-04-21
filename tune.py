@@ -71,22 +71,7 @@ if __name__ == "__main__":
         },
         "collector": {
             "frames_per_batch": hp.choice("frames_per_batch", [512, 1024, 2048, 4096]),
-        },
-        "flex_encoder": {
-            "sequential_heads": {
-                "embed_dim": hp.choice("seq_embed_dim", [64, 128, 256]),
-                "num_heads": hp.choice("seq_num_heads", [2, 4, 8]),
-                "ff_dim": hp.choice("seq_ff_dim", [128, 256]),
-                "depth": hp.choice("seq_depth", [1, 2, 3]),
-            },
-            "flat_heads": {
-                "embed_dim": hp.choice("flat_embed_dim", [64, 128, 256]),
-                "depth": hp.choice("flat_depth", [1, 2]),
-                "num_cells": hp.choice("flat_num_cells", [64, 128, 256]),
-            },
-            "mix_layer_num_cells": hp.choice("mix_layer_num_cells", [128, 256]),
-            "mix_layer_depth": hp.choice("mix_layer_depth", [1, 2, 3]),
-        },
+        }
     }
 
     def _deep_update(target: dict, updates: dict) -> None:
