@@ -133,7 +133,7 @@ metrics:
 
 checkpoint:
   # Save a periodic checkpoint every N collected timesteps when checkpointing is enabled. Use 0 to disable periodic checkpointing.
-  checkpoint_every_n_steps: 0
+  checkpoint_every_n_steps: 100000
   # Save model at the end of training.
   save_final_model: true
 
