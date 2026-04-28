@@ -4,6 +4,7 @@ import mlflow
 import torch
 from mlflow import pytorch as mlflow_pytorch
 from torchrl.envs import check_env_specs, TransformedEnv, RewardSum
+from torchrl.envs.utils import ExplorationType, set_exploration_type
 
 from data_harvesting.environment import make_env, make_metrics_spec
 from data_harvesting.collector import create_collector
@@ -42,6 +43,9 @@ def _maybe_log_checkpoint(
     last_checkpoint_step or updated to experience_steps if a new checkpoint was logged)
     """
     checkpoint_config = config["checkpoint"]
+    if not bool(checkpoint_config.get("enabled", True)):
+        return last_checkpoint_step
+
     checkpoint_every_n_steps = int(checkpoint_config["checkpoint_every_n_steps"])
     if checkpoint_every_n_steps <= 0:
         return last_checkpoint_step
@@ -55,6 +59,107 @@ def _maybe_log_checkpoint(
 
 def _should_save_final_model(config: dict) -> bool:
     return bool(config["checkpoint"]["save_final_model"])
+
+
+def _log_prefixed_metrics(logger: EnvironmentMetricsCollector, *, prefix: str, step: int) -> None:
+    metrics = logger._build_log_metrics()
+    if metrics:
+        mlflow.log_metrics({f"{prefix}/{key}": value for key, value in metrics.items()}, step=step)
+
+
+def _module_device(module: torch.nn.Module) -> torch.device:
+    for parameter in module.parameters():
+        return parameter.device
+    for buffer in module.buffers():
+        return buffer.device
+    return torch.device("cpu")
+
+
+def _make_cpu_eval_policy(policy: torch.nn.Module) -> torch.nn.Module:
+    if _module_device(policy).type == "cpu":
+        return policy
+
+    policy_copy = deepcopy(policy)
+    try:
+        return policy_copy.to("cpu")
+    except Exception:
+        return policy_copy
+
+
+def _run_periodic_evaluation(
+    algorithm: MADDPGAlgorithm | MAPPOAlgorithm,
+    config: dict,
+    *,
+    experience_steps: int,
+    device: torch.device,
+    metrics_spec,
+    num_runs: int,
+    seed: int | None = None,
+) -> None:
+    if num_runs <= 0:
+        return
+
+    eval_config = deepcopy(config)
+    eval_config.setdefault("environment", {})["render_mode"] = None
+    eval_env = make_env(eval_config)
+
+    eval_device = torch.device("cpu")
+    eval_logger = EnvironmentMetricsCollector(eval_device, metrics_spec)
+    policy_was_training = algorithm.policy.training
+    eval_policy = _make_cpu_eval_policy(algorithm.policy)
+
+    try:
+        algorithm.policy.eval()
+        if eval_policy is not algorithm.policy:
+            eval_policy.eval()
+        with torch.no_grad(), set_exploration_type(ExplorationType.MODE):
+            for run_index in range(num_runs):
+                if seed is not None:
+                    eval_env.set_seed(seed + run_index)
+
+                rollout = eval_env.rollout(
+                    max_steps=eval_config["environment"]["max_episode_length"],
+                    policy=eval_policy,
+                )
+                eval_logger.report_metrics(rollout.reshape(-1))
+
+        _log_prefixed_metrics(eval_logger, prefix="eval", step=experience_steps)
+    finally:
+        algorithm.policy.train(policy_was_training)
+        if hasattr(eval_env, "close"):
+            eval_env.close()
+
+
+def _maybe_run_periodic_evaluation(
+    algorithm: MADDPGAlgorithm | MAPPOAlgorithm,
+    config: dict,
+    *,
+    experience_steps: int,
+    last_eval_step: int,
+    device: torch.device,
+    metrics_spec,
+) -> int:
+    evaluation_config = config.get("evaluation", {})
+    if not bool(evaluation_config.get("enabled", False)):
+        return last_eval_step
+
+    eval_every_n_steps = int(evaluation_config.get("eval_every_n_steps", 0))
+    if eval_every_n_steps <= 0:
+        return last_eval_step
+
+    if experience_steps - last_eval_step >= eval_every_n_steps:
+        _run_periodic_evaluation(
+            algorithm,
+            config,
+            experience_steps=experience_steps,
+            device=device,
+            metrics_spec=metrics_spec,
+            num_runs=int(evaluation_config.get("num_runs", 1)),
+            seed=evaluation_config.get("seed"),
+        )
+        return experience_steps
+
+    return last_eval_step
 
 
 def train(config: dict, run_name: str | None = None):
@@ -100,6 +205,7 @@ def train(config: dict, run_name: str | None = None):
             experience_steps = 0
             last_metric_log = 0
             last_checkpoint_step = 0
+            last_eval_step = 0
 
             # Training/collection iterations
             for iteration, batch in enumerate(collector):
@@ -132,6 +238,14 @@ def train(config: dict, run_name: str | None = None):
                     config,
                     experience_steps=experience_steps,
                     last_checkpoint_step=last_checkpoint_step,
+                )
+                last_eval_step = _maybe_run_periodic_evaluation(
+                    algorithm,
+                    config,
+                    experience_steps=experience_steps,
+                    last_eval_step=last_eval_step,
+                    device=device,
+                    metrics_spec=metrics_spec,
                 )
             
             # Logging metrics at the end of training

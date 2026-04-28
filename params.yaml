@@ -131,6 +131,16 @@ metrics:
   # Log training metrics every N steps
   log_every_n_steps: 5000
 
+evaluation:
+  # Run periodic evaluation during training.
+  enabled: true
+  # Evaluate every N collected timesteps.
+  eval_every_n_steps: 100000
+  # Number of evaluation episodes per periodic evaluation.
+  num_runs: 50
+  # Base seed for evaluation episodes. Use null to leave evaluation stochastic.
+  seed: null
+
 checkpoint:
   # Save a periodic checkpoint every N collected timesteps when checkpointing is enabled. Use 0 to disable periodic checkpointing.
   checkpoint_every_n_steps: 100000

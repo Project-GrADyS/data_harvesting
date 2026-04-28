@@ -13,6 +13,7 @@ def test_data_collection_metric_spec_matches_current_environment_contract() -> N
         "completion_time",
         "all_collected",
         "num_collected",
+        "num_dead",
         "cause",
     )
 

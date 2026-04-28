@@ -1,83 +1,173 @@
-import types
+from types import SimpleNamespace
 
+import pytest
+import torch
 from torch import nn
 
-from data_harvesting.eval import NestedEvaluationRunLogger
-from data_harvesting.train import _maybe_run_periodic_evaluation, _run_nested_evaluation
+from data_harvesting.train import _maybe_run_periodic_evaluation, _run_periodic_evaluation
 
 
 class _FakePolicy(nn.Module):
     def __init__(self) -> None:
         super().__init__()
         self.layer = nn.Linear(1, 1)
+        self.calls = 0
+
+    def forward(self, tensordict):
+        self.calls += 1
+        return tensordict
+
+
+class _ExploratoryPolicy(nn.Module):
+    def forward(self, tensordict):
+        raise AssertionError("periodic evaluation must not use exploratory_policy")
 
 
 class _FakeAlgorithm:
     def __init__(self) -> None:
         self.policy = _FakePolicy()
+        self.exploratory_policy = _ExploratoryPolicy()
 
 
-class _FakeLogger:
+class _FakeRollout:
+    def __init__(self, marker: int) -> None:
+        self.marker = marker
+
+    def reshape(self, *shape):
+        return self
+
+
+class _FakeEnv:
     def __init__(self) -> None:
-        self.logged: list[tuple[int, dict]] = []
+        self.seeds: list[int] = []
+        self.policies: list[nn.Module] = []
+        self.closed = False
 
-    def log_evaluation(self, step: int, results: dict) -> None:
-        self.logged.append((step, results))
+    def to(self, device: torch.device):
+        return self
+
+    def set_seed(self, seed: int) -> None:
+        self.seeds.append(seed)
+
+    def rollout(self, *, max_steps: int, policy: nn.Module):
+        assert max_steps == 3
+        assert policy.training is False
+        self.policies.append(policy)
+        policy(SimpleNamespace())
+        return _FakeRollout(len(self.policies))
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _FakeMetricsCollector:
+    instances: list["_FakeMetricsCollector"] = []
+
+    def __init__(self, device: torch.device, metrics_spec) -> None:
+        self.reported: list[_FakeRollout] = []
+        self.__class__.instances.append(self)
+
+    def report_metrics(self, batch: _FakeRollout) -> None:
+        self.reported.append(batch)
+
+    def _build_log_metrics(self) -> dict[str, float]:
+        return {
+            "avg_reward": float(len(self.reported)),
+            "end_cause_STALLED": 2.0,
+        }
 
 
 def _evaluation_config() -> dict:
     return {
+        "environment": {
+            "max_episode_length": 3,
+        },
         "evaluation": {
             "enabled": True,
             "eval_every_n_steps": 100,
             "num_runs": 4,
             "seed": 7,
-        }
+        },
     }
 
 
-def test_run_nested_evaluation_uses_eval_mode_and_restores_training_state(monkeypatch) -> None:
+def test_run_periodic_evaluation_uses_eval_mode_policy_and_prefixed_metrics(monkeypatch) -> None:
     algorithm = _FakeAlgorithm()
     algorithm.policy.train(True)
-    logger = _FakeLogger()
+    env = _FakeEnv()
+    logged: list[tuple[dict[str, float], int]] = []
+    _FakeMetricsCollector.instances = []
 
-    def _fake_eval(policy, config, num_runs, seed):
-        assert policy.training is False
-        assert num_runs == 4
-        assert seed == 7
-        return {"num_runs": 4, "metrics": {}, "scenario_metrics": {}}
+    monkeypatch.setattr("data_harvesting.train.make_env", lambda config: env)
+    monkeypatch.setattr("data_harvesting.train.EnvironmentMetricsCollector", _FakeMetricsCollector)
+    monkeypatch.setattr("data_harvesting.train.mlflow.log_metrics", lambda metrics, step: logged.append((metrics, step)))
 
-    monkeypatch.setattr("data_harvesting.train.run_eval", _fake_eval)
-
-    _run_nested_evaluation(
+    _run_periodic_evaluation(
         algorithm,
         _evaluation_config(),
         experience_steps=120,
-        logger=logger,
+        device=torch.device("cpu"),
+        metrics_spec=SimpleNamespace(),
         num_runs=4,
         seed=7,
     )
 
     assert algorithm.policy.training is True
-    assert logger.logged == [(120, {"num_runs": 4, "metrics": {}, "scenario_metrics": {}})]
+    assert algorithm.policy.calls == 4
+    assert env.policies == [algorithm.policy] * 4
+    assert env.seeds == [7, 8, 9, 10]
+    assert env.closed
+    assert [rollout.marker for rollout in _FakeMetricsCollector.instances[0].reported] == [1, 2, 3, 4]
+    assert logged == [
+        (
+            {
+                "eval/avg_reward": 4.0,
+                "eval/end_cause_STALLED": 2.0,
+            },
+            120,
+        )
+    ]
+    assert all(key.startswith("eval/") for key in logged[0][0])
+
+
+def test_run_periodic_evaluation_restores_eval_state(monkeypatch) -> None:
+    algorithm = _FakeAlgorithm()
+    algorithm.policy.eval()
+    _FakeMetricsCollector.instances = []
+
+    monkeypatch.setattr("data_harvesting.train.make_env", lambda config: _FakeEnv())
+    monkeypatch.setattr("data_harvesting.train.EnvironmentMetricsCollector", _FakeMetricsCollector)
+    monkeypatch.setattr("data_harvesting.train.mlflow.log_metrics", lambda metrics, step: None)
+
+    _run_periodic_evaluation(
+        algorithm,
+        _evaluation_config(),
+        experience_steps=120,
+        device=torch.device("cpu"),
+        metrics_spec=SimpleNamespace(),
+        num_runs=1,
+        seed=None,
+    )
+
+    assert algorithm.policy.training is False
 
 
 def test_maybe_run_periodic_evaluation_respects_interval(monkeypatch) -> None:
     algorithm = _FakeAlgorithm()
-    logger = _FakeLogger()
-    calls: list[int] = []
+    calls: list[tuple[int, int, int | None]] = []
 
-    def _fake_run_nested_evaluation(algorithm, config, *, experience_steps, logger, num_runs, seed):
-        calls.append(experience_steps)
+    def _fake_run_periodic_evaluation(algorithm, config, *, experience_steps, device, metrics_spec, num_runs, seed):
+        calls.append((experience_steps, num_runs, seed))
 
-    monkeypatch.setattr("data_harvesting.train._run_nested_evaluation", _fake_run_nested_evaluation)
+    monkeypatch.setattr("data_harvesting.train._run_periodic_evaluation", _fake_run_periodic_evaluation)
 
     last_eval_step = _maybe_run_periodic_evaluation(
         algorithm,
         _evaluation_config(),
         experience_steps=50,
         last_eval_step=0,
-        logger=logger,
+        device=torch.device("cpu"),
+        metrics_spec=SimpleNamespace(),
     )
     assert last_eval_step == 0
     assert calls == []
@@ -87,69 +177,38 @@ def test_maybe_run_periodic_evaluation_respects_interval(monkeypatch) -> None:
         _evaluation_config(),
         experience_steps=100,
         last_eval_step=0,
-        logger=logger,
+        device=torch.device("cpu"),
+        metrics_spec=SimpleNamespace(),
     )
     assert last_eval_step == 100
-    assert calls == [100]
+    assert calls == [(100, 4, 7)]
 
 
-def test_nested_evaluation_run_logger_reuses_child_runs(monkeypatch) -> None:
-    created_runs: list[tuple[str, dict[str, str]]] = []
-    logged_metrics: list[tuple[str, str, float, int]] = []
-    terminated: list[str] = []
-    next_id = {"value": 0}
+@pytest.mark.parametrize(
+    "evaluation_config",
+    [
+        {"enabled": False, "eval_every_n_steps": 100, "num_runs": 4},
+        {"enabled": True, "eval_every_n_steps": 0, "num_runs": 4},
+    ],
+)
+def test_maybe_run_periodic_evaluation_can_be_disabled(monkeypatch, evaluation_config) -> None:
+    calls: list[int] = []
+    config = _evaluation_config()
+    config["evaluation"] = evaluation_config
 
-    class _FakeClient:
-        def create_run(self, experiment_id, start_time=None, tags=None, run_name=None):
-            run_id = f"run-{next_id['value']}"
-            next_id["value"] += 1
-            created_runs.append((run_name, tags or {}))
-            return types.SimpleNamespace(
-                info=types.SimpleNamespace(run_id=run_id),
-            )
-
-        def log_metric(self, run_id, key, value, timestamp=None, step=None, synchronous=None, dataset_name=None, dataset_digest=None, model_id=None):
-            logged_metrics.append((run_id, key, value, step))
-            return None
-
-        def set_terminated(self, run_id, status=None, end_time=None):
-            terminated.append(run_id)
-
-    monkeypatch.setattr("data_harvesting.eval.MlflowClient", lambda: _FakeClient())
-
-    parent_run = types.SimpleNamespace(
-        info=types.SimpleNamespace(experiment_id="exp-1", run_id="parent-1"),
+    monkeypatch.setattr(
+        "data_harvesting.train._run_periodic_evaluation",
+        lambda *args, **kwargs: calls.append(kwargs["experience_steps"]),
     )
-    logger = NestedEvaluationRunLogger(parent_run)
-    results = {
-        "num_runs": 3,
-        "metrics": {
-            "all_collected": {"mean": 0.5, "std": 0.1, "min": 0.0, "max": 1.0},
-        },
-        "end_cause_counts": {"ALL_COLLECTED": 1, "STALLED": 2},
-        "end_cause_rate": {"ALL_COLLECTED": 1 / 3, "STALLED": 2 / 3},
-        "scenario_metrics": {
-            "agents_3__sensors_2": {
-                "scenario": {"agents": 3, "sensors": 2},
-                "num_runs": 2,
-                "metrics": {
-                    "all_collected": {"mean": 1.0, "std": 0.0, "min": 1.0, "max": 1.0},
-                },
-                "end_cause_counts": {"ALL_COLLECTED": 2, "STALLED": 0},
-                "end_cause_rate": {"ALL_COLLECTED": 1.0, "STALLED": 0.0},
-            }
-        },
-    }
 
-    logger.log_evaluation(100, results)
-    logger.log_evaluation(200, results)
-    logger.close()
+    last_eval_step = _maybe_run_periodic_evaluation(
+        _FakeAlgorithm(),
+        config,
+        experience_steps=100,
+        last_eval_step=0,
+        device=torch.device("cpu"),
+        metrics_spec=SimpleNamespace(),
+    )
 
-    assert [name for name, _ in created_runs] == [
-        "evaluation_overall",
-        "evaluation_agents_3__sensors_2",
-    ]
-    assert any(run_id == "run-0" and key == "all_collected_mean" and step == 100 for run_id, key, _, step in logged_metrics)
-    assert any(run_id == "run-0" and key == "all_collected_mean" and step == 200 for run_id, key, _, step in logged_metrics)
-    assert any(run_id == "run-1" and key == "all_collected_mean" and step == 100 for run_id, key, _, step in logged_metrics)
-    assert terminated == ["run-0", "run-1"]
+    assert last_eval_step == 0
+    assert calls == []

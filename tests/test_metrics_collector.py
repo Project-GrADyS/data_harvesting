@@ -15,6 +15,7 @@ METRIC_KEYS = (
     "completion_time",
     "all_collected",
     "num_collected",
+    "num_dead",
     "cause",
 )
 
@@ -24,7 +25,7 @@ def _make_batch(done: list[bool], truncated: list[bool], info_rows: list[dict[st
     length = len(done)
 
     info_tensors = {
-        key: torch.tensor([[row[key]] for row in info_rows], dtype=torch.float32)
+        key: torch.tensor([[row.get(key, 0.0)] for row in info_rows], dtype=torch.float32)
         for key in METRIC_KEYS
     }
 
