@@ -91,7 +91,13 @@ class SequentialEncoder(nn.Module):
                 agent_embeddings = agent_embeddings.unsqueeze(-2)
             embed_output += agent_embeddings
 
-        seq_output = self.transformer(embed_output, src_key_padding_mask=padded_input_mask)
+        transformer_padding_mask = padded_input_mask
+        fully_padded_rows = transformer_padding_mask.all(dim=-1)
+        if bool(fully_padded_rows.any()):
+            transformer_padding_mask = transformer_padding_mask.clone()
+            transformer_padding_mask[fully_padded_rows, 0] = False
+
+        seq_output = self.transformer(embed_output, src_key_padding_mask=transformer_padding_mask)
 
         # Aggregate only valid timesteps so masked entries do not influence the output.
         valid_timestep_mask = ~padded_input_mask

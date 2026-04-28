@@ -218,3 +218,22 @@ def test_sequential_head_masked_transformer_outputs_are_ignored_by_masked_mean()
     out = head(x, agent_idx, mask)
 
     assert torch.allclose(out, torch.full_like(out, 3.0), atol=1e-6, rtol=1e-6)
+
+
+def test_sequential_head_handles_fully_masked_rows() -> None:
+    torch.manual_seed(0)
+    head = _make_sequential_head(agentic_encoding=False)
+
+    x = torch.randn(3, 5, 2)
+    mask = torch.tensor(
+        [[False, False, False, False, False], [True, False, True, False, True], [False, False, False, False, False]],
+        dtype=torch.bool,
+    )
+    agent_idx = torch.zeros((3, 1), dtype=torch.long)
+
+    out = head(x, agent_idx, mask)
+
+    assert tuple(out.shape) == (3, 16)
+    assert torch.isfinite(out).all()
+    assert torch.allclose(out[0], torch.zeros_like(out[0]), atol=1e-6, rtol=0)
+    assert torch.allclose(out[2], torch.zeros_like(out[2]), atol=1e-6, rtol=0)
