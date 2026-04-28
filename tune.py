@@ -54,9 +54,10 @@ if __name__ == "__main__":
 
     config["training"]["total_timesteps"] = args.total_timesteps
 
-    # We do not want to save the model for every trial during hyperparameter tuning, as it can consume a lot of disk space 
-    # and is not necessary for identifying the best hyperparameters. 
-    config["metrics"]["save_model"] = False
+    # We do not want to save the model for every trial during hyperparameter tuning, as it can consume a lot of disk space
+    # and is not necessary for identifying the best hyperparameters.
+    config["checkpoint"]["checkpoint_every_n_steps"] = 0
+    config["checkpoint"]["save_final_model"] = False
 
     experiment_name = args.experiment_name if args.experiment_name else "default"
     mlflow.set_experiment(experiment_name)

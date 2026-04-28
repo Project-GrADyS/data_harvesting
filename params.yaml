@@ -130,8 +130,12 @@ ppo:
 metrics:
   # Log training metrics every N steps
   log_every_n_steps: 5000
-  # Save model at the end of training
-  save_model: true
+
+checkpoint:
+  # Save a periodic checkpoint every N collected timesteps when checkpointing is enabled. Use 0 to disable periodic checkpointing.
+  checkpoint_every_n_steps: 0
+  # Save model at the end of training.
+  save_final_model: true
 
 # Flexible multi-head encoder configuration (optional replacement for MultiAgentMLP)
 flex_encoder:

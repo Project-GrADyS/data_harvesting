@@ -1,5 +1,8 @@
+from copy import deepcopy
+
 import mlflow
 import torch
+from mlflow import pytorch as mlflow_pytorch
 from torchrl.envs import check_env_specs, TransformedEnv, RewardSum
 
 from data_harvesting.environment import make_env, make_metrics_spec
@@ -10,14 +13,49 @@ from tqdm import tqdm
 
 torch.set_float32_matmul_precision('high')
 
-def save_model(algorithm: MADDPGAlgorithm | MAPPOAlgorithm):
-    # Move to CPU for portability when loading in environments without CUDA
+
+def log_model(algorithm: MADDPGAlgorithm | MAPPOAlgorithm, name: str = "policy_model"):
+    policy_copy = deepcopy(algorithm.policy)
     try:
-        policy_cpu = algorithm.policy.to("cpu")
+        policy_cpu = policy_copy.to("cpu")
     except Exception:
         # If .to is unsupported for any wrapped module, fall back to original
-        policy_cpu = algorithm.policy
-    mlflow.pytorch.log_model(policy_cpu, name="policy_model")
+        policy_cpu = policy_copy
+    mlflow_pytorch.log_model(policy_cpu, name=name)
+
+
+def _maybe_log_checkpoint(
+    algorithm: MADDPGAlgorithm | MAPPOAlgorithm,
+    config: dict,
+    *,
+    experience_steps: int,
+    last_checkpoint_step: int,
+) -> int:
+    """
+    Checks if it is time to log a checkpoint and does so if it is.
+
+    :param algorithm: Instance of the algorithm to log
+    :param config: Configuration dict
+    :param experience_steps: Current number of experience steps collected so far
+    :param last_checkpoint_step: The experience step count at which the last checkpoint was logged
+    :return: The experience step count at which the most recent checkpoint was logged (either the same as
+    last_checkpoint_step or updated to experience_steps if a new checkpoint was logged)
+    """
+    checkpoint_config = config["checkpoint"]
+    checkpoint_every_n_steps = int(checkpoint_config["checkpoint_every_n_steps"])
+    if checkpoint_every_n_steps <= 0:
+        return last_checkpoint_step
+
+    if experience_steps - last_checkpoint_step >= checkpoint_every_n_steps:
+        log_model(algorithm, name=f"policy_checkpoint_step_{experience_steps}")
+        return experience_steps
+
+    return last_checkpoint_step
+
+
+def _should_save_final_model(config: dict) -> bool:
+    return bool(config["checkpoint"]["save_final_model"])
+
 
 def train(config: dict, run_name: str | None = None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -61,6 +99,7 @@ def train(config: dict, run_name: str | None = None):
 
             experience_steps = 0
             last_metric_log = 0
+            last_checkpoint_step = 0
 
             # Training/collection iterations
             for iteration, batch in enumerate(collector):
@@ -88,13 +127,19 @@ def train(config: dict, run_name: str | None = None):
 
                 pbar.update(current_frames)
                 experience_steps += current_frames
+                last_checkpoint_step = _maybe_log_checkpoint(
+                    algorithm,
+                    config,
+                    experience_steps=experience_steps,
+                    last_checkpoint_step=last_checkpoint_step,
+                )
             
             # Logging metrics at the end of training
             learning_logger.log_metrics(experience_steps)
             metrics_logger.log_metrics(experience_steps)
         finally:
-            if config["metrics"]["save_model"]:
-                save_model(algorithm)
+            if _should_save_final_model(config):
+                log_model(algorithm)
 
     # Returning the final average reward as a simple measure of performance
     # Useful for hyperparameter tuning
