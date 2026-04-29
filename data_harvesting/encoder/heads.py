@@ -91,11 +91,9 @@ class SequentialEncoder(nn.Module):
                 agent_embeddings = agent_embeddings.unsqueeze(-2)
             embed_output += agent_embeddings
 
-        transformer_padding_mask = padded_input_mask
+        transformer_padding_mask = padded_input_mask.clone()
         fully_padded_rows = transformer_padding_mask.all(dim=-1)
-        if bool(fully_padded_rows.any()):
-            transformer_padding_mask = transformer_padding_mask.clone()
-            transformer_padding_mask[fully_padded_rows, 0] = False
+        transformer_padding_mask[..., 0] &= ~fully_padded_rows
 
         seq_output = self.transformer(embed_output, src_key_padding_mask=transformer_padding_mask)
 
