@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 from copy import deepcopy
+from dataclasses import dataclass
 from typing import Any
 
 import mlflow
@@ -10,7 +11,14 @@ from mlflow import pytorch as mlflow_pytorch
 from mlflow import MlflowClient
 from torchrl.envs.utils import ExplorationType, set_exploration_type
 
-from data_harvesting.environment import MetricKind, make_env, make_metrics_spec
+from data_harvesting.environment import MetricKind, evaluation_environment_overrides, make_env, make_metrics_spec
+
+
+@dataclass(frozen=True)
+class LoggedPolicyModel:
+    name: str
+    model_id: str
+    creation_timestamp: int | None = None
 
 
 def _metric_stats(values: list[float]) -> dict[str, float]:
@@ -108,6 +116,38 @@ def _resolve_model_id_from_run(
     return candidates[0].model_id
 
 
+def list_policy_models_from_mlflow_run(
+    run_id: str,
+    *,
+    tracking_uri: str | None = None,
+) -> list[LoggedPolicyModel]:
+    if tracking_uri:
+        mlflow.set_tracking_uri(tracking_uri)
+
+    client = MlflowClient()
+    run = client.get_run(run_id)
+    models = list(
+        client.search_logged_models(
+            experiment_ids=[run.info.experiment_id],
+            filter_string=f"source_run_id = '{run_id}'",
+        )
+    )
+
+    if not models:
+        raise ValueError(f"No logged models were found for run '{run_id}'.")
+
+    policy_models = [
+        LoggedPolicyModel(
+            name=model.name,
+            model_id=model.model_id,
+            creation_timestamp=model.creation_timestamp,
+        )
+        for model in models
+    ]
+    policy_models.sort(key=lambda model: (model.creation_timestamp or 0, model.name))
+    return policy_models
+
+
 def load_config_from_mlflow_run(
     run_id: str,
     *,
@@ -155,6 +195,11 @@ def load_policy_from_mlflow_run(
     model_uri = f"models:/{model_id}"
     policy = mlflow_pytorch.load_model(model_uri)
     return policy, model_id
+
+
+def load_policy_from_model_id(model_id: str):
+    model_uri = f"models:/{model_id}"
+    return mlflow_pytorch.load_model(model_uri)
 
 
 def eval(

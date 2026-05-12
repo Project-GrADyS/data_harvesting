@@ -33,6 +33,12 @@ Example:
 python evaluate.py --run-id 3d577e1a165842ccaa6d0ecb34c2dd35 --num-runs 10
 ```
 
+To evaluate every model logged to the run and write one combined per-episode table:
+
+```bash
+python evaluate.py --run-id <MLFLOW_RUN_ID> --num-runs <N> --all-models --output-table results.csv
+```
+
 ### Visual mode
 
 To run evaluation with environment visualization enabled:
@@ -46,11 +52,14 @@ python evaluate.py --run-id <MLFLOW_RUN_ID> --num-runs 1 --visual
 - `--run-id`, `-R` (required): MLflow run ID to evaluate.
 - `--num-runs`, `-N` (required): number of evaluation episodes.
 - `--visual`: enable environment visual mode.
-- `--params`: path to params YAML (default: `params.yaml`).
+- `--params`: optional path to params YAML. If omitted, evaluation uses the config logged on the MLflow run.
 - `--tracking-uri`: MLflow tracking URI (default: `file:./mlruns`).
 - `--model-name`: preferred logged model name (default: `policy_model`).
+- `--all-models`: evaluate every logged model from the run sequentially.
 
 ### Notes
 
 - The evaluator resolves the saved model from the given MLflow run and runs the policy in eval mode.
+- With `--all-models`, the output table includes `model_name` and `model_id` columns so each row can be traced back to its source model.
+- `Collection success` is derived from the `all_collected` metric. The `ALL_COLLECTED` end cause is only nonzero when the environment is configured to end immediately after all sensors are collected.
 - Output includes aggregated statistics for environment metrics (mean/std/min/max) and end-cause counts/rates.

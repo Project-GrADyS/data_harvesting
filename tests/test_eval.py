@@ -5,6 +5,7 @@ from tensordict.nn import TensorDictModule
 from torch import nn
 
 from data_harvesting.eval import eval as run_eval
+from data_harvesting.eval import list_policy_models_from_mlflow_run
 from data_harvesting.eval import load_config_from_mlflow_run
 
 
@@ -168,3 +169,58 @@ def test_load_config_from_mlflow_run_supports_dotted_params(monkeypatch) -> None
     config = load_config_from_mlflow_run("run-1")
 
     assert config["environment"] == {"max_episode_length": 3, "sequential_obs": True}
+
+
+def test_list_policy_models_from_mlflow_run_returns_all_models(monkeypatch) -> None:
+    def _model(name: str, model_id: str, creation_timestamp: int):
+        return type(
+            "LoggedModel",
+            (),
+            {
+                "name": name,
+                "model_id": model_id,
+                "creation_timestamp": creation_timestamp,
+            },
+        )()
+
+    class _FakeClient:
+        def get_run(self, run_id: str):
+            assert run_id == "run-1"
+            return type(
+                "Run",
+                (),
+                {
+                    "info": type(
+                        "Info",
+                        (),
+                        {"experiment_id": "experiment-1"},
+                    )()
+                },
+            )()
+
+        def search_logged_models(self, *, experiment_ids: list[str], filter_string: str):
+            assert experiment_ids == ["experiment-1"]
+            assert filter_string == "source_run_id = 'run-1'"
+            return [
+                _model("auxiliary_model", "auxiliary", 1),
+                _model("policy_checkpoint_step_200", "checkpoint-200", 2),
+                _model("policy_model", "final", 4),
+                _model("policy_checkpoint_step_100", "checkpoint-100", 3),
+            ]
+
+    monkeypatch.setattr("data_harvesting.eval.MlflowClient", _FakeClient)
+
+    models = list_policy_models_from_mlflow_run("run-1")
+
+    assert [model.name for model in models] == [
+        "auxiliary_model",
+        "policy_checkpoint_step_200",
+        "policy_checkpoint_step_100",
+        "policy_model",
+    ]
+    assert [model.model_id for model in models] == [
+        "auxiliary",
+        "checkpoint-200",
+        "checkpoint-100",
+        "final",
+    ]
