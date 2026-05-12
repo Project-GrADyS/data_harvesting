@@ -4,6 +4,7 @@ from tensordict.nn import TensorDictModule
 from torch import nn
 
 from data_harvesting.eval import eval as run_eval
+from data_harvesting.eval import load_config_from_mlflow_run
 
 
 class ConstantDirectionPolicy(nn.Module):
@@ -72,3 +73,59 @@ def test_eval_summarizes_dynamic_scalar_and_categorical_metrics() -> None:
     assert scenario_results["metrics"]["completion_time"]["mean"] == pytest.approx(3.0)
     assert scenario_results["end_cause_counts"]["STALLED"] == 3
     assert scenario_results["end_cause_rate"]["STALLED"] == pytest.approx(1.0)
+
+
+def test_load_config_from_mlflow_run_parses_logged_section_params(monkeypatch) -> None:
+    class _FakeClient:
+        def get_run(self, run_id: str):
+            assert run_id == "run-1"
+            return type(
+                "Run",
+                (),
+                {
+                    "data": type(
+                        "Data",
+                        (),
+                        {
+                            "params": {
+                                "environment": "{'max_episode_length': 3, 'sequential_obs': True}",
+                                "training": "{'algorithm': 'maddpg'}",
+                            }
+                        },
+                    )()
+                },
+            )()
+
+    monkeypatch.setattr("data_harvesting.eval.MlflowClient", _FakeClient)
+
+    config = load_config_from_mlflow_run("run-1")
+
+    assert config["environment"] == {"max_episode_length": 3, "sequential_obs": True}
+    assert config["training"] == {"algorithm": "maddpg"}
+
+
+def test_load_config_from_mlflow_run_supports_dotted_params(monkeypatch) -> None:
+    class _FakeClient:
+        def get_run(self, run_id: str):
+            return type(
+                "Run",
+                (),
+                {
+                    "data": type(
+                        "Data",
+                        (),
+                        {
+                            "params": {
+                                "environment.max_episode_length": "3",
+                                "environment.sequential_obs": "True",
+                            }
+                        },
+                    )()
+                },
+            )()
+
+    monkeypatch.setattr("data_harvesting.eval.MlflowClient", _FakeClient)
+
+    config = load_config_from_mlflow_run("run-1")
+
+    assert config["environment"] == {"max_episode_length": 3, "sequential_obs": True}
