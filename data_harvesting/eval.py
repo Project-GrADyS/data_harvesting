@@ -170,6 +170,7 @@ def eval(
 
     eval_config = deepcopy(config)
     env_config = eval_config.setdefault("environment", {})
+    env_config.update(evaluation_environment_overrides(eval_config))
     env_config["render_mode"] = "visual" if visual else None
 
     env = make_env(eval_config)

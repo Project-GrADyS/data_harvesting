@@ -11,7 +11,6 @@ from data_harvesting.environment.data_collection import make_data_collection_env
 from data_harvesting.environment.data_collection.config import (
     requires_masking as requires_data_collection_masking,
 )
-from data_harvesting.environment.data_collection.data_collection import DataCollectionEnvironmentConfig
 from data_harvesting.algorithm import MADDPGAlgorithm
 from data_harvesting.optimization import create_ppo_loss
 
@@ -153,27 +152,6 @@ def test_requires_masking_helpers_match_environment_config(
     max_num_agents: int,
     expected: bool,
 ) -> None:
-    data_collection_config = DataCollectionEnvironmentConfig(
-        render_mode=None,
-        algorithm_iteration_interval=1.0,
-        min_num_agents=min_num_agents,
-        max_num_agents=max_num_agents,
-        min_num_sensors=2,
-        max_num_sensors=2,
-        scenario_size=20.0,
-        max_episode_length=50,
-        max_seconds_stalled=20,
-        communication_range=0.0,
-        state_num_closest_sensors=2,
-        state_num_closest_drones=1,
-        id_on_state=True,
-        min_sensor_priority=1.0,
-        max_sensor_priority=1.0,
-        full_random_drone_position=False,
-        reward="punish",
-        speed_action=True,
-        end_when_all_collected=False,
-    )
     full_config = {
         "environment": {
             **_base_env_config(
@@ -184,34 +162,11 @@ def test_requires_masking_helpers_match_environment_config(
         }
     }
 
-    assert requires_data_collection_masking(data_collection_config) is expected
+    assert requires_data_collection_masking(full_config) is expected
     assert requires_environment_masking(full_config) is expected
 
 
 def test_requires_masking_when_mid_episode_death_is_enabled() -> None:
-    data_collection_config = DataCollectionEnvironmentConfig(
-        render_mode=None,
-        algorithm_iteration_interval=1.0,
-        min_num_agents=2,
-        max_num_agents=2,
-        min_num_sensors=2,
-        max_num_sensors=2,
-        scenario_size=20.0,
-        max_episode_length=50,
-        max_seconds_stalled=20,
-        communication_range=0.0,
-        state_num_closest_sensors=2,
-        state_num_closest_drones=1,
-        id_on_state=True,
-        min_sensor_priority=1.0,
-        max_sensor_priority=1.0,
-        full_random_drone_position=False,
-        reward="punish",
-        speed_action=True,
-        end_when_all_collected=False,
-        agent_death_probability=0.1,
-        prevent_last_agent_death=True,
-    )
     full_config = {
         "environment": {
             **_base_env_config(
@@ -224,34 +179,11 @@ def test_requires_masking_when_mid_episode_death_is_enabled() -> None:
         }
     }
 
-    assert requires_data_collection_masking(data_collection_config) is True
+    assert requires_data_collection_masking(full_config) is True
     assert requires_environment_masking(full_config) is True
 
 
 def test_requires_masking_is_true_for_single_agent_when_death_is_enabled() -> None:
-    data_collection_config = DataCollectionEnvironmentConfig(
-        render_mode=None,
-        algorithm_iteration_interval=1.0,
-        min_num_agents=1,
-        max_num_agents=1,
-        min_num_sensors=2,
-        max_num_sensors=2,
-        scenario_size=20.0,
-        max_episode_length=50,
-        max_seconds_stalled=20,
-        communication_range=0.0,
-        state_num_closest_sensors=2,
-        state_num_closest_drones=1,
-        id_on_state=True,
-        min_sensor_priority=1.0,
-        max_sensor_priority=1.0,
-        full_random_drone_position=False,
-        reward="punish",
-        speed_action=True,
-        end_when_all_collected=False,
-        agent_death_probability=0.1,
-        prevent_last_agent_death=True,
-    )
     full_config = {
         "environment": {
             **_base_env_config(
@@ -264,7 +196,7 @@ def test_requires_masking_is_true_for_single_agent_when_death_is_enabled() -> No
         }
     }
 
-    assert requires_data_collection_masking(data_collection_config) is True
+    assert requires_data_collection_masking(full_config) is True
     assert requires_environment_masking(full_config) is True
 
 

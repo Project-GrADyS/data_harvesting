@@ -81,6 +81,7 @@ def _evaluation_config() -> dict:
     return {
         "environment": {
             "max_episode_length": 3,
+            "end_when_all_collected": False,
         },
         "evaluation": {
             "enabled": True,
@@ -95,16 +96,22 @@ def test_run_periodic_evaluation_uses_eval_mode_policy_and_prefixed_metrics(monk
     algorithm = _FakeAlgorithm()
     algorithm.policy.train(True)
     env = _FakeEnv()
+    captured_configs: list[dict] = []
     logged: list[tuple[dict[str, float], int]] = []
     _FakeMetricsCollector.instances = []
 
-    monkeypatch.setattr("data_harvesting.train.make_env", lambda config: env)
+    def _make_env(config: dict):
+        captured_configs.append(config)
+        return env
+
+    monkeypatch.setattr("data_harvesting.train.make_env", _make_env)
     monkeypatch.setattr("data_harvesting.train.EnvironmentMetricsCollector", _FakeMetricsCollector)
     monkeypatch.setattr("data_harvesting.train.mlflow.log_metrics", lambda metrics, step: logged.append((metrics, step)))
 
+    source_config = _evaluation_config()
     _run_periodic_evaluation(
         algorithm,
-        _evaluation_config(),
+        source_config,
         experience_steps=120,
         device=torch.device("cpu"),
         metrics_spec=SimpleNamespace(),
@@ -114,6 +121,8 @@ def test_run_periodic_evaluation_uses_eval_mode_policy_and_prefixed_metrics(monk
 
     assert algorithm.policy.training is True
     assert algorithm.policy.calls == 4
+    assert captured_configs[0]["environment"]["end_when_all_collected"] is True
+    assert source_config["environment"]["end_when_all_collected"] is False
     assert env.policies == [algorithm.policy] * 4
     assert env.seeds == [7, 8, 9, 10]
     assert env.closed
