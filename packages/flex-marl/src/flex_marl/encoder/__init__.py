@@ -4,7 +4,7 @@ from .configs import (
     SequentialHeadConfig,
     validate_head_config,
 )
-from .flex import MultiHeadEncoderModule
+from .encoder import MultiHeadEncoderModule
 
 __all__ = [
     "FlatHeadConfig",
