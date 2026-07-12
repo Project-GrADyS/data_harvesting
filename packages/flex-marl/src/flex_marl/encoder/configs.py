@@ -18,8 +18,8 @@ class PositionalEncodingConfig:
     """
     Configuration for positional encoding in a sequential head.
     """
-    idx_key: str | None
-    """The TensorDict key for the positional index corresponding to this head, if any."""
+    idx_key: str
+    """The input-dictionary key for the positional index corresponding to this head."""
     num_positions: int
     """Number of unique positions to encode. This determines the size of the embedding layer for positional encoding."""
 
@@ -29,9 +29,9 @@ class SequentialHeadConfig(_BaseHeadConfig):
     Configuration for a single sequential head in a multi-head encoder.
     """
     mask_key: str
-    """The TensorDict key for the mask corresponding to this head"""
+    """The input-dictionary key for this head's mandatory Boolean validity mask."""
     positional_encoding_config: PositionalEncodingConfig | None
-    """Configuration for positional encoding in this head, if any."""
+    """Configuration for positional encoding in this head, or ``None`` to disable it."""
     num_heads: int = 8
     """Number of attention heads in the Transformer blocks."""
     ff_dim: int = 128
@@ -55,6 +55,16 @@ class FlatHeadConfig(_BaseHeadConfig):
 
 type HeadConfig = SequentialHeadConfig | FlatHeadConfig
 
+
+def _validate_positive_int(name: str, value: object) -> None:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise ValueError(f"{name} must be a positive integer, got {value}.")
+
+
+def _validate_key(name: str, value: object) -> None:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{name} must be a non-empty string, got {value!r}.")
+
 def _validate_base_head_config(head_config: _BaseHeadConfig) -> None:
     """
     Validate the base configuration of a head.
@@ -65,10 +75,9 @@ def _validate_base_head_config(head_config: _BaseHeadConfig) -> None:
     Raises:
         ValueError: If any of the base configuration parameters are invalid.
     """
-    if head_config.input_size <= 0:
-        raise ValueError(f"input_size must be a positive integer, got {head_config.input_size}.")
-    if head_config.output_size <= 0:
-        raise ValueError(f"output_size must be a positive integer, got {head_config.output_size}.")
+    _validate_key("key", head_config.key)
+    _validate_positive_int("input_size", head_config.input_size)
+    _validate_positive_int("output_size", head_config.output_size)
     
 def _validate_sequential_head_config(head_config: SequentialHeadConfig) -> None:
     """
@@ -82,19 +91,17 @@ def _validate_sequential_head_config(head_config: SequentialHeadConfig) -> None:
     """
     _validate_base_head_config(head_config)
     
-    if head_config.num_heads <= 0:
-        raise ValueError(f"num_heads must be a positive integer, got {head_config.num_heads}.")
-    if head_config.ff_dim <= 0:
-        raise ValueError(f"ff_dim must be a positive integer, got {head_config.ff_dim}.")
-    if head_config.depth <= 0:
-        raise ValueError(f"depth must be a positive integer, got {head_config.depth}.")
-    if not (0.0 <= head_config.dropout < 1.0):
+    _validate_key("mask_key", head_config.mask_key)
+    _validate_positive_int("num_heads", head_config.num_heads)
+    _validate_positive_int("ff_dim", head_config.ff_dim)
+    _validate_positive_int("depth", head_config.depth)
+    if isinstance(head_config.dropout, bool) or not isinstance(head_config.dropout, (int, float)) or not (
+        0.0 <= head_config.dropout < 1.0
+    ):
         raise ValueError(f"dropout must be in the range [0.0, 1.0), got {head_config.dropout}.")
     if head_config.positional_encoding_config is not None:
-        if head_config.positional_encoding_config.num_positions <= 0:
-            raise ValueError(
-                f"num_positions must be a positive integer, got {head_config.positional_encoding_config.num_positions}."
-            )
+        _validate_key("idx_key", head_config.positional_encoding_config.idx_key)
+        _validate_positive_int("num_positions", head_config.positional_encoding_config.num_positions)
     if head_config.output_size % head_config.num_heads != 0:
         raise ValueError(
             f"output_size ({head_config.output_size}) must be divisible by num_heads ({head_config.num_heads})."
@@ -112,10 +119,10 @@ def _validate_flat_head_config(head_config: FlatHeadConfig) -> None:
     """
     _validate_base_head_config(head_config)
     
-    if head_config.depth <= 0:
-        raise ValueError(f"depth must be a positive integer, got {head_config.depth}.")
-    if head_config.hidden_layer_size <= 0:
-        raise ValueError(f"hidden_layer_size must be a positive integer, got {head_config.hidden_layer_size}.")
+    _validate_positive_int("depth", head_config.depth)
+    _validate_positive_int("hidden_layer_size", head_config.hidden_layer_size)
+    if not isinstance(head_config.activation_class, type) or not issubclass(head_config.activation_class, nn.Module):
+        raise ValueError("activation_class must be an nn.Module class.")
     
 
 def validate_head_config(
@@ -130,9 +137,12 @@ def validate_head_config(
     Raises:
         ValueError: If any of the configuration parameters are invalid.
     """
-    _validate_base_head_config(head_config)
-
     if isinstance(head_config, SequentialHeadConfig):
         _validate_sequential_head_config(head_config)
     elif isinstance(head_config, FlatHeadConfig):
         _validate_flat_head_config(head_config)
+    else:
+        raise TypeError(
+            "head_config must be a SequentialHeadConfig or FlatHeadConfig, "
+            f"got {type(head_config)}."
+        )

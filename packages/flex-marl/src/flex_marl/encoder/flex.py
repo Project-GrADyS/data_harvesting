@@ -11,8 +11,6 @@ from .configs import (
 from .heads import SequentialHead, FlatHead
 
 class MultiHeadEncoderModule(nn.Module):
-    head_output_buffer: torch.Tensor  # type hint for the buffer registered in __init__
-
     def __init__(
         self,
         head_configs: list[SequentialHeadConfig | FlatHeadConfig],
@@ -23,6 +21,19 @@ class MultiHeadEncoderModule(nn.Module):
         device: DEVICE_TYPING | None = None,
     ):
         super().__init__()
+        if not head_configs:
+            raise ValueError("head_configs must contain at least one head configuration.")
+        if not isinstance(output_dim, int) or isinstance(output_dim, bool) or output_dim <= 0:
+            raise ValueError(f"output_dim must be a positive integer, got {output_dim}.")
+        if not isinstance(mix_layer_depth, int) or isinstance(mix_layer_depth, bool) or mix_layer_depth <= 0:
+            raise ValueError(f"mix_layer_depth must be a positive integer, got {mix_layer_depth}.")
+        if not isinstance(mix_layer_num_cells, int) or isinstance(mix_layer_num_cells, bool) or mix_layer_num_cells <= 0:
+            raise ValueError(f"mix_layer_num_cells must be a positive integer, got {mix_layer_num_cells}.")
+        if mix_activation_class is not None and (
+            not isinstance(mix_activation_class, type) or not issubclass(mix_activation_class, nn.Module)
+        ):
+            raise ValueError("mix_activation_class must be an nn.Module class or None.")
+
         self.head_configs = head_configs
         self.output_dim = output_dim
         self.mix_layer_depth = mix_layer_depth
@@ -32,10 +43,9 @@ class MultiHeadEncoderModule(nn.Module):
 
         self.heads = nn.ModuleDict()
         for config in self.head_configs:
+            validate_head_config(config)
             if config.key in self.heads:
                 raise ValueError(f"Duplicate head key found: {config.key}")
-            
-            validate_head_config(config)
             
             is_sequential = isinstance(config, SequentialHeadConfig)
             if is_sequential:
@@ -53,17 +63,6 @@ class MultiHeadEncoderModule(nn.Module):
             sum(head_config.output_size for head_config in self.head_configs)
         )
         self.mix_layer = self._build_mix_layer(mix_input_dim)
-
-        # Fixed size buffer to store the outputs of all of the heads before the mix layer.
-        # This is used to avoid re-allocating memory for the head outputs on every forward pass.
-        # Register as a buffer so it's moved with the module. This is scratch memory
-        # (avoids reallocations) so mark it non-persistent (won't be saved in state_dict).
-        self.register_buffer(
-            "head_output_buffer",
-            torch.empty(mix_input_dim, device=self.device),
-            persistent=False,
-        )
-
 
     def _build_sequential_head(self, head_config: SequentialHeadConfig) -> SequentialHead:
         return SequentialHead(head_config, device=self.device)
@@ -97,7 +96,8 @@ class MultiHeadEncoderModule(nn.Module):
         """Process a multi-head observation."""
         self._pre_forward_checks(input_dict)
 
-        curr_index = 0
+        head_outputs: list[torch.Tensor] = []
+        batch_shape: torch.Size | None = None
         for head_config in self.head_configs:
             key = head_config.key
             mask_key = head_config.mask_key if isinstance(head_config, SequentialHeadConfig) else None
@@ -110,7 +110,18 @@ class MultiHeadEncoderModule(nn.Module):
             idx = input_dict[idx_key] if idx_key is not None else None
 
 
-            self.head_output_buffer[curr_index:curr_index + head_config.output_size] = head(head_input, mask, idx)
-            curr_index += head_config.output_size
+            head_output = head(head_input, mask, idx)
+            if head_output.shape[-1] != head_config.output_size:
+                raise ValueError(
+                    f"Head {key!r} returned size {head_output.shape[-1]}, expected {head_config.output_size}."
+                )
+            if batch_shape is None:
+                batch_shape = head_output.shape[:-1]
+            elif head_output.shape[:-1] != batch_shape:
+                raise ValueError(
+                    f"Head {key!r} has batch shape {tuple(head_output.shape[:-1])}, "
+                    f"expected {tuple(batch_shape)}."
+                )
+            head_outputs.append(head_output)
 
-        return self.mix_layer(self.head_output_buffer)
+        return self.mix_layer(torch.cat(head_outputs, dim=-1))

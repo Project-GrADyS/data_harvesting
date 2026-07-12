@@ -1,11 +1,15 @@
 from .configs import (
     FlatHeadConfig,
-    SequentialHeadConfig
+    PositionalEncodingConfig,
+    SequentialHeadConfig,
+    validate_head_config,
 )
 from .flex import MultiHeadEncoderModule
 
 __all__ = [
     "FlatHeadConfig",
+    "PositionalEncodingConfig",
     "SequentialHeadConfig",
-    "MultiHeadEncoderModule"
+    "MultiHeadEncoderModule",
+    "validate_head_config",
 ]
