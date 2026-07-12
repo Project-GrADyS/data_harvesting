@@ -5,6 +5,15 @@ from .encoder import (
     MultiHeadEncoderModule,
     validate_head_config,
 )
+from .multi_agent import (
+    CentralizedOutput,
+    FieldConfig,
+    FlatFieldConfig,
+    MultiAgentEncoderConfig,
+    MultiAgentEncoderModule,
+    MultiAgentMode,
+    SequentialFieldConfig,
+)
 
 __all__ = [
     "FlatHeadConfig",
@@ -12,4 +21,11 @@ __all__ = [
     "SequentialHeadConfig",
     "MultiHeadEncoderModule",
     "validate_head_config",
+    "CentralizedOutput",
+    "FieldConfig",
+    "FlatFieldConfig",
+    "MultiAgentEncoderConfig",
+    "MultiAgentEncoderModule",
+    "MultiAgentMode",
+    "SequentialFieldConfig",
 ]
