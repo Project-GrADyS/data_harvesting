@@ -203,7 +203,7 @@ def test_positional_encoding_requires_idx(positional_config):
 @pytest.mark.parametrize("value", [0, 3])
 def test_positional_encoding_accepts_boundary_indices(positional_config, value):
     output = SequentialHead(positional_config).eval()(
-        torch.randn(2, 5, 3), torch.ones(2, 5, dtype=torch.bool), torch.full((2, 1), value)
+        torch.randn(2, 5, 3), torch.ones(2, 5, dtype=torch.bool), torch.full((2, 5, 1), value)
     )
     assert output.shape == (2, 8) and torch.isfinite(output).all()
 
@@ -212,18 +212,18 @@ def test_positional_encoding_accepts_boundary_indices(positional_config, value):
 def test_positional_encoding_rejects_out_of_range_index(positional_config, value):
     with pytest.raises(ValueError, match="range"):
         SequentialHead(positional_config)(
-            torch.randn(2, 5, 3), torch.ones(2, 5, dtype=torch.bool), torch.full((2, 1), value)
+            torch.randn(2, 5, 3), torch.ones(2, 5, dtype=torch.bool), torch.full((2, 5, 1), value)
         )
 
 
 def test_positional_encoding_rejects_non_integer_idx(positional_config):
     with pytest.raises(TypeError, match="integer dtype"):
         SequentialHead(positional_config)(
-            torch.randn(2, 5, 3), torch.ones(2, 5, dtype=torch.bool), torch.full((2, 1), 1.5)
+            torch.randn(2, 5, 3), torch.ones(2, 5, dtype=torch.bool), torch.full((2, 5, 1), 1.5)
         )
 
 
-@pytest.mark.parametrize("shape", [(2,), (2, 2), (2, 1, 1)])
+@pytest.mark.parametrize("shape", [(2,), (2, 1), (2, 5), (2, 4, 1), (2, 5, 1, 1)])
 def test_positional_encoding_rejects_wrong_idx_shape(positional_config, shape):
     with pytest.raises(ValueError, match="must have shape"):
         SequentialHead(positional_config)(
@@ -233,7 +233,11 @@ def test_positional_encoding_rejects_wrong_idx_shape(positional_config, shape):
 
 @pytest.mark.parametrize(
     "x_shape,mask_shape,idx_shape,expected",
-    [((5, 3), (5,), (1,), (8,)), ((2, 5, 3), (2, 5), (2, 1), (2, 8)), ((2, 4, 5, 3), (2, 4, 5), (2, 4, 1), (2, 4, 8))],
+    [
+        ((5, 3), (5,), (5, 1), (8,)),
+        ((2, 5, 3), (2, 5), (2, 5, 1), (2, 8)),
+        ((2, 4, 5, 3), (2, 4, 5), (2, 4, 5, 1), (2, 4, 8)),
+    ],
 )
 def test_positional_encoding_preserves_batch_dimensions(positional_config, x_shape, mask_shape, idx_shape, expected):
     output = SequentialHead(positional_config).eval()(
@@ -242,25 +246,27 @@ def test_positional_encoding_preserves_batch_dimensions(positional_config, x_sha
     assert output.shape == expected
 
 
-def test_positional_embedding_is_added_to_every_timestep(positional_config):
+def test_positional_embedding_is_added_to_corresponding_sequence_element(positional_config):
     head, capture = SequentialHead(positional_config), CaptureTransformer()
     head.encoder = ZeroProjection(positional_config.output_size)
     head.transformer = capture
     with torch.no_grad():
         head.positional_encoder.weight.copy_(torch.arange(32).reshape(4, 8))
-    idx = torch.tensor([[2], [1]])
+    idx = torch.tensor([[[0], [1], [2], [3]], [[3], [2], [1], [0]]])
     head(torch.randn(2, 4, 3), torch.ones(2, 4, dtype=torch.bool), idx)
-    expected = head.positional_encoder(idx[:, 0]).unsqueeze(1).expand(2, 4, 8)
+    expected = head.positional_encoder(idx.squeeze(-1))
     torch.testing.assert_close(capture.input, expected)
 
 
 def test_different_indices_can_change_output(positional_config):
     head, x, valid = SequentialHead(positional_config).eval(), torch.randn(2, 5, 3), torch.ones(2, 5, dtype=torch.bool)
     x[1] = x[0]
-    output = head(x, valid, torch.tensor([[0], [1]]))
+    idx = torch.stack((torch.zeros(5, 1, dtype=torch.long), torch.ones(5, 1, dtype=torch.long)))
+    output = head(x, valid, idx)
     assert not torch.allclose(output[0], output[1])
 
 
 def test_idx_is_ignored_when_positional_encoding_is_disabled(sequential_config):
     head, x, valid = SequentialHead(sequential_config).eval(), torch.randn(2, 5, 3), torch.ones(2, 5, dtype=torch.bool)
-    torch.testing.assert_close(head(x, valid), head(x, valid, torch.tensor([[0], [1]])))
+    idx = torch.stack((torch.zeros(5, 1, dtype=torch.long), torch.ones(5, 1, dtype=torch.long)))
+    torch.testing.assert_close(head(x, valid), head(x, valid, idx))

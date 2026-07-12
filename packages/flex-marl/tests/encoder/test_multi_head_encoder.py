@@ -132,7 +132,7 @@ def test_multi_head_routes_idx_to_configured_sequential_head(positional_config):
     data = {
         "sequence": torch.randn(4, 3),
         "sequence_mask": torch.ones(4, dtype=torch.bool),
-        "position": torch.tensor([1]),
+        "position": torch.tensor([[0], [1], [2], [3]]),
     }
     encoder(data)
     assert rec.args[2] is data["position"]

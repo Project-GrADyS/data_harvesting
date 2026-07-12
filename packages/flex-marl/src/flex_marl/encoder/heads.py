@@ -61,8 +61,8 @@ class SequentialHead(nn.Module):
 
         Args:
             x: Input tensor of shape (*B, seq_len, input_dim).
-            idx: Input tensor of shape (*B, 1) containing the positional index for each batch entry. Will be used for
-                positional encoding if it's enabled.
+            idx: Input tensor of shape (*B, seq_len, 1) containing the positional index for each sequence element.
+                Will be used for positional encoding if it's enabled.
             mask: Boolean tensor of shape (*B, seq_len), where ``True`` marks a valid timestep.
 
         Raises:
@@ -84,7 +84,7 @@ class SequentialHead(nn.Module):
             raise ValueError(
                 f"Mask tensor must have the same leading dimensions as input tensor x, got {mask.shape} vs {x.shape[:-1]}."
             )
-        expected_idx_shape = (*x.shape[:-2], 1)
+        expected_idx_shape = (*x.shape[:-1], 1)
         if idx is not None and idx.shape != expected_idx_shape:
             raise ValueError(
                 f"Positional index tensor idx must have shape {expected_idx_shape}, got {tuple(idx.shape)}."
@@ -104,8 +104,8 @@ class SequentialHead(nn.Module):
         Args:
             x: Input tensor of shape (*B, seq_len, input_dim).
             mask: Tensor of shape (*B, seq_len) indicating valid timesteps.
-            idx: Input tensor of shape (*B, 1) containing the positional index for each batch entry. Will be used for
-                positional encoding if it's enabled.
+            idx: Input tensor of shape (*B, seq_len, 1) containing the positional index for each sequence element.
+                Will be used for positional encoding if it's enabled.
 
         Returns:
             torch.Tensor: Output tensor of shape (*B, output_size).
@@ -118,9 +118,9 @@ class SequentialHead(nn.Module):
 
         embed_output = self.encoder(x_flat)
 
-        # If positional encoding is enabled, add the positional embedding to every step in the sequence.
+        # If positional encoding is enabled, add the corresponding embedding to each sequence element.
         if self.positional_encoder is not None and idx is not None:
-            positional_embeddings = self.positional_encoder(idx.reshape(-1).to(torch.long)).unsqueeze(-2)
+            positional_embeddings = self.positional_encoder(idx.reshape(-1, seq_len).to(torch.long))
             embed_output = embed_output + positional_embeddings
 
         validity_mask = mask.reshape(-1, seq_len)
