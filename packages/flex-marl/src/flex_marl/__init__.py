@@ -12,7 +12,11 @@ from .multi_agent import (
     MultiAgentEncoderConfig,
     MultiAgentEncoderModule,
     MultiAgentMode,
+    SequentialFieldOptions,
     SequentialFieldConfig,
+    validate_field_config,
+    validate_multi_agent_encoder_config,
+    validate_sequential_field_options,
 )
 
 __all__ = [
@@ -27,5 +31,9 @@ __all__ = [
     "MultiAgentEncoderConfig",
     "MultiAgentEncoderModule",
     "MultiAgentMode",
+    "SequentialFieldOptions",
     "SequentialFieldConfig",
+    "validate_field_config",
+    "validate_multi_agent_encoder_config",
+    "validate_sequential_field_options",
 ]

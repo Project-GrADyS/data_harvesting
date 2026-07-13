@@ -3,6 +3,9 @@
 `flex-marl` provides reusable neural-network building blocks for multi-agent
 reinforcement learning.
 
+The fixed-slot orchestration layer is documented in the
+[`multi_agent` guide](src/flex_marl/multi_agent/README.md).
+
 ## Encoder
 
 Its encoder turns heterogeneous observations into one
@@ -74,8 +77,8 @@ A sequence whose mask is entirely `False` produces a zero representation.
 #### Positional encoding
 
 A sequential head can optionally add a learned positional embedding to every
-timestep. The caller supplies one zero-based integer index per batch entry,
-shaped `(*B, 1)`.
+timestep. The caller supplies one zero-based integer index per sequence element,
+shaped `(*B, sequence_length, 1)`.
 
 `num_positions` is the number of available embeddings, so valid indices satisfy:
 
@@ -84,8 +87,8 @@ shaped `(*B, 1)`.
 ```
 
 Despite the name, the index does not have to represent a timestep. It can also
-represent an agent ID, role, source, or any other finite category whose learned
-embedding should condition the complete sequence.
+represent an agent ID, role, source, or any other finite category attached to
+each sequence element.
 
 ### Public API
 
@@ -162,7 +165,14 @@ observations = {
             [False, False, False, False, False, False, False, False, False, False],
         ]
     ),
-    "agent_index": torch.tensor([[0], [1], [2], [3]]),
+    "agent_index": torch.tensor(
+        [
+            [[0]] * sequence_length,
+            [[1]] * sequence_length,
+            [[2]] * sequence_length,
+            [[3]] * sequence_length,
+        ]
+    ),
 }
 
 encoded = encoder(observations)
