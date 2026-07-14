@@ -41,6 +41,7 @@ flex-marl = { workspace = true }
 [tool.uv.workspace]
 members = [
     "packages/*",
+    "projects/*",
 ]
 
 [tool.pytest.ini_options]

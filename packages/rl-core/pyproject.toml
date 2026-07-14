@@ -1,0 +1,37 @@
+[project]
+name = "rl-core"
+version = "0.1.0"
+description = "Reusable reinforcement-learning primitives"
+readme = "README.md"
+authors = [
+    { name = "Thlamz", email = "thlamenza@hotmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "tensordict>=0.10.0",
+    "torch>=2.9.1",
+]
+
+[project.optional-dependencies]
+tensordict = [
+    "tensordict>=0.10.0",
+]
+mlflow = [
+    "mlflow>=3.4.0",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[build-system]
+requires = ["uv_build>=0.8.18,<0.9.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "mlflow>=3.4.0",
+    "pytest>=9.0.2",
+    "tensordict>=0.10.0",
+]
