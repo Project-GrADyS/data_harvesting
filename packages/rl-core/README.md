@@ -41,3 +41,30 @@ The collector exposes four state operations:
 - `peek()` returns the current aggregates without changing state.
 - `flush(step)` sends the current aggregates to every logger and resets after successful logging.
 - `reset()` discards accumulated values.
+
+## Collection
+
+`rl_core.collection` provides a typed wrapper over TorchRL's synchronous and asynchronous, single- and multi-worker
+collectors. It selects the appropriate collector and guarantees shutdown while leaving iteration, learning, and policy
+weight-update timing to the project.
+
+```python
+from rl_core.collection import CollectionMode, CollectorConfig, make_collector
+
+config = CollectorConfig(
+    mode=CollectionMode.SYNC,
+    frames_per_batch=1_024,
+    total_frames=100_352,
+    num_workers=2,
+    device="cpu",
+)
+
+with make_collector(config=config, env_factory=make_env, policy=exploration_policy) as collector:
+    for batch in collector:
+        algorithm.learn(batch)
+        collector.update_policy_weights_()
+```
+
+Use `collector_kwargs` for supported TorchRL options that are not represented directly by `CollectorConfig`. Wrapper-owned
+constructor arguments cannot be overridden through that mapping. As required by Python multiprocessing, construct
+multi-worker collectors under an `if __name__ == "__main__"` guard.

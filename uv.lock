@@ -3364,6 +3364,7 @@ dependencies = [
     { name = "tensordict" },
     { name = "torch", version = "2.9.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux' and sys_platform != 'win32'" },
     { name = "torch", version = "2.9.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "torchrl" },
 ]
 
 [package.optional-dependencies]
@@ -3388,6 +3389,7 @@ requires-dist = [
     { name = "tensordict", marker = "extra == 'tensordict'", specifier = ">=0.10.0" },
     { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32'", specifier = ">=2.9.1" },
     { name = "torch", marker = "sys_platform == 'linux' or sys_platform == 'win32'", specifier = ">=2.9.1", index = "https://download.pytorch.org/whl/cu128" },
+    { name = "torchrl", specifier = ">=0.10.1" },
 ]
 provides-extras = ["tensordict", "mlflow"]
 
