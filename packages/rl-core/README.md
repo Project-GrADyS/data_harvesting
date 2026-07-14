@@ -68,3 +68,34 @@ with make_collector(config=config, env_factory=make_env, policy=exploration_poli
 Use `collector_kwargs` for supported TorchRL options that are not represented directly by `CollectorConfig`. Wrapper-owned
 constructor arguments cannot be overridden through that mapping. As required by Python multiprocessing, construct
 multi-worker collectors under an `if __name__ == "__main__"` guard.
+
+## Checkpointing
+
+`rl_core.checkpointing` stores project-created state dictionaries in a versioned checkpoint envelope. Projects decide
+what to save and when; the package handles persistence, validation, retention, and restoration.
+
+```python
+from rl_core.checkpointing import Checkpoint, CheckpointManager, LocalCheckpointStore
+
+local_store = LocalCheckpointStore("checkpoints", keep_last=3)
+manager = CheckpointManager([local_store])
+
+manager.save(
+    Checkpoint(
+        step=experience_steps,
+        state={
+            "policy": policy.state_dict(),
+            "optimizer": optimizer.state_dict(),
+        },
+        metadata={"algorithm": "maddpg"},
+    )
+)
+
+checkpoint = local_store.load_latest()
+policy.load_state_dict(checkpoint.state["policy"])
+optimizer.load_state_dict(checkpoint.state["optimizer"])
+```
+
+`LocalCheckpointStore` writes atomically and can retain only the latest checkpoints. `MLflowCheckpointStore` saves and
+loads the same envelope from run artifacts and is available through the existing `mlflow` extra. Checkpoint files use
+Python pickle through PyTorch and must only be loaded from trusted sources.
