@@ -99,3 +99,40 @@ optimizer.load_state_dict(checkpoint.state["optimizer"])
 `LocalCheckpointStore` writes atomically and can retain only the latest checkpoints. `MLflowCheckpointStore` saves and
 loads the same envelope from run artifacts and is available through the existing `mlflow` extra. Checkpoint files use
 Python pickle through PyTorch and must only be loaded from trusted sources.
+
+## Scheduling
+
+`rl_core.scheduling` dispatches named callbacks at fixed training-step intervals. The scheduler owns only its logical
+clock and callback cadence; projects retain control over the training loop and the work performed by each callback.
+
+```python
+from rl_core.scheduling import Scheduler
+
+
+scheduler = Scheduler()
+scheduler.register("metrics", every=1_000, callback=log_metrics)
+scheduler.register("checkpoint", every=10_000, callback=save_checkpoint)
+scheduler.register("evaluation", every=25_000, callback=run_evaluation)
+
+for batch in collector:
+    algorithm.learn(batch)
+    scheduler.step()
+```
+
+Callbacks receive the resulting current step and run synchronously in registration order. `step(increment=...)` can
+advance by a collector batch containing multiple frames. Crossing one or more occurrences of an interval invokes that
+callback once at the resulting step:
+
+```python
+scheduler.step(increment=batch.numel())
+```
+
+If a callback raises, dispatch stops and the error propagates. The clock remains advanced and missed callbacks are not
+retried. Registrations added or removed during dispatch affect the following call to `step()`.
+
+The clock can be included in a checkpoint while callback registrations remain application code:
+
+```python
+checkpoint_state["scheduler"] = scheduler.state_dict()
+scheduler.load_state_dict(checkpoint_state["scheduler"])
+```

@@ -17,6 +17,7 @@ from .metrics import (
     ScalarMetricSpec,
     ScalarReducer,
 )
+from .scheduling import ScheduledCallback, Scheduler
 
 __all__ = [
     "CHECKPOINT_FORMAT_VERSION",
@@ -33,6 +34,8 @@ __all__ = [
     "MetricsCollector",
     "ScalarMetricSpec",
     "ScalarReducer",
+    "ScheduledCallback",
+    "Scheduler",
     "LocalCheckpointStore",
     "load_checkpoint",
     "make_collector",
