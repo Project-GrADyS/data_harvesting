@@ -1,142 +1,102 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import TypeAlias
+
 from torch import nn
+from validation_core import (
+    validate_non_empty_string,
+    validate_positive_integer,
+    validate_probability,
+)
 
-@dataclass(frozen=True, kw_only=True)
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class _BaseHeadConfig:
-    """
-    Configuration for a single head in a multi-head encoder.
-    """
+    """Configuration shared by every encoder head."""
+
     key: str
-    """The TensorDict key this head processes."""
     input_size: int
-    """Dimensionality of the input feature for this head."""
     output_size: int = 64
-    """Dimensionality of the output embedding produced by this head."""
 
-@dataclass(frozen=True, kw_only=True)
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class PositionalEncodingConfig:
-    """
-    Configuration for positional encoding in a sequential head.
-    """
+    """Configure learned integer-index embeddings for a sequential head."""
+
     idx_key: str
-    """The input-dictionary key for the positional index corresponding to this head."""
     num_positions: int
-    """Number of unique positions to encode. This determines the size of the embedding layer for positional encoding."""
 
-@dataclass(frozen=True, kw_only=True)
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class SequentialHeadConfig(_BaseHeadConfig):
-    """
-    Configuration for a single sequential head in a multi-head encoder.
-    """
+    """Configure a Transformer-based sequential encoder head."""
+
     mask_key: str
-    """The input-dictionary key for this head's mandatory Boolean validity mask."""
     positional_encoding_config: PositionalEncodingConfig | None
-    """Configuration for positional encoding in this head, or ``None`` to disable it."""
     num_heads: int = 8
-    """Number of attention heads in the Transformer blocks."""
     ff_dim: int = 128
-    """Dimensionality of the feedforward layers in the Transformer blocks."""
     depth: int = 3
-    """Number of Transformer blocks in the head."""
     dropout: float = 0.1
-    """Dropout rate used in the Transformer blocks."""
 
-@dataclass(frozen=True, kw_only=True)
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class FlatHeadConfig(_BaseHeadConfig):
-    """
-    Configuration for a single flat head in a multi-head encoder.
-    """
+    """Configure an MLP-based flat encoder head."""
+
     depth: int = 3
-    """Number of hidden layers in the MLP."""
     hidden_layer_size: int = 128
-    """Number of cells per hidden layer in the MLP."""
     activation_class: type[nn.Module] = nn.ReLU
-    """Activation function class used between MLP layers."""
-
-type HeadConfig = SequentialHeadConfig | FlatHeadConfig
 
 
-def _validate_positive_int(name: str, value: object) -> None:
-    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
-        raise ValueError(f"{name} must be a positive integer, got {value}.")
+HeadConfig: TypeAlias = SequentialHeadConfig | FlatHeadConfig
 
 
-def _validate_key(name: str, value: object) -> None:
-    if not isinstance(value, str) or not value:
-        raise ValueError(f"{name} must be a non-empty string, got {value!r}.")
+def _validate_module_class(name: str, value: object) -> None:
+    if not isinstance(value, type) or not issubclass(value, nn.Module):
+        raise TypeError(f"{name} must be an nn.Module subclass.")
+
 
 def _validate_base_head_config(head_config: _BaseHeadConfig) -> None:
-    """
-    Validate the base configuration of a head.
+    validate_non_empty_string("key", head_config.key)
+    validate_positive_integer("input_size", head_config.input_size)
+    validate_positive_integer("output_size", head_config.output_size)
 
-    Args:
-        head_config: The base head configuration to validate.
 
-    Raises:
-        ValueError: If any of the base configuration parameters are invalid.
-    """
-    _validate_key("key", head_config.key)
-    _validate_positive_int("input_size", head_config.input_size)
-    _validate_positive_int("output_size", head_config.output_size)
-    
 def _validate_sequential_head_config(head_config: SequentialHeadConfig) -> None:
-    """
-    Validate the configuration of a sequential head.
-
-    Args:
-        head_config: The sequential head configuration to validate.
-
-    Raises:
-        ValueError: If any of the configuration parameters are invalid.
-    """
     _validate_base_head_config(head_config)
-    
-    _validate_key("mask_key", head_config.mask_key)
-    _validate_positive_int("num_heads", head_config.num_heads)
-    _validate_positive_int("ff_dim", head_config.ff_dim)
-    _validate_positive_int("depth", head_config.depth)
-    if isinstance(head_config.dropout, bool) or not isinstance(head_config.dropout, (int, float)) or not (
-        0.0 <= head_config.dropout < 1.0
-    ):
-        raise ValueError(f"dropout must be in the range [0.0, 1.0), got {head_config.dropout}.")
-    if head_config.positional_encoding_config is not None:
-        _validate_key("idx_key", head_config.positional_encoding_config.idx_key)
-        _validate_positive_int("num_positions", head_config.positional_encoding_config.num_positions)
+    validate_non_empty_string("mask_key", head_config.mask_key)
+    validate_positive_integer("num_heads", head_config.num_heads)
+    validate_positive_integer("ff_dim", head_config.ff_dim)
+    validate_positive_integer("depth", head_config.depth)
+    validate_probability("dropout", head_config.dropout)
+
+    positional_config = head_config.positional_encoding_config
+    if positional_config is not None:
+        if not isinstance(positional_config, PositionalEncodingConfig):
+            raise TypeError(
+                "positional_encoding_config must be a PositionalEncodingConfig or None."
+            )
+        validate_non_empty_string("idx_key", positional_config.idx_key)
+        validate_positive_integer("num_positions", positional_config.num_positions)
+
     if head_config.output_size % head_config.num_heads != 0:
         raise ValueError(
-            f"output_size ({head_config.output_size}) must be divisible by num_heads ({head_config.num_heads})."
+            f"output_size ({head_config.output_size}) must be divisible by "
+            f"num_heads ({head_config.num_heads})."
         )
-    
+
+
 def _validate_flat_head_config(head_config: FlatHeadConfig) -> None:
-    """
-    Validate the configuration of a flat head.
-
-    Args:
-        head_config: The flat head configuration to validate.
-
-    Raises:
-        ValueError: If any of the configuration parameters are invalid.
-    """
     _validate_base_head_config(head_config)
-    
-    _validate_positive_int("depth", head_config.depth)
-    _validate_positive_int("hidden_layer_size", head_config.hidden_layer_size)
-    if not isinstance(head_config.activation_class, type) or not issubclass(head_config.activation_class, nn.Module):
-        raise ValueError("activation_class must be an nn.Module class.")
-    
+    validate_positive_integer("depth", head_config.depth)
+    validate_positive_integer("hidden_layer_size", head_config.hidden_layer_size)
+    _validate_module_class("activation_class", head_config.activation_class)
 
-def validate_head_config(
-    head_config: HeadConfig,
-) -> None:
-    """
-    Validate the configuration of a head.
 
-    Args:
-        head_config: The head configuration to validate.
+def validate_head_config(head_config: HeadConfig) -> None:
+    """Validate one encoder-head configuration."""
 
-    Raises:
-        ValueError: If any of the configuration parameters are invalid.
-    """
     if isinstance(head_config, SequentialHeadConfig):
         _validate_sequential_head_config(head_config)
     elif isinstance(head_config, FlatHeadConfig):

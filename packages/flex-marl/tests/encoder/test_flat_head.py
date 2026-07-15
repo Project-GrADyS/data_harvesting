@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 import torch
 from torch import nn
@@ -51,3 +53,15 @@ def test_flat_head_honors_supported_dtype(flat_config):
     x = torch.randn(2, 5, dtype=torch.float64, requires_grad=True)
     head(x).sum().backward()
     assert x.grad is not None and x.grad.dtype == torch.float64
+
+
+def test_flat_head_constructor_validates_config(flat_config):
+    with pytest.raises(ValueError, match="input_size"):
+        FlatHead(replace(flat_config, input_size=0))
+
+
+def test_flat_head_rejects_sequential_only_arguments(flat_config):
+    head = FlatHead(flat_config)
+
+    with pytest.raises(TypeError):
+        head(torch.randn(2, 5), torch.ones(2, dtype=torch.bool))

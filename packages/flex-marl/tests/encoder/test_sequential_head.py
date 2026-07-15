@@ -270,3 +270,8 @@ def test_idx_is_ignored_when_positional_encoding_is_disabled(sequential_config):
     head, x, valid = SequentialHead(sequential_config).eval(), torch.randn(2, 5, 3), torch.ones(2, 5, dtype=torch.bool)
     idx = torch.stack((torch.zeros(5, 1, dtype=torch.long), torch.ones(5, 1, dtype=torch.long)))
     torch.testing.assert_close(head(x, valid), head(x, valid, idx))
+
+
+def test_sequential_head_constructor_validates_config(sequential_config):
+    with pytest.raises(ValueError, match="input_size"):
+        SequentialHead(replace(sequential_config, input_size=0))

@@ -98,9 +98,10 @@ def test_multi_head_rejects_non_positive_dimensions(flat_config, field, value):
         make_encoder([flat_config], **{field: value})
 
 
-def test_multi_head_rejects_invalid_mix_activation(flat_config):
-    with pytest.raises(ValueError, match="mix_activation_class"):
-        make_encoder([flat_config], mix_activation_class="relu")
+@pytest.mark.parametrize("value", ["relu", nn.ReLU(), 1])
+def test_multi_head_rejects_wrong_mix_activation_types(flat_config, value):
+    with pytest.raises(TypeError, match="mix_activation_class"):
+        make_encoder([flat_config], mix_activation_class=value)
 
 
 def test_multi_head_has_no_persistent_forward_scratch_buffer(flat_config):
@@ -122,7 +123,7 @@ def test_multi_head_routes_observation_and_mask_to_matching_heads(flat_config, s
     encoder.mix_layer = CaptureMix()
     data = {"flat": torch.randn(5), "sequence": torch.randn(4, 3), "sequence_mask": torch.ones(4, dtype=torch.bool)}
     encoder(data)
-    assert flat_rec.args[0] is data["flat"] and flat_rec.args[1:] == (None, None)
+    assert flat_rec.args == (data["flat"],)
     assert seq_rec.args[0] is data["sequence"] and seq_rec.args[1] is data["sequence_mask"]
 
 
@@ -302,3 +303,27 @@ def test_encoder_output_contains_no_nan_or_inf_for_valid_inputs(flat_config, seq
     )
     output.sum().backward()
     assert torch.isfinite(output).all() and torch.isfinite(flat.grad).all() and torch.isfinite(seq.grad).all()
+
+
+def test_multi_head_accepts_tuple_of_configs(flat_config, sequential_config):
+    encoder = make_encoder((flat_config, sequential_config))
+
+    assert encoder.head_configs == (flat_config, sequential_config)
+
+
+def test_multi_head_snapshots_caller_owned_config_sequence(flat_config, sequential_config):
+    configs = [flat_config]
+    encoder = make_encoder(configs).eval()
+    expected = encoder({"flat": torch.randn(2, 5)})
+
+    configs.append(sequential_config)
+
+    assert encoder.head_configs == (flat_config,)
+    assert encoder({"flat": torch.randn(2, 5)}).shape == expected.shape
+
+
+@pytest.mark.parametrize("field", ["output_dim", "mix_layer_depth", "mix_layer_num_cells"])
+@pytest.mark.parametrize("value", [True, 1.0, "1", None])
+def test_multi_head_dimensions_reject_wrong_types(flat_config, field, value):
+    with pytest.raises(TypeError, match=field):
+        make_encoder([flat_config], **{field: value})

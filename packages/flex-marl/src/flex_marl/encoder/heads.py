@@ -3,7 +3,7 @@ from torch import nn
 from torchrl.modules import MLP
 from torchrl.data.utils import DEVICE_TYPING
 
-from .configs import SequentialHeadConfig, FlatHeadConfig
+from .configs import FlatHeadConfig, SequentialHeadConfig, validate_head_config
 
 
 class SequentialHead(nn.Module):
@@ -27,6 +27,7 @@ class SequentialHead(nn.Module):
             device: Device to place the modules on. Defaults to CPU when ``None``.
         """
         super().__init__()
+        validate_head_config(config)
         self.config = config
 
         # Linear layer to project input features to the embedding dimension
@@ -158,6 +159,7 @@ class FlatHead(nn.Module):
             device: Device to place the modules on. Defaults to CPU when ``None``.
         """
         super().__init__()
+        validate_head_config(config)
         self.config = config
 
         self.mlp = MLP(
@@ -169,7 +171,7 @@ class FlatHead(nn.Module):
             device=device,
         )
 
-    def forward(self, x: torch.Tensor, *args, **kwargs) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Process a flat observation for one agent.
 
         Args:
