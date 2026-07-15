@@ -81,7 +81,13 @@ def test_compile_head_config_validates_mode_specific_requirements(flat_field) ->
         compile_head_config(replace(flat_field, sequential_options=None), MultiAgentMode.CENTRALIZED, 3)
 
 
-@pytest.mark.parametrize("num_agents", [0, -1, 1.5, True])
-def test_compile_head_config_rejects_invalid_num_agents(num_agents, flat_field) -> None:
+@pytest.mark.parametrize("num_agents", [0, -1])
+def test_compile_head_config_rejects_non_positive_num_agents(num_agents, flat_field) -> None:
     with pytest.raises(ValueError, match="num_agents"):
+        compile_head_config(flat_field, MultiAgentMode.SHARED, num_agents)
+
+
+@pytest.mark.parametrize("num_agents", [1.5, True, "1", None])
+def test_compile_head_config_rejects_wrong_num_agents_type(num_agents, flat_field) -> None:
+    with pytest.raises(TypeError, match="num_agents"):
         compile_head_config(flat_field, MultiAgentMode.SHARED, num_agents)

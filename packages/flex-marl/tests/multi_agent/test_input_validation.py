@@ -19,6 +19,11 @@ def test_forward_reports_all_missing_required_keys(module) -> None:
     assert message.index("agent_mask") < message.index("flat") < message.index("sequence")
 
 
+def test_plural_pre_forward_checks_method_enforces_input_contract(module) -> None:
+    with pytest.raises(KeyError, match="missing required keys"):
+        module._pre_forward_checks({})
+
+
 def test_forward_ignores_unrelated_input_keys(module, make_inputs) -> None:
     inputs = make_inputs()
     expected = module(inputs)

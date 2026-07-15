@@ -1,4 +1,4 @@
-from dataclasses import FrozenInstanceError, replace
+from dataclasses import FrozenInstanceError, fields, replace
 
 import pytest
 from torch import nn
@@ -31,15 +31,28 @@ def test_sequential_options_accept_dropout_boundaries(dropout: float, sequential
 
 
 @pytest.mark.parametrize("field_name", ["num_heads", "ff_dim", "depth"])
-@pytest.mark.parametrize("value", [0, -1, 1.5, True])
-def test_sequential_options_reject_invalid_positive_integer_fields(field_name: str, value, sequential_options) -> None:
+@pytest.mark.parametrize("value", [0, -1])
+def test_sequential_options_reject_non_positive_integer_fields(field_name: str, value, sequential_options) -> None:
     with pytest.raises(ValueError, match=field_name):
         validate_sequential_field_options(replace(sequential_options, **{field_name: value}))
 
 
-@pytest.mark.parametrize("value", [-0.1, 1.0, 1.1, True, "0.1", float("inf"), float("nan")])
-def test_sequential_options_reject_invalid_dropout(value, sequential_options) -> None:
+@pytest.mark.parametrize("field_name", ["num_heads", "ff_dim", "depth"])
+@pytest.mark.parametrize("value", [1.5, True, "1", None])
+def test_sequential_options_reject_wrong_positive_integer_types(field_name: str, value, sequential_options) -> None:
+    with pytest.raises(TypeError, match=field_name):
+        validate_sequential_field_options(replace(sequential_options, **{field_name: value}))
+
+
+@pytest.mark.parametrize("value", [-0.1, 1.0, 1.1, float("inf"), float("nan")])
+def test_sequential_options_reject_out_of_range_dropout(value, sequential_options) -> None:
     with pytest.raises(ValueError, match="dropout"):
+        validate_sequential_field_options(replace(sequential_options, dropout=value))
+
+
+@pytest.mark.parametrize("value", [True, "0.1", None])
+def test_sequential_options_reject_wrong_dropout_types(value, sequential_options) -> None:
+    with pytest.raises(TypeError, match="dropout"):
         validate_sequential_field_options(replace(sequential_options, dropout=value))
 
 
@@ -54,16 +67,27 @@ def test_sequential_options_reject_wrong_object_type() -> None:
         validate_sequential_field_options(object())
 
 
-@pytest.mark.parametrize("field_type", [FlatFieldConfig, SequentialFieldConfig])
-def test_field_configs_are_keyword_only(field_type) -> None:
+@pytest.mark.parametrize(
+    "config_type,positional_value",
+    [
+        (SequentialFieldOptions, 2),
+        (FlatFieldConfig, "field"),
+        (SequentialFieldConfig, "field"),
+        (MultiAgentEncoderConfig, ()),
+    ],
+)
+def test_all_configs_are_keyword_only(config_type, positional_value) -> None:
     with pytest.raises(TypeError):
-        field_type("field", 3)
+        config_type(positional_value)
 
 
-def test_field_configs_are_frozen(flat_field, sequential_field) -> None:
-    for field in (flat_field, sequential_field):
+def test_all_configs_are_frozen_and_slotted(make_config, flat_field, sequential_field, sequential_options) -> None:
+    configs = (sequential_options, flat_field, sequential_field, make_config(MultiAgentMode.SHARED))
+    for config in configs:
+        field_name = fields(config)[0].name
         with pytest.raises(FrozenInstanceError):
-            field.input_size = 99
+            setattr(config, field_name, object())
+        assert not hasattr(config, "__dict__")
 
 
 def test_field_config_rejects_unsupported_type() -> None:
@@ -71,37 +95,68 @@ def test_field_config_rejects_unsupported_type() -> None:
         validate_field_config(object(), MultiAgentMode.SHARED)
 
 
-@pytest.mark.parametrize("key", ["", None, 3])
-def test_field_configs_require_nonempty_keys(key, flat_field, sequential_field) -> None:
-    for field in (replace(flat_field, key=key), replace(sequential_field, key=key)):
+def test_field_configs_require_nonempty_keys(flat_field, sequential_field) -> None:
+    for field in (replace(flat_field, key=""), replace(sequential_field, key="")):
         with pytest.raises(ValueError, match="field key"):
             validate_field_config(field, MultiAgentMode.SHARED)
 
 
-@pytest.mark.parametrize("mask_key", ["", None, 3])
-def test_sequential_fields_require_nonempty_mask_keys(mask_key, sequential_field) -> None:
+@pytest.mark.parametrize("key", [None, 3])
+def test_field_configs_require_string_keys(key, flat_field, sequential_field) -> None:
+    for field in (replace(flat_field, key=key), replace(sequential_field, key=key)):
+        with pytest.raises(TypeError, match="field key"):
+            validate_field_config(field, MultiAgentMode.SHARED)
+
+
+def test_sequential_fields_require_nonempty_mask_keys(sequential_field) -> None:
     with pytest.raises(ValueError, match="mask_key"):
+        validate_field_config(replace(sequential_field, mask_key=""), MultiAgentMode.SHARED)
+
+
+@pytest.mark.parametrize("mask_key", [None, 3])
+def test_sequential_fields_require_string_mask_keys(mask_key, sequential_field) -> None:
+    with pytest.raises(TypeError, match="mask_key"):
         validate_field_config(replace(sequential_field, mask_key=mask_key), MultiAgentMode.SHARED)
 
 
+def test_field_validation_requires_mode_enum(flat_field) -> None:
+    with pytest.raises(TypeError, match="mode"):
+        validate_field_config(flat_field, "shared")
+
+
 @pytest.mark.parametrize("field_name", ["input_size", "output_size"])
-@pytest.mark.parametrize("value", [0, -1, 1.5, True])
-def test_field_configs_reject_invalid_sizes(field_name, value, flat_field, sequential_field) -> None:
+@pytest.mark.parametrize("value", [0, -1])
+def test_field_configs_reject_non_positive_sizes(field_name, value, flat_field, sequential_field) -> None:
     for field in (replace(flat_field, **{field_name: value}), replace(sequential_field, **{field_name: value})):
         with pytest.raises(ValueError, match=field_name):
             validate_field_config(field, MultiAgentMode.SHARED)
 
 
+@pytest.mark.parametrize("field_name", ["input_size", "output_size"])
+@pytest.mark.parametrize("value", [1.5, True, "1", None])
+def test_field_configs_reject_wrong_size_types(field_name, value, flat_field, sequential_field) -> None:
+    for field in (replace(flat_field, **{field_name: value}), replace(sequential_field, **{field_name: value})):
+        with pytest.raises(TypeError, match=field_name):
+            validate_field_config(field, MultiAgentMode.SHARED)
+
+
 @pytest.mark.parametrize("field_name", ["depth", "hidden_layer_size"])
-@pytest.mark.parametrize("value", [0, -1, 1.5, True])
-def test_flat_field_rejects_invalid_mlp_dimensions(field_name, value, flat_field) -> None:
+@pytest.mark.parametrize("value", [0, -1])
+def test_flat_field_rejects_non_positive_mlp_dimensions(field_name, value, flat_field) -> None:
     with pytest.raises(ValueError, match=field_name):
+        validate_field_config(replace(flat_field, **{field_name: value}), MultiAgentMode.SHARED)
+
+
+@pytest.mark.parametrize("field_name", ["depth", "hidden_layer_size"])
+@pytest.mark.parametrize("value", [1.5, True, "1", None])
+def test_flat_field_rejects_wrong_mlp_dimension_types(field_name, value, flat_field) -> None:
+    with pytest.raises(TypeError, match=field_name):
         validate_field_config(replace(flat_field, **{field_name: value}), MultiAgentMode.SHARED)
 
 
 @pytest.mark.parametrize("activation", [nn.ReLU(), str, lambda: nn.ReLU()])
 def test_flat_field_rejects_invalid_activation_class(activation, flat_field) -> None:
-    with pytest.raises(ValueError, match="activation_class"):
+    with pytest.raises(TypeError, match="activation_class"):
         validate_field_config(replace(flat_field, activation_class=activation), MultiAgentMode.SHARED)
 
 
@@ -135,10 +190,23 @@ def test_complete_config_requires_at_least_one_field(make_config) -> None:
         validate_multi_agent_encoder_config(replace(make_config(MultiAgentMode.SHARED), fields=()))
 
 
+@pytest.mark.parametrize("fields_value", [[], {}, None])
+def test_complete_config_requires_fields_tuple(fields_value, make_config) -> None:
+    with pytest.raises(TypeError, match="fields"):
+        validate_multi_agent_encoder_config(replace(make_config(MultiAgentMode.SHARED), fields=fields_value))
+
+
 @pytest.mark.parametrize("field_name", ["num_agents", "output_dim", "mix_layer_depth", "mix_layer_num_cells"])
-@pytest.mark.parametrize("value", [0, -1, 1.5, True])
-def test_complete_config_rejects_invalid_scalar_settings(field_name, value, make_config) -> None:
+@pytest.mark.parametrize("value", [0, -1])
+def test_complete_config_rejects_non_positive_scalar_settings(field_name, value, make_config) -> None:
     with pytest.raises(ValueError, match=field_name):
+        validate_multi_agent_encoder_config(replace(make_config(MultiAgentMode.SHARED), **{field_name: value}))
+
+
+@pytest.mark.parametrize("field_name", ["num_agents", "output_dim", "mix_layer_depth", "mix_layer_num_cells"])
+@pytest.mark.parametrize("value", [1.5, True, "1", None])
+def test_complete_config_rejects_wrong_scalar_types(field_name, value, make_config) -> None:
+    with pytest.raises(TypeError, match=field_name):
         validate_multi_agent_encoder_config(replace(make_config(MultiAgentMode.SHARED), **{field_name: value}))
 
 
@@ -148,9 +216,14 @@ def test_complete_config_requires_enum_instances(field_name, value, make_config)
         validate_multi_agent_encoder_config(replace(make_config(MultiAgentMode.SHARED), **{field_name: value}))
 
 
-@pytest.mark.parametrize("key", ["", None, 3])
-def test_complete_config_rejects_invalid_agent_mask_key(key, make_config) -> None:
+def test_complete_config_rejects_empty_agent_mask_key(make_config) -> None:
     with pytest.raises(ValueError, match="agent_mask_key"):
+        validate_multi_agent_encoder_config(replace(make_config(MultiAgentMode.SHARED), agent_mask_key=""))
+
+
+@pytest.mark.parametrize("key", [None, 3])
+def test_complete_config_requires_string_agent_mask_key(key, make_config) -> None:
+    with pytest.raises(TypeError, match="agent_mask_key"):
         validate_multi_agent_encoder_config(replace(make_config(MultiAgentMode.SHARED), agent_mask_key=key))
 
 
@@ -168,7 +241,7 @@ def test_complete_config_accepts_default_and_custom_mix_activation(activation, m
 
 @pytest.mark.parametrize("activation", [nn.ReLU(), str, lambda: nn.ReLU()])
 def test_complete_config_rejects_invalid_mix_activation(activation, make_config) -> None:
-    with pytest.raises(ValueError, match="mix_activation_class"):
+    with pytest.raises(TypeError, match="mix_activation_class"):
         validate_multi_agent_encoder_config(replace(make_config(MultiAgentMode.SHARED), mix_activation_class=activation))
 
 

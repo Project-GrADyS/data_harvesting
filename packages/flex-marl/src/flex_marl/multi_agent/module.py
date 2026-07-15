@@ -24,7 +24,7 @@ def _build_encoder(
 ) -> MultiHeadEncoderModule:
     """Compile all fields and construct one mode-agnostic structured encoder."""
 
-    head_configs = [compile_head_config(field, config.mode, config.num_agents) for field in config.fields]
+    head_configs = tuple(compile_head_config(field, config.mode, config.num_agents) for field in config.fields)
     return MultiHeadEncoderModule(
         head_configs=head_configs,
         mix_layer_depth=config.mix_layer_depth,
@@ -88,7 +88,7 @@ class MultiAgentEncoderModule(nn.Module):
             # Shared and centralized execution each require only one parameter set.
             self.encoder = _build_encoder(config, self.device)
 
-    def _pre_forward_check(self, input_dict: dict[str, torch.Tensor]) -> None:
+    def _pre_forward_checks(self, input_dict: dict[str, torch.Tensor]) -> None:
         """Validate all required keys, dtypes, and shapes before transforming tensors."""
 
         required_keys = {self.config.agent_mask_key}
@@ -153,7 +153,7 @@ class MultiAgentEncoderModule(nn.Module):
     def forward(self, input_dict: dict[str, torch.Tensor]) -> torch.Tensor:
         """Validate and encode a dictionary of fixed-slot multi-agent observations."""
 
-        self._pre_forward_check(input_dict)
+        self._pre_forward_checks(input_dict)
         agent_mask = input_dict[self.config.agent_mask_key]
 
         if self.config.mode is MultiAgentMode.INDEPENDENT:

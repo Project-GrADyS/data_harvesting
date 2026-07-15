@@ -1,7 +1,16 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import TypeAlias
 
 from torch import nn
+from validation_core import (
+    validate_bool,
+    validate_non_empty_string,
+    validate_positive_integer,
+    validate_probability,
+)
 
 from flex_marl.encoder import (
     FlatHeadConfig,
@@ -9,6 +18,7 @@ from flex_marl.encoder import (
     SequentialHeadConfig,
     validate_head_config,
 )
+from flex_marl.encoder.configs import _validate_module_class
 
 
 class MultiAgentMode(StrEnum):
@@ -31,7 +41,7 @@ class CentralizedOutput(StrEnum):
     """Return one global vector for each agent slot, broadcasting the same vector to all slots."""
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class SequentialFieldOptions:
     """Transformer settings used whenever a field is encoded as a sequence."""
 
@@ -51,7 +61,7 @@ class SequentialFieldOptions:
     """Whether sequence elements receive a learned embedding of their owning agent slot."""
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class FlatFieldConfig:
     """Describe a fixed-size field and how it should be encoded."""
 
@@ -80,7 +90,7 @@ class FlatFieldConfig:
     unused in shared and independent modes.
     """
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class SequentialFieldConfig:
     """Describe a variable-size per-agent sequence and its Transformer encoding."""
 
@@ -99,10 +109,10 @@ class SequentialFieldConfig:
     output_size: int = 64
     """Width of the intermediate representation produced for this field."""
 
-type FieldConfig = FlatFieldConfig | SequentialFieldConfig
+FieldConfig: TypeAlias = FlatFieldConfig | SequentialFieldConfig
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class MultiAgentEncoderConfig:
     """Configure multi-agent orchestration around the structured encoder."""
 
@@ -134,45 +144,32 @@ class MultiAgentEncoderConfig:
     """Return one global vector or broadcast it across all fixed agent slots."""
 
 
-def _validate_positive_int(name: str, value: object) -> None:
-    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
-        raise ValueError(f"{name} must be a positive integer, got {value}.")
-
-
-def _validate_key(name: str, value: object) -> None:
-    if not isinstance(value, str) or not value:
-        raise ValueError(f"{name} must be a non-empty string, got {value!r}.")
-
-
 def validate_sequential_field_options(options: SequentialFieldOptions) -> None:
     """Validate Transformer settings independently of a field configuration."""
 
     if not isinstance(options, SequentialFieldOptions):
         raise TypeError(f"options must be a SequentialFieldOptions, got {type(options)}.")
-    _validate_positive_int("num_heads", options.num_heads)
-    _validate_positive_int("ff_dim", options.ff_dim)
-    _validate_positive_int("depth", options.depth)
-    if isinstance(options.dropout, bool) or not isinstance(options.dropout, (int, float)) or not (
-        0.0 <= options.dropout < 1.0
-    ):
-        raise ValueError(f"dropout must be in the range [0.0, 1.0), got {options.dropout}.")
-    if not isinstance(options.encode_agent_identity, bool):
-        raise TypeError("encode_agent_identity must be a bool.")
+    validate_positive_integer("num_heads", options.num_heads)
+    validate_positive_integer("ff_dim", options.ff_dim)
+    validate_positive_integer("depth", options.depth)
+    validate_probability("dropout", options.dropout)
+    validate_bool("encode_agent_identity", options.encode_agent_identity)
 
 
 def validate_field_config(field: FieldConfig, mode: MultiAgentMode) -> None:
     """Validate one field, including requirements imposed by the execution mode."""
 
+    if not isinstance(mode, MultiAgentMode):
+        raise TypeError(f"mode must be a MultiAgentMode, got {type(mode)}.")
     if not isinstance(field, (FlatFieldConfig, SequentialFieldConfig)):
         raise TypeError(f"field must be a FlatFieldConfig or SequentialFieldConfig, got {type(field)}.")
-    _validate_key("field key", field.key)
-    _validate_positive_int("input_size", field.input_size)
-    _validate_positive_int("output_size", field.output_size)
+    validate_non_empty_string("field key", field.key)
+    validate_positive_integer("input_size", field.input_size)
+    validate_positive_integer("output_size", field.output_size)
     if isinstance(field, FlatFieldConfig):
-        _validate_positive_int("depth", field.depth)
-        _validate_positive_int("hidden_layer_size", field.hidden_layer_size)
-        if not isinstance(field.activation_class, type) or not issubclass(field.activation_class, nn.Module):
-            raise ValueError("activation_class must be an nn.Module class.")
+        validate_positive_integer("depth", field.depth)
+        validate_positive_integer("hidden_layer_size", field.hidden_layer_size)
+        _validate_module_class("activation_class", field.activation_class)
         if field.sequential_options is not None:
             validate_sequential_field_options(field.sequential_options)
         if mode is MultiAgentMode.CENTRALIZED and field.sequential_options is None:
@@ -182,7 +179,7 @@ def validate_field_config(field: FieldConfig, mode: MultiAgentMode) -> None:
             )
         return
 
-    _validate_key("mask_key", field.mask_key)
+    validate_non_empty_string("mask_key", field.mask_key)
     validate_sequential_field_options(field.sequential_options)
     if field.output_size % field.sequential_options.num_heads != 0:
         raise ValueError(
@@ -196,21 +193,21 @@ def validate_multi_agent_encoder_config(config: MultiAgentEncoderConfig) -> None
 
     if not isinstance(config, MultiAgentEncoderConfig):
         raise TypeError(f"config must be a MultiAgentEncoderConfig, got {type(config)}.")
+    if not isinstance(config.fields, tuple):
+        raise TypeError(f"fields must be a tuple, got {type(config.fields)}.")
     if not config.fields:
         raise ValueError("fields must contain at least one field configuration.")
-    _validate_positive_int("num_agents", config.num_agents)
+    validate_positive_integer("num_agents", config.num_agents)
     if not isinstance(config.mode, MultiAgentMode):
         raise TypeError(f"mode must be a MultiAgentMode, got {type(config.mode)}.")
     if not isinstance(config.centralized_output, CentralizedOutput):
         raise TypeError(f"centralized_output must be a CentralizedOutput, got {type(config.centralized_output)}.")
-    _validate_key("agent_mask_key", config.agent_mask_key)
-    _validate_positive_int("output_dim", config.output_dim)
-    _validate_positive_int("mix_layer_depth", config.mix_layer_depth)
-    _validate_positive_int("mix_layer_num_cells", config.mix_layer_num_cells)
-    if config.mix_activation_class is not None and (
-        not isinstance(config.mix_activation_class, type) or not issubclass(config.mix_activation_class, nn.Module)
-    ):
-        raise ValueError("mix_activation_class must be an nn.Module class or None.")
+    validate_non_empty_string("agent_mask_key", config.agent_mask_key)
+    validate_positive_integer("output_dim", config.output_dim)
+    validate_positive_integer("mix_layer_depth", config.mix_layer_depth)
+    validate_positive_integer("mix_layer_num_cells", config.mix_layer_num_cells)
+    if config.mix_activation_class is not None:
+        _validate_module_class("mix_activation_class", config.mix_activation_class)
 
     keys: list[str] = []
     for field in config.fields:
@@ -234,7 +231,7 @@ def compile_head_config(
     """Compile a user-facing field into the low-level head required by one mode."""
 
     validate_field_config(field, mode)
-    _validate_positive_int("num_agents", num_agents)
+    validate_positive_integer("num_agents", num_agents)
 
     if isinstance(field, FlatFieldConfig) and mode is not MultiAgentMode.CENTRALIZED:
         head_config: FlatHeadConfig | SequentialHeadConfig = FlatHeadConfig(
