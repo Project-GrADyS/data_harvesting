@@ -65,6 +65,8 @@ class MultiHeadEncoderModule(nn.Module):
         )
 
     def _pre_forward_checks(self, input_dict: dict[str, torch.Tensor]) -> None:
+        """Check that every configured input, mask, and positional-index key is present."""
+
         for config in self.head_configs:
             if config.key not in input_dict:
                 raise KeyError(f"Input dictionary is missing required key: {config.key}")
@@ -80,6 +82,8 @@ class MultiHeadEncoderModule(nn.Module):
                     )
 
     def forward(self, input_dict: dict[str, torch.Tensor]) -> torch.Tensor:
+        """Encode and mix a dictionary containing every configured observation head."""
+
         self._pre_forward_checks(input_dict)
 
         head_outputs: list[torch.Tensor] = []
