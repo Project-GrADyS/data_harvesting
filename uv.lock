@@ -823,9 +823,6 @@ dependencies = [
     { name = "torch", version = "2.9.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux' and sys_platform != 'win32'" },
     { name = "torch", version = "2.9.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "torchrl" },
-    { name = "torchvision", version = "0.24.1", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "python_full_version < '3.15' and platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux'" },
-    { name = "torchvision", version = "0.24.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux' and sys_platform != 'win32'" },
-    { name = "torchvision", version = "0.24.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "(python_full_version >= '3.15' and sys_platform == 'linux') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (platform_python_implementation != 'CPython' and sys_platform == 'linux') or sys_platform == 'win32'" },
     { name = "validation-core" },
 ]
 
@@ -839,8 +836,6 @@ requires-dist = [
     { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32'", specifier = ">=2.9.1" },
     { name = "torch", marker = "sys_platform == 'linux' or sys_platform == 'win32'", specifier = ">=2.9.1", index = "https://download.pytorch.org/whl/cu128" },
     { name = "torchrl", specifier = ">=0.10.1" },
-    { name = "torchvision", marker = "sys_platform != 'linux' and sys_platform != 'win32'", specifier = ">=0.24.1" },
-    { name = "torchvision", marker = "sys_platform == 'linux' or sys_platform == 'win32'", specifier = ">=0.24.1", index = "https://download.pytorch.org/whl/cu128" },
     { name = "validation-core", editable = "packages/validation-core" },
 ]
 
@@ -3375,34 +3370,28 @@ dependencies = [
 mlflow = [
     { name = "mlflow" },
 ]
-tensordict = [
-    { name = "tensordict" },
-]
 
 [package.dev-dependencies]
 dev = [
     { name = "mlflow" },
     { name = "pytest" },
-    { name = "tensordict" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "mlflow", marker = "extra == 'mlflow'", specifier = ">=3.4.0" },
     { name = "tensordict", specifier = ">=0.10.0" },
-    { name = "tensordict", marker = "extra == 'tensordict'", specifier = ">=0.10.0" },
     { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32'", specifier = ">=2.9.1" },
     { name = "torch", marker = "sys_platform == 'linux' or sys_platform == 'win32'", specifier = ">=2.9.1", index = "https://download.pytorch.org/whl/cu128" },
     { name = "torchrl", specifier = ">=0.10.1" },
     { name = "validation-core", editable = "packages/validation-core" },
 ]
-provides-extras = ["tensordict", "mlflow"]
+provides-extras = ["mlflow"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "mlflow", specifier = ">=3.4.0" },
     { name = "pytest", specifier = ">=9.0.2" },
-    { name = "tensordict", specifier = ">=0.10.0" },
 ]
 
 [[package]]
