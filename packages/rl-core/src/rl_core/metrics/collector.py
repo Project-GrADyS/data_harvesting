@@ -7,7 +7,7 @@ from typing import TypeAlias
 import torch
 
 from .loggers import MetricLogger
-from .specs import CategoricalMetricSpec, MetricSpec, ScalarMetricSpec, ScalarReducer
+from .specs import CategoricalMetricSpec, MetricSpec, ScalarMetricSpec, ScalarReducer, validate_metric_spec
 
 from tensordict import TensorDictBase
 
@@ -29,8 +29,8 @@ class MetricsCollector:
         self._specs = tuple(specs)
         if not self._specs:
             raise ValueError("specs must contain at least one metric specification.")
-        if not all(isinstance(spec, (ScalarMetricSpec, CategoricalMetricSpec)) for spec in self._specs):
-            raise TypeError("Every metric specification must be a ScalarMetricSpec or CategoricalMetricSpec.")
+        for spec in self._specs:
+            validate_metric_spec(spec)
 
         keys = [spec.key for spec in self._specs]
         if len(keys) != len(set(keys)):
@@ -139,12 +139,7 @@ class MetricsCollector:
             yield from values.items()
             return
 
-        try:
-            from tensordict import TensorDictBase
-        except ModuleNotFoundError:
-            TensorDictBase = None  # type: ignore[assignment,misc]
-
-        if TensorDictBase is not None and isinstance(values, TensorDictBase):
+        if isinstance(values, TensorDictBase):
             keys = values.keys(include_nested=False, leaves_only=True)
             for key in keys:
                 if not isinstance(key, str):
@@ -152,7 +147,7 @@ class MetricsCollector:
                 yield key, values.get(key)
             return
 
-        raise TypeError("values must be a mapping or a TensorDictBase from the optional tensordict dependency.")
+        raise TypeError("values must be a mapping or a TensorDictBase.")
 
     def _as_tensor(self, key: str, value: MetricValue) -> torch.Tensor:
         if isinstance(value, torch.Tensor):
@@ -160,9 +155,16 @@ class MetricsCollector:
         elif isinstance(value, Real) and not isinstance(value, bool):
             tensor = torch.as_tensor(value, device=self._device)
         elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
-            tensor = torch.as_tensor(value, device=self._device)
+            try:
+                tensor = torch.as_tensor(value, device=self._device)
+            except (TypeError, ValueError, RuntimeError) as error:
+                raise TypeError(
+                    f"Metric {key!r} must contain real numeric values."
+                ) from error
         else:
-            raise TypeError(f"Metric {key!r} must be a tensor or numeric value, got {type(value)}.")
+            raise TypeError(
+                f"Metric {key!r} must contain real numeric values, got {type(value)}."
+            )
         if tensor.dtype is torch.bool or tensor.is_complex():
             raise TypeError(f"Metric {key!r} must contain real numeric values, got dtype {tensor.dtype}.")
         return tensor.reshape(-1)

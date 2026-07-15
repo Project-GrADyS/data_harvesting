@@ -2,6 +2,8 @@ from collections.abc import Mapping
 import sys
 from typing import Protocol, TextIO
 
+from validation_core import validate_non_empty_string
+
 
 class MetricLogger(Protocol):
     """A destination for one snapshot of aggregated metrics."""
@@ -13,8 +15,8 @@ class ConsoleMetricLogger:
     """Write each metric snapshot as a deterministic single line."""
 
     def __init__(self, *, prefix: str | None = "metrics", stream: TextIO | None = None) -> None:
-        if prefix is not None and (not isinstance(prefix, str) or not prefix):
-            raise ValueError("prefix must be a non-empty string or None.")
+        if prefix is not None:
+            validate_non_empty_string("prefix", prefix)
         self._prefix = prefix
         self._stream = stream
 
@@ -28,8 +30,8 @@ class MLflowMetricLogger:
     """Log metric snapshots to the currently active MLflow run."""
 
     def __init__(self, *, prefix: str | None = None) -> None:
-        if prefix is not None and (not isinstance(prefix, str) or not prefix):
-            raise ValueError("prefix must be a non-empty string or None.")
+        if prefix is not None:
+            validate_non_empty_string("prefix", prefix)
         self._prefix = prefix
 
     def __call__(self, metrics: Mapping[str, float], *, step: int) -> None:

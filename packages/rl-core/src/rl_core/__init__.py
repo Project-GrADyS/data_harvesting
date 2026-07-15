@@ -17,6 +17,7 @@ from .metrics import (
     MetricsCollector,
     ScalarMetricSpec,
     ScalarReducer,
+    validate_metric_spec,
 )
 from .scheduling import ScheduledCallback, Scheduler
 
@@ -45,4 +46,5 @@ __all__ = [
     "make_collector",
     "validate_collector_config",
     "validate_evaluation_config",
+    "validate_metric_spec",
 ]
