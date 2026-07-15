@@ -8,7 +8,7 @@ from .checkpointing import (
     load_checkpoint,
 )
 from .collection import CollectionMode, CollectorConfig, make_collector, validate_collector_config
-from .evaluation import EvaluationConfig, Evaluator, TerminalMetricExtractor
+from .evaluation import EvaluationConfig, Evaluator, TerminalMetricExtractor, validate_evaluation_config
 from .metrics import (
     CategoricalMetricSpec,
     ConsoleMetricLogger,
@@ -44,4 +44,5 @@ __all__ = [
     "load_checkpoint",
     "make_collector",
     "validate_collector_config",
+    "validate_evaluation_config",
 ]

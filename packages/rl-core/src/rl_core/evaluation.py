@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from contextlib import nullcontext
 from dataclasses import dataclass, field
-from types import MappingProxyType
 from typing import Any, TypeAlias
 
 import torch
@@ -12,6 +11,13 @@ from tensordict.utils import NestedKey
 from torch import nn
 from torchrl.envs import EnvBase
 from torchrl.envs.utils import ExplorationType, set_exploration_type
+from validation_core import (
+    validate_callable,
+    validate_mapping,
+    validate_non_empty_string,
+    validate_non_negative_integer,
+    validate_positive_integer,
+)
 
 from .metrics.collector import MetricValues, MetricsCollector
 
@@ -23,25 +29,16 @@ TerminalMetricExtractor: TypeAlias = Callable[[TensorDictBase], MetricValues]
 _RESERVED_ROLLOUT_KWARGS = {"max_steps", "policy"}
 
 
-def _validate_positive_integer(name: str, value: object) -> None:
-    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
-        raise ValueError(f"{name} must be a positive integer, got {value!r}.")
-
-
-def _validate_non_negative_integer(name: str, value: object) -> None:
-    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-        raise ValueError(f"{name} must be a non-negative integer, got {value!r}.")
-
-
 def _validate_nested_key(name: str, key: object) -> None:
-    valid_string = isinstance(key, str) and bool(key)
-    valid_tuple = (
-        isinstance(key, tuple)
-        and bool(key)
-        and all(isinstance(part, str) and bool(part) for part in key)
-    )
-    if not valid_string and not valid_tuple:
-        raise ValueError(f"{name} must be a non-empty string or tuple of non-empty strings.")
+    if isinstance(key, str):
+        validate_non_empty_string(name, key)
+        return
+    if not isinstance(key, tuple):
+        raise TypeError(f"{name} must be a string or tuple of strings, got {type(key)}.")
+    if not key:
+        raise ValueError(f"{name} must not be an empty tuple.")
+    for part in key:
+        validate_non_empty_string(name, part)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -54,20 +51,22 @@ class EvaluationConfig:
     exploration_type: ExplorationType | None = ExplorationType.MODE
     rollout_kwargs: Mapping[str, Any] = field(default_factory=dict)
 
-    def __post_init__(self) -> None:
-        _validate_positive_integer("num_episodes", self.num_episodes)
-        _validate_positive_integer("max_steps", self.max_steps)
-        _validate_nested_key("terminal_key", self.terminal_key)
-        if self.exploration_type is not None and not isinstance(self.exploration_type, ExplorationType):
-            raise TypeError("exploration_type must be an ExplorationType or None.")
-        if not isinstance(self.rollout_kwargs, Mapping):
-            raise TypeError("rollout_kwargs must be a mapping.")
 
-        rollout_kwargs = dict(self.rollout_kwargs)
-        conflicts = _RESERVED_ROLLOUT_KWARGS.intersection(rollout_kwargs)
-        if conflicts:
-            raise ValueError(f"rollout_kwargs contains evaluator-owned arguments: {sorted(conflicts)}")
-        object.__setattr__(self, "rollout_kwargs", MappingProxyType(rollout_kwargs))
+
+def validate_evaluation_config(config: EvaluationConfig) -> None:
+    """Validate an evaluation configuration before constructing an evaluator."""
+
+    if not isinstance(config, EvaluationConfig):
+        raise TypeError(f"config must be an EvaluationConfig, got {type(config)}.")
+    validate_positive_integer("num_episodes", config.num_episodes)
+    validate_positive_integer("max_steps", config.max_steps)
+    _validate_nested_key("terminal_key", config.terminal_key)
+    if config.exploration_type is not None and not isinstance(config.exploration_type, ExplorationType):
+        raise TypeError("exploration_type must be an ExplorationType or None.")
+    validate_mapping("rollout_kwargs", config.rollout_kwargs)
+    conflicts = _RESERVED_ROLLOUT_KWARGS.intersection(config.rollout_kwargs)
+    if conflicts:
+        raise ValueError(f"rollout_kwargs contains evaluator-owned arguments: {sorted(conflicts)}")
 
 
 class Evaluator:
@@ -82,16 +81,13 @@ class Evaluator:
         metrics: MetricsCollector,
         metric_extractor: TerminalMetricExtractor,
     ) -> None:
-        if not isinstance(config, EvaluationConfig):
-            raise TypeError(f"config must be an EvaluationConfig, got {type(config)}.")
-        if not callable(env_factory):
-            raise TypeError("env_factory must be callable.")
+        validate_evaluation_config(config)
+        validate_callable("env_factory", env_factory)
         if not isinstance(policy, nn.Module):
             raise TypeError("policy must be a torch.nn.Module.")
         if not isinstance(metrics, MetricsCollector):
             raise TypeError("metrics must be a MetricsCollector.")
-        if not callable(metric_extractor):
-            raise TypeError("metric_extractor must be callable.")
+        validate_callable("metric_extractor", metric_extractor)
 
         self.config = config
         self.env_factory = env_factory
@@ -107,7 +103,7 @@ class Evaluator:
     def run(self, step: int) -> dict[str, float]:
         """Evaluate the policy and flush aggregated metrics at ``step``."""
 
-        _validate_non_negative_integer("step", step)
+        validate_non_negative_integer("step", step)
         self.metrics.reset()
         environment = self.env_factory()
         policy_was_training = self.policy.training
@@ -163,4 +159,4 @@ class Evaluator:
         return rollout[terminal]
 
 
-__all__ = ["EvaluationConfig", "Evaluator", "TerminalMetricExtractor"]
+__all__ = ["EvaluationConfig", "Evaluator", "TerminalMetricExtractor", "validate_evaluation_config"]
