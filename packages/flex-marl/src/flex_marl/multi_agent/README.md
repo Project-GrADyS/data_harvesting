@@ -97,7 +97,9 @@ embeddings while a field is being encoded as a sequence.
 Configurations can be checked without constructing a module through
 `validate_sequential_field_options`, `validate_field_config`, and
 `validate_multi_agent_encoder_config`. Module construction performs the complete
-validation automatically.
+validation automatically. The configuration dataclasses are frozen, slotted,
+keyword-only, passive value objects; validation is deliberately kept outside
+dataclass initialization so inheritance does not change construction behavior.
 
 ## Example
 

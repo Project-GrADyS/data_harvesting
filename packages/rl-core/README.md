@@ -20,8 +20,8 @@ collector.push({"reward": [1.0, 2.0, 3.0]})
 collector.flush(step=100)
 ```
 
-`push()` also accepts a `TensorDictBase` whose top-level keys match configured metric keys. TensorDict support is an
-optional dependency and can be installed with `rl-core[tensordict]`.
+`push()` also accepts a `TensorDictBase` whose top-level keys match configured metric keys. TensorDict is a mandatory
+package dependency and needs no extra installation option.
 
 `MLflowMetricLogger` logs to the currently active MLflow run and is available through the `mlflow` extra:
 
@@ -66,7 +66,8 @@ with make_collector(config=config, env_factory=make_env, policy=exploration_poli
 ```
 
 Use `collector_kwargs` for supported TorchRL options that are not represented directly by `CollectorConfig`. Wrapper-owned
-constructor arguments cannot be overridden through that mapping. As required by Python multiprocessing, construct
+constructor arguments cannot be overridden through that mapping. The mapping remains caller-owned and is passed through
+without copying. As required by Python multiprocessing, construct
 multi-worker collectors under an `if __name__ == "__main__"` guard.
 
 ## Checkpointing
@@ -99,6 +100,9 @@ optimizer.load_state_dict(checkpoint.state["optimizer"])
 `LocalCheckpointStore` writes atomically and can retain only the latest checkpoints. `MLflowCheckpointStore` saves and
 loads the same envelope from run artifacts and is available through the existing `mlflow` extra. Checkpoint files use
 Python pickle through PyTorch and must only be loaded from trusted sources.
+
+Checkpoint `state` and `metadata` mappings remain caller-owned. Saving sends the current contents to the selected store
+without introducing a read-only proxy or defensive clone.
 
 ## Scheduling
 
@@ -173,3 +177,21 @@ passes those complete transitions to `metric_extractor`. The evaluator does not 
 Evaluation temporarily puts the policy in evaluation mode and disables gradient tracking. The previous policy mode is
 restored and the evaluation environment is closed even if rollout or metric processing fails. After all episodes,
 metrics are flushed using the step supplied directly or by `Scheduler`.
+
+## Configuration and validation
+
+Configuration and envelope dataclasses are frozen, slotted, keyword-only, passive value objects. Validation is explicit:
+`validate_collector_config`, `validate_evaluation_config`, `validate_metric_spec`, and `validate_checkpoint` can be called
+directly, and the corresponding runtime boundary calls the same validator before using a value. Invalid runtime types
+raise `TypeError`; values of the expected type that violate a domain rule raise `ValueError`.
+
+Mutable mappings such as `collector_kwargs`, `rollout_kwargs`, checkpoint state, metadata, and metric labels are accepted
+as caller-owned objects. The package does not copy them or promise deep immutability.
+
+## Development
+
+From the repository root, run the complete package suite with:
+
+```bash
+uv run pytest packages/rl-core/tests
+```

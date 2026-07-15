@@ -103,8 +103,9 @@ The following symbols are exported from both `flex_marl` and
 | `MultiHeadEncoderModule`   | Builds the heads, routes dictionary inputs, concatenates their outputs, and applies the mix layer. |
 | `validate_head_config`     | Validates a head configuration independently of module construction.                               |
 
-The configuration dataclasses are frozen and keyword-only. Invalid
-configurations are also rejected automatically when a
+The configuration dataclasses are frozen, slotted, and keyword-only. They are
+passive value objects: use the exported validation functions when checking a
+configuration independently. Invalid configurations are also rejected when a
 `MultiHeadEncoderModule` is constructed.
 
 ### Example
@@ -122,7 +123,7 @@ from flex_marl import (
 
 
 encoder = MultiHeadEncoderModule(
-    head_configs=[
+    head_configs=(
         FlatHeadConfig(
             key="agent_state",
             input_size=12,
@@ -144,7 +145,7 @@ encoder = MultiHeadEncoderModule(
             depth=2,
             dropout=0.1,
         ),
-    ],
+    ),
     mix_layer_depth=2,
     mix_layer_num_cells=128,
     mix_activation_class=nn.ReLU,
@@ -216,7 +217,7 @@ shape, although sequential heads may use different sequence lengths.
 
 | Field           | Meaning                                                             |
 | --------------- | ------------------------------------------------------------------- |
-| `idx_key`       | Input-dictionary key containing indices shaped `(*B, 1)`.           |
+| `idx_key`       | Input-dictionary key containing indices shaped `(*B, sequence_length, 1)`. |
 | `num_positions` | Number of learned embeddings and exclusive upper bound for indices. |
 
 ### Project organization
@@ -228,18 +229,18 @@ packages/flex-marl/
 ├── src/flex_marl/
 │   ├── __init__.py             # Root public exports
 │   ├── py.typed                # Marks the package as typed
-│   └── encoder/
-│       ├── __init__.py         # Encoder public exports
-│       ├── configs.py          # Frozen configs and validation
-│       ├── heads.py            # FlatHead and SequentialHead
-│       └── flex.py             # MultiHeadEncoderModule and mix layer
-└── tests/encoder/
-    ├── conftest.py             # Shared deterministic fixtures
-    ├── test_configs.py         # Configuration validation
-    ├── test_flat_head.py       # Flat-head behavior
-    ├── test_sequential_head.py # Transformer, masks, and positions
-    ├── test_multi_head_encoder.py
-    └── test_public_api.py
+│   ├── encoder/
+│   │   ├── __init__.py         # Encoder public exports
+│   │   ├── configs.py          # Frozen configs and validation
+│   │   ├── heads.py            # FlatHead and SequentialHead
+│   │   └── encoder.py          # MultiHeadEncoderModule and mix layer
+│   └── multi_agent/
+│       ├── configs.py          # Fixed-slot orchestration configs
+│       ├── module.py           # Shared, independent, and centralized modes
+│       └── README.md           # Multi-agent shape and mode guide
+└── tests/
+    ├── encoder/                # Structured encoder contracts and edge cases
+    └── multi_agent/            # Fixed-slot orchestration contracts and edge cases
 ```
 
 `FlatHead` and `SequentialHead` are implementation building blocks. Most users
@@ -252,9 +253,9 @@ This package is a member of the repository's uv workspace. From the repository
 root, run its tests with:
 
 ```bash
-uv run pytest packages/flex-marl/tests/encoder
+uv run pytest packages/flex-marl/tests
 ```
 
 The suite covers configuration boundaries, tensor shapes, mask semantics,
-positional encoding, input routing, gradients, serialization, devices, and
-dtypes.
+positional encoding, input routing, execution modes, inactive-agent behavior,
+gradients, serialization, devices, and dtypes.
