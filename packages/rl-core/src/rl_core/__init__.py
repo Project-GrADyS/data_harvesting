@@ -8,6 +8,7 @@ from .checkpointing import (
     load_checkpoint,
 )
 from .collection import CollectionMode, CollectorConfig, make_collector
+from .evaluation import EvaluationConfig, Evaluator, TerminalMetricExtractor
 from .metrics import (
     CategoricalMetricSpec,
     ConsoleMetricLogger,
@@ -28,6 +29,8 @@ __all__ = [
     "CollectionMode",
     "ConsoleMetricLogger",
     "CollectorConfig",
+    "EvaluationConfig",
+    "Evaluator",
     "MetricLogger",
     "MLflowMetricLogger",
     "MLflowCheckpointStore",
@@ -36,6 +39,7 @@ __all__ = [
     "ScalarReducer",
     "ScheduledCallback",
     "Scheduler",
+    "TerminalMetricExtractor",
     "LocalCheckpointStore",
     "load_checkpoint",
     "make_collector",

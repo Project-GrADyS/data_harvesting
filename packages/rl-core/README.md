@@ -136,3 +136,40 @@ The clock can be included in a checkpoint while callback registrations remain ap
 checkpoint_state["scheduler"] = scheduler.state_dict()
 scheduler.load_state_dict(checkpoint_state["scheduler"])
 ```
+
+## Evaluation
+
+`rl_core.evaluation` runs a policy for a finite number of episodes and reports terminal metrics through a dedicated
+`MetricsCollector`. It is callable with a training step, so scheduling evaluation requires no evaluation-specific
+condition in the training loop.
+
+```python
+from rl_core.evaluation import EvaluationConfig, Evaluator
+
+
+def extract_metrics(terminal_transitions):
+    info = terminal_transitions.get(("next", "agents", "info"))
+    return {
+        "episode_reward": info.get("episode_reward")[..., 0],
+        "completion_time": info.get("completion_time")[..., 0],
+    }
+
+
+evaluator = Evaluator(
+    config=EvaluationConfig(num_episodes=10, max_steps=1_000),
+    env_factory=make_evaluation_env,
+    policy=policy,
+    metrics=evaluation_metrics,
+    metric_extractor=extract_metrics,
+)
+
+scheduler.register("evaluation", every=25_000, callback=evaluator)
+```
+
+For each rollout, the evaluator uses `terminal_key` (default `("next", "done")`) to select completed transitions and
+passes those complete transitions to `metric_extractor`. The evaluator does not assume where an environment stores
+`info`, whether information is replicated across agents, or how agent-specific values should be reduced.
+
+Evaluation temporarily puts the policy in evaluation mode and disables gradient tracking. The previous policy mode is
+restored and the evaluation environment is closed even if rollout or metric processing fails. After all episodes,
+metrics are flushed using the step supplied directly or by `Scheduler`.
