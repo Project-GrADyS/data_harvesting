@@ -4,6 +4,7 @@ from .checkpoint import (
     CheckpointManager,
     CheckpointStore,
     load_checkpoint,
+    validate_checkpoint,
 )
 from .stores import LocalCheckpointStore, MLflowCheckpointStore
 
@@ -15,4 +16,5 @@ __all__ = [
     "LocalCheckpointStore",
     "MLflowCheckpointStore",
     "load_checkpoint",
+    "validate_checkpoint",
 ]

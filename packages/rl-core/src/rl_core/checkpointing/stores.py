@@ -7,13 +7,18 @@ import tempfile
 
 import torch
 
-from .checkpoint import Checkpoint, _checkpoint_payload, _validate_step, load_checkpoint
+from validation_core import (
+    validate_non_empty_string,
+    validate_non_negative_integer,
+    validate_positive_integer,
+)
+
+from .checkpoint import Checkpoint, _checkpoint_payload, load_checkpoint, validate_checkpoint
 
 
 def _validate_filename_prefix(prefix: object) -> None:
-    if not isinstance(prefix, str) or not prefix:
-        raise ValueError("filename_prefix must be a non-empty string.")
-    if Path(prefix).name != prefix or prefix in {".", ".."}:
+    validate_non_empty_string("filename_prefix", prefix)
+    if "/" in prefix or "\\" in prefix or prefix in {".", ".."}:
         raise ValueError("filename_prefix must not contain path components.")
 
 
@@ -31,10 +36,8 @@ class LocalCheckpointStore:
         keep_last: int | None = None,
         filename_prefix: str = "checkpoint",
     ) -> None:
-        if keep_last is not None and (
-            not isinstance(keep_last, int) or isinstance(keep_last, bool) or keep_last <= 0
-        ):
-            raise ValueError("keep_last must be a positive integer or None.")
+        if keep_last is not None:
+            validate_positive_integer("keep_last", keep_last)
         _validate_filename_prefix(filename_prefix)
         self.directory = Path(directory)
         self.keep_last = keep_last
@@ -44,6 +47,7 @@ class LocalCheckpointStore:
         )
 
     def save(self, checkpoint: Checkpoint) -> Path:
+        validate_checkpoint(checkpoint)
         self.directory.mkdir(parents=True, exist_ok=True)
         destination = self._path_for_step(checkpoint.step)
         descriptor, temporary_name = tempfile.mkstemp(
@@ -67,7 +71,7 @@ class LocalCheckpointStore:
         *,
         map_location: torch.device | str | None = "cpu",
     ) -> Checkpoint:
-        _validate_step(step)
+        validate_non_negative_integer("step", step)
         return load_checkpoint(self._path_for_step(step), map_location=map_location)
 
     def load_latest(
@@ -116,12 +120,15 @@ class MLflowCheckpointStore:
         tracking_uri: str | None = None,
         filename_prefix: str = "checkpoint",
     ) -> None:
-        if not isinstance(artifact_path, str) or not artifact_path.strip("/"):
-            raise ValueError("artifact_path must be a non-empty relative artifact path.")
+        validate_non_empty_string("artifact_path", artifact_path)
+        if not artifact_path.strip("/"):
+            raise ValueError("artifact_path must identify a relative artifact path.")
         if PurePosixPath(artifact_path).is_absolute() or ".." in PurePosixPath(artifact_path).parts:
             raise ValueError("artifact_path must be a relative path without parent traversal.")
-        if run_id is not None and (not isinstance(run_id, str) or not run_id):
-            raise ValueError("run_id must be a non-empty string or None.")
+        if run_id is not None:
+            validate_non_empty_string("run_id", run_id)
+        if tracking_uri is not None:
+            validate_non_empty_string("tracking_uri", tracking_uri)
         _validate_filename_prefix(filename_prefix)
         self.artifact_path = artifact_path.strip("/")
         self.run_id = run_id
@@ -132,6 +139,7 @@ class MLflowCheckpointStore:
         )
 
     def save(self, checkpoint: Checkpoint) -> str:
+        validate_checkpoint(checkpoint)
         mlflow = self._import_mlflow()
         filename = _checkpoint_filename(checkpoint.step, self.filename_prefix)
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -151,7 +159,7 @@ class MLflowCheckpointStore:
         run_id: str | None = None,
         map_location: torch.device | str | None = "cpu",
     ) -> Checkpoint:
-        _validate_step(step)
+        validate_non_negative_integer("step", step)
         effective_run_id = self._resolve_run_id(run_id)
         filename = _checkpoint_filename(step, self.filename_prefix)
         return self._download_and_load(filename, effective_run_id, map_location)
@@ -197,6 +205,8 @@ class MLflowCheckpointStore:
         return load_checkpoint(local_path, map_location=map_location)
 
     def _resolve_run_id(self, run_id: str | None) -> str:
+        if run_id is not None:
+            validate_non_empty_string("run_id", run_id)
         effective_run_id = run_id or self.run_id
         if effective_run_id is not None:
             return effective_run_id

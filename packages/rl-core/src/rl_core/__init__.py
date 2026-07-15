@@ -6,6 +6,7 @@ from .checkpointing import (
     LocalCheckpointStore,
     MLflowCheckpointStore,
     load_checkpoint,
+    validate_checkpoint,
 )
 from .collection import CollectionMode, CollectorConfig, make_collector, validate_collector_config
 from .evaluation import EvaluationConfig, Evaluator, TerminalMetricExtractor, validate_evaluation_config
@@ -47,4 +48,5 @@ __all__ = [
     "validate_collector_config",
     "validate_evaluation_config",
     "validate_metric_spec",
+    "validate_checkpoint",
 ]
