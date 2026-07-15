@@ -4,18 +4,16 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from validation_core import (
+    validate_callable,
+    validate_mapping,
+    validate_non_empty_string,
+    validate_non_negative_integer,
+    validate_positive_integer,
+)
+
 
 ScheduledCallback = Callable[[int], object]
-
-
-def _validate_non_negative_integer(name: str, value: object) -> None:
-    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-        raise ValueError(f"{name} must be a non-negative integer, got {value!r}.")
-
-
-def _validate_positive_integer(name: str, value: object) -> None:
-    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
-        raise ValueError(f"{name} must be a positive integer, got {value!r}.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,18 +37,17 @@ class Scheduler:
     def register(self, name: str, *, every: int, callback: ScheduledCallback) -> None:
         """Register a synchronous callback under a unique name."""
 
-        if not isinstance(name, str) or not name:
-            raise ValueError("name must be a non-empty string.")
+        validate_non_empty_string("name", name)
         if name in self._registrations:
             raise ValueError(f"A callback named {name!r} is already registered.")
-        _validate_positive_integer("every", every)
-        if not callable(callback):
-            raise TypeError("callback must be callable.")
+        validate_positive_integer("every", every)
+        validate_callable("callback", callback)
         self._registrations[name] = _Registration(name, every, callback)
 
     def unregister(self, name: str) -> None:
         """Remove a registration by name."""
 
+        validate_non_empty_string("name", name)
         try:
             del self._registrations[name]
         except KeyError:
@@ -63,7 +60,7 @@ class Scheduler:
         multiple occurrences of its interval. It receives the resulting current step.
         """
 
-        _validate_positive_integer("increment", increment)
+        validate_positive_integer("increment", increment)
         previous_step = self._current_step
         self._current_step += increment
 
@@ -83,8 +80,7 @@ class Scheduler:
     def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
         """Restore the scheduler clock while preserving current registrations."""
 
-        if not isinstance(state_dict, Mapping):
-            raise TypeError("state_dict must be a mapping.")
+        validate_mapping("state_dict", state_dict)
         expected_keys = {"current_step"}
         actual_keys = set(state_dict)
         missing_keys = expected_keys - actual_keys
@@ -95,7 +91,7 @@ class Scheduler:
             raise ValueError(f"state_dict has unexpected keys: {sorted(unexpected_keys)}")
 
         current_step = state_dict["current_step"]
-        _validate_non_negative_integer("current_step", current_step)
+        validate_non_negative_integer("current_step", current_step)
         self._current_step = current_step
 
 
