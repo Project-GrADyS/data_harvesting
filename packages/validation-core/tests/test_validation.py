@@ -104,7 +104,7 @@ def test_validate_probability_accepts_values_in_half_open_unit_interval(
 
 @pytest.mark.parametrize(
     "value",
-    [-1, -0.000_001, 1, 1.0, float("inf"), float("-inf"), float("nan")],
+    [-1, -0.000_001, 1, 1.0, 10**1000, float("inf"), float("-inf"), float("nan")],
 )
 def test_validate_probability_rejects_values_outside_half_open_unit_interval(
     value: int | float,

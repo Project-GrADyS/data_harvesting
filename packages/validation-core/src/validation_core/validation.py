@@ -32,7 +32,7 @@ def validate_non_empty_string(name: str, value: object) -> None:
 def validate_probability(name: str, value: object) -> None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise TypeError(f"{name} must be a real number, got {type(value).__name__}.")
-    if not isfinite(value) or not 0.0 <= value < 1.0:
+    if not 0.0 <= value < 1.0 or not isfinite(value):
         raise ValueError(f"{name} must be in the range [0.0, 1.0), got {value!r}.")
 
 

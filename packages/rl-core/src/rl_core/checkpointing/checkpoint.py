@@ -7,7 +7,12 @@ from pathlib import Path
 from typing import Any, Protocol
 
 import torch
-from validation_core import validate_mapping, validate_non_empty_string, validate_non_negative_integer
+from validation_core import (
+    validate_mapping,
+    validate_non_empty_string,
+    validate_non_negative_integer,
+    validate_positive_integer,
+)
 
 
 CHECKPOINT_FORMAT_VERSION = 1
@@ -52,8 +57,8 @@ def _checkpoint_payload(checkpoint: Checkpoint) -> dict[str, Any]:
     return {
         "format_version": CHECKPOINT_FORMAT_VERSION,
         "step": checkpoint.step,
-        "state": dict(checkpoint.state),
-        "metadata": dict(checkpoint.metadata),
+        "state": checkpoint.state,
+        "metadata": checkpoint.metadata,
     }
 
 
@@ -63,9 +68,11 @@ def _checkpoint_from_payload(payload: object) -> Checkpoint:
     missing_keys = required_keys.difference(payload)
     if missing_keys:
         raise ValueError(f"Checkpoint payload is missing keys: {sorted(missing_keys)}")
-    if payload["format_version"] != CHECKPOINT_FORMAT_VERSION:
+    format_version = payload["format_version"]
+    validate_positive_integer("format_version", format_version)
+    if format_version != CHECKPOINT_FORMAT_VERSION:
         raise ValueError(
-            f"Unsupported checkpoint format version {payload['format_version']!r}; "
+            f"Unsupported checkpoint format version {format_version!r}; "
             f"expected {CHECKPOINT_FORMAT_VERSION}."
         )
     checkpoint = Checkpoint(

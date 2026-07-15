@@ -18,6 +18,7 @@ from rl_core.checkpointing import (
     load_checkpoint,
     validate_checkpoint,
 )
+from rl_core.checkpointing.checkpoint import _checkpoint_payload
 
 
 def test_checkpoint_is_a_passive_frozen_slotted_keyword_only_value() -> None:
@@ -50,6 +51,16 @@ def test_checkpoint_mappings_remain_caller_owned() -> None:
 
     assert checkpoint.state == {"policy": {}, "optimizer": {}}
     assert checkpoint.metadata == {"algorithm": "changed"}
+
+
+def test_checkpoint_payload_preserves_caller_mapping_references() -> None:
+    state = {"policy": {}}
+    metadata = {"algorithm": "test"}
+
+    payload = _checkpoint_payload(Checkpoint(step=0, state=state, metadata=metadata))
+
+    assert payload["state"] is state
+    assert payload["metadata"] is metadata
 
 
 def test_checkpoint_metadata_default_is_not_shared() -> None:
@@ -194,6 +205,25 @@ def test_load_checkpoint_rejects_unsupported_format_version(tmp_path: Path) -> N
     )
 
     with pytest.raises(ValueError, match="Unsupported checkpoint format"):
+        load_checkpoint(path)
+
+
+@pytest.mark.parametrize("format_version", [True, False, 1.0, "1", None])
+def test_load_checkpoint_rejects_wrong_format_version_types(
+    tmp_path: Path, format_version: object
+) -> None:
+    path = tmp_path / "checkpoint.pt"
+    torch.save(
+        {
+            "format_version": format_version,
+            "step": 1,
+            "state": {"policy": {}},
+            "metadata": {},
+        },
+        path,
+    )
+
+    with pytest.raises(TypeError, match="format_version"):
         load_checkpoint(path)
 
 
