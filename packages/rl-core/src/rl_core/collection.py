@@ -4,7 +4,6 @@ from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import StrEnum
-from types import MappingProxyType
 from typing import Any, TypeAlias
 
 import torch
@@ -18,6 +17,12 @@ from torchrl.collectors import (
     aSyncDataCollector,
 )
 from torchrl.envs import EnvBase
+from validation_core import (
+    validate_callable,
+    validate_mapping,
+    validate_non_empty_string,
+    validate_positive_integer,
+)
 
 
 class CollectionMode(StrEnum):
@@ -44,11 +49,6 @@ _RESERVED_COLLECTOR_KWARGS = {
 }
 
 
-def _validate_positive_int(name: str, value: object) -> None:
-    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
-        raise ValueError(f"{name} must be a positive integer, got {value!r}.")
-
-
 @dataclass(frozen=True, slots=True, kw_only=True)
 class CollectorConfig:
     """Configuration shared by TorchRL's single- and multi-worker collectors."""
@@ -63,23 +63,31 @@ class CollectorConfig:
     storing_device: torch.device | str | None = None
     collector_kwargs: Mapping[str, Any] = field(default_factory=dict)
 
-    def __post_init__(self) -> None:
-        if not isinstance(self.mode, CollectionMode):
-            raise TypeError(f"mode must be a CollectionMode, got {type(self.mode)}.")
-        _validate_positive_int("frames_per_batch", self.frames_per_batch)
-        _validate_positive_int("num_workers", self.num_workers)
-        if not isinstance(self.total_frames, int) or isinstance(self.total_frames, bool):
-            raise ValueError(f"total_frames must be -1 or a positive integer, got {self.total_frames!r}.")
-        if self.total_frames != -1:
-            _validate_positive_int("total_frames", self.total_frames)
-        if not isinstance(self.collector_kwargs, Mapping):
-            raise TypeError("collector_kwargs must be a mapping.")
 
-        collector_kwargs = dict(self.collector_kwargs)
-        conflicts = _RESERVED_COLLECTOR_KWARGS.intersection(collector_kwargs)
-        if conflicts:
-            raise ValueError(f"collector_kwargs contains wrapper-owned arguments: {sorted(conflicts)}")
-        object.__setattr__(self, "collector_kwargs", MappingProxyType(collector_kwargs))
+
+def validate_collector_config(config: CollectorConfig) -> None:
+    """Validate a collector configuration before constructing a collector."""
+
+    if not isinstance(config, CollectorConfig):
+        raise TypeError(f"config must be a CollectorConfig, got {type(config)}.")
+    if not isinstance(config.mode, CollectionMode):
+        raise TypeError(f"mode must be a CollectionMode, got {type(config.mode)}.")
+    validate_positive_integer("frames_per_batch", config.frames_per_batch)
+    validate_positive_integer("num_workers", config.num_workers)
+    if config.total_frames != -1:
+        validate_positive_integer("total_frames", config.total_frames)
+    for field_name in ("device", "env_device", "policy_device", "storing_device"):
+        device = getattr(config, field_name)
+        if device is None or isinstance(device, torch.device):
+            continue
+        if isinstance(device, str):
+            validate_non_empty_string(field_name, device)
+            continue
+        raise TypeError(f"{field_name} must be a torch.device, string, or None.")
+    validate_mapping("collector_kwargs", config.collector_kwargs)
+    conflicts = _RESERVED_COLLECTOR_KWARGS.intersection(config.collector_kwargs)
+    if conflicts:
+        raise ValueError(f"collector_kwargs contains wrapper-owned arguments: {sorted(conflicts)}")
 
 
 def _build_collector(
@@ -121,10 +129,13 @@ def make_collector(
     The caller owns iteration, batch processing, and policy-weight update timing.
     """
 
-    if not callable(env_factory):
-        raise TypeError("env_factory must be callable.")
+    validate_collector_config(config)
+    validate_callable("env_factory", env_factory)
     collector = _build_collector(config=config, env_factory=env_factory, policy=policy)
     try:
         yield collector
     finally:
         collector.shutdown()
+
+
+__all__ = ["CollectionMode", "CollectorConfig", "make_collector", "validate_collector_config"]

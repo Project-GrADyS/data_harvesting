@@ -7,7 +7,7 @@ from .checkpointing import (
     MLflowCheckpointStore,
     load_checkpoint,
 )
-from .collection import CollectionMode, CollectorConfig, make_collector
+from .collection import CollectionMode, CollectorConfig, make_collector, validate_collector_config
 from .evaluation import EvaluationConfig, Evaluator, TerminalMetricExtractor
 from .metrics import (
     CategoricalMetricSpec,
@@ -43,4 +43,5 @@ __all__ = [
     "LocalCheckpointStore",
     "load_checkpoint",
     "make_collector",
+    "validate_collector_config",
 ]
