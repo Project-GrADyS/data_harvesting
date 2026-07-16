@@ -70,40 +70,6 @@ constructor arguments cannot be overridden through that mapping. The mapping rem
 without copying. As required by Python multiprocessing, construct
 multi-worker collectors under an `if __name__ == "__main__"` guard.
 
-## Checkpointing
-
-`rl_core.checkpointing` stores project-created state dictionaries in a versioned checkpoint envelope. Projects decide
-what to save and when; the package handles persistence, validation, retention, and restoration.
-
-```python
-from rl_core.checkpointing import Checkpoint, CheckpointManager, LocalCheckpointStore
-
-local_store = LocalCheckpointStore("checkpoints", keep_last=3)
-manager = CheckpointManager([local_store])
-
-manager.save(
-    Checkpoint(
-        step=experience_steps,
-        state={
-            "policy": policy.state_dict(),
-            "optimizer": optimizer.state_dict(),
-        },
-        metadata={"algorithm": "maddpg"},
-    )
-)
-
-checkpoint = local_store.load_latest()
-policy.load_state_dict(checkpoint.state["policy"])
-optimizer.load_state_dict(checkpoint.state["optimizer"])
-```
-
-`LocalCheckpointStore` writes atomically and can retain only the latest checkpoints. `MLflowCheckpointStore` saves and
-loads the same envelope from run artifacts and is available through the existing `mlflow` extra. Checkpoint files use
-Python pickle through PyTorch and must only be loaded from trusted sources.
-
-Checkpoint `state` and `metadata` mappings remain caller-owned. Saving sends the current contents to the selected store
-without introducing a read-only proxy or defensive clone.
-
 ## Scheduling
 
 `rl_core.scheduling` dispatches named callbacks at fixed training-step intervals. The scheduler owns only its logical
@@ -180,12 +146,12 @@ metrics are flushed using the step supplied directly or by `Scheduler`.
 
 ## Configuration and validation
 
-Configuration and envelope dataclasses are frozen, slotted, keyword-only, passive value objects. Validation is explicit:
-`validate_collector_config`, `validate_evaluation_config`, `validate_metric_spec`, and `validate_checkpoint` can be called
+Configuration dataclasses are frozen, slotted, keyword-only, passive value objects. Validation is explicit:
+`validate_collector_config`, `validate_evaluation_config`, and `validate_metric_spec` can be called
 directly, and the corresponding runtime boundary calls the same validator before using a value. Invalid runtime types
 raise `TypeError`; values of the expected type that violate a domain rule raise `ValueError`.
 
-Mutable mappings such as `collector_kwargs`, `rollout_kwargs`, checkpoint state, metadata, and metric labels are accepted
+Mutable mappings such as `collector_kwargs`, `rollout_kwargs`, and metric labels are accepted
 as caller-owned objects. The package does not copy them or promise deep immutability.
 
 ## Development
