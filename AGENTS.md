@@ -6,15 +6,13 @@ This repository trains and evaluates multi-agent data-harvesting policies with P
 
 ## Repository Layout
 
-- `data_harvesting/`: core package code.
-- `data_harvesting/environment/`: environment dynamics, metrics, protocols, and wrappers.
-- `data_harvesting/encoder/`: encoder blocks and flex encoder variants.
-- `tests/`: unit tests for algorithms, collectors, replay buffer, metrics, environment behavior, and flex encoder paths.
-- `main.py`: primary training entrypoint using `params.yaml`.
-- `evaluate.py`: evaluate a saved MLflow run by run ID.
-- `tune.py` and `tune_worker.py`: hyperparameter tuning entrypoints.
-- `profile_training.py`: profiling-oriented training runner.
-- `params.yaml`: default runtime configuration.
+- `packages/`: reusable `flex-marl`, `rl-core`, and `validation-core` packages.
+- `projects/data-harvesting/src/data_harvesting/`: project package code.
+- `projects/data-harvesting/src/data_harvesting/environment/`: environment dynamics, metrics, protocols, and wrappers.
+- `projects/data-harvesting/scripts/`: training, evaluation, tuning, profiling, and visualization entrypoints.
+- `projects/data-harvesting/tests/`: project-owned tests.
+- `projects/data-harvesting/params.yaml`: default runtime configuration.
+- `projects/data-harvesting/mlflow_server/`: private MLflow deployment files.
 - `mlruns/`: local MLflow tracking artifacts. Treat as generated output unless the task is explicitly about MLflow results.
 
 ## Environment And Tooling
@@ -26,27 +24,27 @@ This repository trains and evaluates multi-agent data-harvesting policies with P
 
 ## Common Commands
 
-- Run all tests: `uv run pytest`
-- Run a focused test file: `uv run pytest tests/test_algorithm_maddpg.py`
-- Run training with default params: `uv run python main.py`
-- Run training with an experiment name: `uv run python main.py -E <experiment_name>`
-- Evaluate a saved run: `uv run python evaluate.py --run-id <MLFLOW_RUN_ID> --num-runs <N>`
-- Run the profiler entrypoint: `uv run python profile_training.py`
-- Run tuning: `uv run python tune.py`
+- Run all tests: `uv run pytest packages projects/data-harvesting/tests`
+- Run project tests: `uv run --package data-harvesting pytest projects/data-harvesting/tests`
+- Run a focused test: `uv run --package data-harvesting pytest projects/data-harvesting/tests/test_algorithm_maddpg.py`
+- Run training: `uv run --package data-harvesting python projects/data-harvesting/scripts/main.py`
+- Evaluate a run: `uv run --package data-harvesting python projects/data-harvesting/scripts/evaluate.py --run-id <MLFLOW_RUN_ID> --num-runs <N>`
+- Run profiling: `uv run --package data-harvesting python projects/data-harvesting/scripts/profile_training.py`
+- Run tuning: `uv run --package data-harvesting python projects/data-harvesting/scripts/tune.py`
 
 ## Working Rules
 
 - Keep changes scoped to the user request. Do not refactor unrelated training or environment code opportunistically.
 - Avoid editing `mlruns/`, `.venv/`, `venv/`, `__pycache__/`, or `.pytest_cache/` unless the task explicitly requires it.
-- New tests should go under `tests/` near the behavior they cover.
-- If changing environment observations, rewards, metrics, or masking, run the relevant `tests/environment/` coverage.
-- If changing encoder code, run the matching `tests/flex_encoder/` coverage.
-- If changing training, optimization, replay, collector, or algorithm code, run the affected top-level tests in `tests/`.
+- New project tests should go under `projects/data-harvesting/tests/` near the behavior they cover.
+- New reusable-package tests should stay with their package under `packages/*/tests/`.
+- If changing environment observations, rewards, metrics, or masking, run the project `tests/environment/` coverage.
+- If changing encoder integration, run the project `tests/flex_encoder/` and `packages/flex-marl/tests/` coverage.
 - Prefer CPU-safe tests and short feedback loops. Do not introduce heavyweight training runs as part of validation unless the task requires it.
 
 ## MLflow Notes
 
-- The project uses a local MLflow tracking URI at `file:./mlruns` in the main scripts.
+- The scripts default to `projects/data-harvesting/mlruns` for local tracking.
 - Training and evaluation workflows depend on MLflow run IDs and logged model artifacts.
 - Do not delete or rewrite existing MLflow artifacts unless the user explicitly asks for cleanup or migration work.
 

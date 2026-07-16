@@ -5,10 +5,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python Debugger: main.py",
+            "name": "Python Debugger: data harvesting",
             "type": "debugpy",
             "request": "launch",
-            "program": "main.py",
+            "program": "projects/data-harvesting/scripts/main.py",
             "console": "integratedTerminal",
             "justMyCode": false
         }
