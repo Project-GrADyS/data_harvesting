@@ -1,5 +1,6 @@
 import pytest
 import torch
+from flex_marl import MultiAgentEncoderModule
 
 from data_harvesting.actor import create_actor
 from data_harvesting.critic import create_critic
@@ -229,3 +230,31 @@ def test_flex_critic_mask_changes_values_when_agent_is_masked() -> None:
         assert not torch.allclose(value_all_true, value_masked, atol=1e-6, rtol=1e-6)
     finally:
         env.close()
+
+
+def test_compiled_flex_encoder_disables_forward_checks_through_stack(monkeypatch) -> None:
+    config = _make_config(actor_mode="shared", critic_mode="centralized")
+    config["flex_encoder"]["compile"] = True
+    env = make_data_collection_env(config)
+    captured: list[MultiAgentEncoderModule] = []
+
+    def capture_compile(module):
+        captured.append(module)
+        return module
+
+    monkeypatch.setattr(torch, "compile", capture_compile)
+
+    try:
+        create_actor(env, torch.device("cpu"), config)
+    finally:
+        env.close()
+
+    assert len(captured) == 1
+    encoder = captured[0]
+    assert encoder.run_pre_forward_checks is False
+    assert encoder.encoder.run_pre_forward_checks is False
+    assert all(
+        head.run_pre_forward_checks is False
+        for head in encoder.encoder.heads.values()
+        if hasattr(head, "run_pre_forward_checks")
+    )

@@ -115,6 +115,21 @@ def test_multi_head_constructor_runs_config_validation(flat_config):
         make_encoder([replace(flat_config, input_size=0)])
 
 
+def test_multi_head_can_skip_and_propagates_pre_forward_checks(sequential_config):
+    encoder = make_encoder([sequential_config], run_pre_forward_checks=False).eval()
+    encoder._pre_forward_checks = lambda *args: pytest.fail("pre-forward checks ran")
+
+    output = encoder(
+        {
+            "sequence": torch.randn(2, 4, 3),
+            "sequence_mask": torch.ones(2, 4, dtype=torch.bool),
+        }
+    )
+
+    assert output.shape == (2, 6)
+    assert encoder.heads["sequence"].run_pre_forward_checks is False
+
+
 def test_multi_head_routes_observation_and_mask_to_matching_heads(flat_config, sequential_config):
     encoder = make_encoder([flat_config, sequential_config])
     flat_out, seq_out = torch.randn(7), torch.randn(8)

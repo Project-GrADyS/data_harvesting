@@ -24,6 +24,20 @@ def test_plural_pre_forward_checks_method_enforces_input_contract(module) -> Non
         module._pre_forward_checks({})
 
 
+def test_module_can_skip_and_propagates_pre_forward_checks(make_config, make_inputs) -> None:
+    module = MultiAgentEncoderModule(
+        make_config(MultiAgentMode.SHARED),
+        run_pre_forward_checks=False,
+    ).eval()
+    module._pre_forward_checks = lambda *args: pytest.fail("pre-forward checks ran")
+
+    output = module(make_inputs())
+
+    assert output.shape == (2, 3, 5)
+    assert module.encoder.run_pre_forward_checks is False
+    assert module.encoder.heads["sequence"].run_pre_forward_checks is False
+
+
 def test_forward_ignores_unrelated_input_keys(module, make_inputs) -> None:
     inputs = make_inputs()
     expected = module(inputs)

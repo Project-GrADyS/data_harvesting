@@ -19,16 +19,19 @@ class SequentialHead(nn.Module):
         self,
         config: SequentialHeadConfig,
         device: DEVICE_TYPING | None = None,
+        run_pre_forward_checks: bool = True,
     ):
         """Initialize the sequential head.
 
         Args:
             config: Configuration for the sequential head.
             device: Device to place the modules on. Defaults to CPU when ``None``.
+            run_pre_forward_checks: Whether to validate tensor contracts before each forward pass.
         """
         super().__init__()
         validate_head_config(config)
         self.config = config
+        self.run_pre_forward_checks = run_pre_forward_checks
 
         # Linear layer to project input features to the embedding dimension
         self.encoder = nn.Linear(config.input_size, config.output_size, device=device)
@@ -111,7 +114,8 @@ class SequentialHead(nn.Module):
         Returns:
             torch.Tensor: Output tensor of shape (*B, output_size).
         """
-        self._pre_forward_checks(x, idx, mask)
+        if self.run_pre_forward_checks:
+            self._pre_forward_checks(x, idx, mask)
 
         leading_batch_shape = x.shape[:-2]
         seq_len = x.shape[-2]

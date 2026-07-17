@@ -27,6 +27,7 @@ class MultiHeadEncoderModule(nn.Module):
         mix_activation_class: type[nn.Module] | None,
         output_dim: int,
         device: DEVICE_TYPING | None = None,
+        run_pre_forward_checks: bool = True,
     ) -> None:
         super().__init__()
         self.head_configs = tuple(head_configs)
@@ -43,6 +44,7 @@ class MultiHeadEncoderModule(nn.Module):
         self.mix_layer_num_cells = mix_layer_num_cells
         self.mix_activation_class = mix_activation_class if mix_activation_class is not None else nn.Tanh
         self.device = torch.device(device) if device is not None else torch.device("cpu")
+        self.run_pre_forward_checks = run_pre_forward_checks
 
         self.heads = nn.ModuleDict()
         for config in self.head_configs:
@@ -50,7 +52,11 @@ class MultiHeadEncoderModule(nn.Module):
             if config.key in self.heads:
                 raise ValueError(f"Duplicate head key found: {config.key}")
             if isinstance(config, SequentialHeadConfig):
-                self.heads[config.key] = SequentialHead(config, device=self.device)
+                self.heads[config.key] = SequentialHead(
+                    config,
+                    device=self.device,
+                    run_pre_forward_checks=run_pre_forward_checks,
+                )
             else:
                 self.heads[config.key] = FlatHead(config, device=self.device)
 
@@ -84,7 +90,8 @@ class MultiHeadEncoderModule(nn.Module):
     def forward(self, input_dict: dict[str, torch.Tensor]) -> torch.Tensor:
         """Encode and mix a dictionary containing every configured observation head."""
 
-        self._pre_forward_checks(input_dict)
+        if self.run_pre_forward_checks:
+            self._pre_forward_checks(input_dict)
 
         head_outputs: list[torch.Tensor] = []
         batch_shape: torch.Size | None = None

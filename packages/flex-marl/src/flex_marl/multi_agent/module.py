@@ -21,6 +21,7 @@ from .configs import (
 def _build_encoder(
     config: MultiAgentEncoderConfig,
     device: torch.device,
+    run_pre_forward_checks: bool,
 ) -> MultiHeadEncoderModule:
     """Compile all fields and construct one mode-agnostic structured encoder."""
 
@@ -32,6 +33,7 @@ def _build_encoder(
         mix_activation_class=config.mix_activation_class,
         output_dim=config.output_dim,
         device=device,
+        run_pre_forward_checks=run_pre_forward_checks,
     )
 
 
@@ -69,24 +71,31 @@ class MultiAgentEncoderModule(nn.Module):
     Args:
         config: Field descriptions, execution mode, mask key, and encoder dimensions.
         device: Device on which the underlying encoders are constructed. Defaults to CPU.
+        run_pre_forward_checks: Whether this module and its child encoders validate
+            tensor contracts before each forward pass.
     """
 
     def __init__(
         self,
         config: MultiAgentEncoderConfig,
         device: DEVICE_TYPING | None = None,
+        run_pre_forward_checks: bool = True,
     ) -> None:
         super().__init__()
         validate_multi_agent_encoder_config(config)
         self.config = config
         self.device = torch.device(device) if device is not None else torch.device("cpu")
+        self.run_pre_forward_checks = run_pre_forward_checks
 
         if config.mode is MultiAgentMode.INDEPENDENT:
             # Each fixed slot owns a completely separate encoder and parameter set.
-            self.encoders = nn.ModuleList(_build_encoder(config, self.device) for _ in range(config.num_agents))
+            self.encoders = nn.ModuleList(
+                _build_encoder(config, self.device, run_pre_forward_checks)
+                for _ in range(config.num_agents)
+            )
         else:
             # Shared and centralized execution each require only one parameter set.
-            self.encoder = _build_encoder(config, self.device)
+            self.encoder = _build_encoder(config, self.device, run_pre_forward_checks)
 
     def _pre_forward_checks(self, input_dict: dict[str, torch.Tensor]) -> None:
         """Validate all required keys, dtypes, and shapes before transforming tensors."""
@@ -153,7 +162,8 @@ class MultiAgentEncoderModule(nn.Module):
     def forward(self, input_dict: dict[str, torch.Tensor]) -> torch.Tensor:
         """Validate and encode a dictionary of fixed-slot multi-agent observations."""
 
-        self._pre_forward_checks(input_dict)
+        if self.run_pre_forward_checks:
+            self._pre_forward_checks(input_dict)
         agent_mask = input_dict[self.config.agent_mask_key]
 
         if self.config.mode is MultiAgentMode.INDEPENDENT:

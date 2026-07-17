@@ -152,6 +152,9 @@ flex_encoder:
   # Master switch: when true, actor/critic construction logic should instantiate
   # MultiAgentFlexEncoder instead of the standard MultiAgentMLP backbones.
   enabled: true
+  # Compile the encoder and omit per-forward tensor contract checks. Constructor
+  # configuration validation remains enabled.
+  compile: true
 
   # Transformer-based sequential heads. Each entry corresponds to an observation
   # key whose tensor shape is (batch, n_agents, seq_len, input_dim).

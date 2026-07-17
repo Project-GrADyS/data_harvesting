@@ -56,6 +56,8 @@ def make_flex_encoder_module(
     flex_config = config["flex_encoder"]
     sequential_config = flex_config["sequential_heads"]
     flat_config = flex_config["flat_heads"]
+    should_compile = bool(flex_config.get("compile", False))
+
     mode = _encoder_mode(network_config)
 
     sequential_options = SequentialFieldOptions(
@@ -144,7 +146,11 @@ def make_flex_encoder_module(
             centralized_output=CentralizedOutput.BROADCAST,
         ),
         device=device,
+        run_pre_forward_checks=not should_compile,
     )
+
+    if should_compile:
+        encoder = torch.compile(encoder)
 
     return TensorDictModule(
         _TensorDictEncoderRouter(encoder),
