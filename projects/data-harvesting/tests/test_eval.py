@@ -1,12 +1,15 @@
+from types import SimpleNamespace
+
 import pytest
 import torch
-from types import SimpleNamespace
 from tensordict import TensorDict
 from tensordict.nn import TensorDictModule
 from torch import nn
 
 from data_harvesting.eval import eval as run_eval
+from data_harvesting.eval import list_policy_models_from_mlflow_run
 from data_harvesting.eval import load_config_from_mlflow_run
+from data_harvesting.eval import load_policy_from_model_id
 
 
 class ConstantDirectionPolicy(nn.Module):
@@ -148,3 +151,63 @@ def test_load_config_from_mlflow_run_requires_environment_config(monkeypatch) ->
 
     with pytest.raises(ValueError, match="pass --params"):
         load_config_from_mlflow_run("missing-environment")
+
+
+def test_list_policy_models_from_mlflow_run_returns_deterministic_order(monkeypatch) -> None:
+    logged_models = [
+        SimpleNamespace(name="policy_model", model_id="final", creation_timestamp=300),
+        SimpleNamespace(name="checkpoint", model_id="checkpoint-b", creation_timestamp=100),
+        SimpleNamespace(name="checkpoint", model_id="checkpoint-a", creation_timestamp=100),
+        SimpleNamespace(name="auxiliary", model_id="aux", creation_timestamp=None),
+    ]
+
+    class _FakeClient:
+        def get_run(self, run_id: str):
+            assert run_id == "run-123"
+            return SimpleNamespace(info=SimpleNamespace(experiment_id="experiment-1"))
+
+        def search_logged_models(self, **kwargs):
+            assert kwargs == {
+                "experiment_ids": ["experiment-1"],
+                "filter_string": "source_run_id = 'run-123'",
+            }
+            return logged_models
+
+    monkeypatch.setattr("data_harvesting.eval.MlflowClient", _FakeClient)
+
+    models = list_policy_models_from_mlflow_run("run-123")
+
+    assert [model.model_id for model in models] == [
+        "aux",
+        "checkpoint-a",
+        "checkpoint-b",
+        "final",
+    ]
+
+
+def test_list_policy_models_from_mlflow_run_rejects_empty_run(monkeypatch) -> None:
+    class _FakeClient:
+        def get_run(self, run_id: str):
+            return SimpleNamespace(info=SimpleNamespace(experiment_id="experiment-1"))
+
+        def search_logged_models(self, **kwargs):
+            return []
+
+    monkeypatch.setattr("data_harvesting.eval.MlflowClient", _FakeClient)
+
+    with pytest.raises(ValueError, match="No logged models"):
+        list_policy_models_from_mlflow_run("empty-run")
+
+
+def test_load_policy_from_model_id_uses_mlflow_model_uri(monkeypatch) -> None:
+    loaded_uris: list[str] = []
+    expected_policy = object()
+    monkeypatch.setattr(
+        "data_harvesting.eval.mlflow_pytorch.load_model",
+        lambda uri: loaded_uris.append(uri) or expected_policy,
+    )
+
+    policy = load_policy_from_model_id("model-123")
+
+    assert policy is expected_policy
+    assert loaded_uris == ["models:/model-123"]

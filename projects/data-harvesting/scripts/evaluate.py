@@ -8,8 +8,11 @@ import mlflow
 import yaml
 
 from data_harvesting.eval import eval as run_eval
+from data_harvesting.eval import LoggedPolicyModel
 from data_harvesting.eval import load_config_from_mlflow_run
+from data_harvesting.eval import load_policy_from_model_id
 from data_harvesting.eval import load_policy_from_mlflow_run
+from data_harvesting.eval import list_policy_models_from_mlflow_run
 from _paths import DEFAULT_TRACKING_URI
 
 
@@ -66,15 +69,29 @@ def _write_output_table(results: dict, output_path: str) -> None:
     metric_names = list(results.get("metrics", {}).keys())
     end_cause_names = list(results.get("end_cause_counts", {}).keys())
     if episode_rows:
+        identity_columns = [
+            column
+            for column in ("model_name", "model_id")
+            if any(column in row for row in episode_rows)
+        ]
         categorical_metric_keys = sorted(
             {
                 key
                 for row in episode_rows
                 for key in row.keys()
-                if key not in {"run_index", "scenario_key", "num_agents", "num_sensors", *metric_names}
+                if key
+                not in {
+                    *identity_columns,
+                    "run_index",
+                    "scenario_key",
+                    "num_agents",
+                    "num_sensors",
+                    *metric_names,
+                }
             }
         )
         columns = [
+            *identity_columns,
             "run_index",
             "scenario_key",
             "num_agents",
@@ -156,6 +173,58 @@ def _write_output_table(results: dict, output_path: str) -> None:
     print(f"Wrote CSV table to {output_file}")
 
 
+def _tag_results_with_model(results: dict, model: LoggedPolicyModel) -> None:
+    results["model_name"] = model.name
+    results["model_id"] = model.model_id
+    for episode_row in results.get("episodes", []):
+        episode_row["model_name"] = model.name
+        episode_row["model_id"] = model.model_id
+
+
+def _combine_model_results(model_results: list[dict]) -> dict:
+    metric_names = {
+        metric_name
+        for results in model_results
+        for metric_name in results.get("metrics", {})
+    }
+    return {
+        "num_runs": sum(results.get("num_runs", 0) for results in model_results),
+        "metrics": {metric_name: {} for metric_name in sorted(metric_names)},
+        "episodes": [
+            episode_row
+            for results in model_results
+            for episode_row in results.get("episodes", [])
+        ],
+    }
+
+
+def _print_model_comparison(model_results: list[dict]) -> None:
+    if len(model_results) <= 1:
+        return
+
+    print("\n=== Model Comparison ===")
+    best: tuple[float, str] | None = None
+    for results in model_results:
+        model_name = results.get("model_name", "")
+        all_collected_total = sum(
+            float(row.get("all_collected", 0.0))
+            for row in results.get("episodes", [])
+        )
+        all_collected_mean = (
+            results.get("metrics", {}).get("all_collected", {}).get("mean", 0.0)
+        )
+        print(
+            f"- {model_name}: "
+            f"all_collected_total={all_collected_total:.0f}, "
+            f"all_collected_mean={all_collected_mean:.4f}"
+        )
+        if best is None or all_collected_total > best[0]:
+            best = (all_collected_total, model_name)
+
+    if best is not None:
+        print(f"Best by total all_collected: {best[1]} ({best[0]:.0f})")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate a saved MLflow model run.")
     parser.add_argument("--run-id", "-R", required=True, help="MLflow run ID to evaluate")
@@ -187,6 +256,11 @@ def main() -> None:
         help="Preferred logged model name for the given run",
     )
     parser.add_argument(
+        "--all-models",
+        action="store_true",
+        help="Evaluate every logged model from the run",
+    )
+    parser.add_argument(
         "--output-table",
         default=None,
         help="Optional CSV file path to write a per-episode results table",
@@ -206,21 +280,39 @@ def main() -> None:
         )
         config_source = "MLflow run params"
 
-    policy, model_id = load_policy_from_mlflow_run(
-        args.run_id,
-        tracking_uri=args.tracking_uri,
-        model_name=args.model_name,
-    )
-
     print(f"Evaluating run_id={args.run_id}")
-    print(f"Loaded model_id={model_id}")
     print(f"Config source={config_source}")
     print(f"Visual mode={'on' if args.visual else 'off'}")
 
-    results = run_eval(policy, config, args.num_runs, visual=args.visual)
-    _print_summary(results)
+    if args.all_models:
+        models = list_policy_models_from_mlflow_run(
+            args.run_id,
+            tracking_uri=args.tracking_uri,
+        )
+    else:
+        policy, model_id = load_policy_from_mlflow_run(
+            args.run_id,
+            tracking_uri=args.tracking_uri,
+            model_name=args.model_name,
+        )
+        models = [LoggedPolicyModel(name=args.model_name, model_id=model_id)]
+
+    model_results = []
+    for model_index, model in enumerate(models, start=1):
+        print(
+            f"\nEvaluating model {model_index}/{len(models)}: "
+            f"{model.name} ({model.model_id})"
+        )
+        if args.all_models:
+            policy = load_policy_from_model_id(model.model_id)
+        results = run_eval(policy, config, args.num_runs, visual=args.visual)
+        _tag_results_with_model(results, model)
+        _print_summary(results)
+        model_results.append(results)
+
+    _print_model_comparison(model_results)
     if args.output_table:
-        _write_output_table(results, args.output_table)
+        _write_output_table(_combine_model_results(model_results), args.output_table)
 
 
 if __name__ == "__main__":

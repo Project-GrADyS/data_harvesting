@@ -31,8 +31,22 @@ uv run --package data-harvesting python projects/data-harvesting/scripts/visuali
 uv run --package data-harvesting pytest projects/data-harvesting/tests
 ```
 
-Each script resolves `params.yaml` relative to this project. The default MLflow
-tracking location is `projects/data-harvesting/mlruns`; set
+Evaluation uses the configuration logged on the MLflow run by default. Pass
+`--params <PATH>` to override it with a local YAML file. To evaluate every
+model logged to a run and write a combined per-episode table, run:
+
+```bash
+uv run --package data-harvesting python projects/data-harvesting/scripts/evaluate.py \
+  --run-id <RUN_ID> --num-runs <N> --all-models --output-table results.csv
+```
+
+The combined table includes `model_name` and `model_id` columns. The printed
+comparison ranks models by total `all_collected`; evaluation forces
+`end_when_all_collected` on so collection success terminates the episode.
+
+Scripts that use a default configuration resolve `params.yaml` relative to this
+project. The default MLflow tracking location is
+`projects/data-harvesting/mlruns`; set
 `MLFLOW_TRACKING_URI` or pass `--tracking-uri` to use the private server.
 
 Older MLflow policies saved as pickled full modules before the `flex-marl`
