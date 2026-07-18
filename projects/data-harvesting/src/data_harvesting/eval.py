@@ -11,7 +11,11 @@ from mlflow import pytorch as mlflow_pytorch
 from mlflow import MlflowClient
 from torchrl.envs.utils import ExplorationType, set_exploration_type
 
-from data_harvesting.environment import make_env, make_metrics_spec
+from data_harvesting.environment import (
+    evaluation_environment_overrides,
+    make_env,
+    make_metrics_spec,
+)
 
 
 def _scalar_specs(metrics_spec):
@@ -180,6 +184,7 @@ def eval(
 
     eval_config = deepcopy(config)
     env_config = eval_config.setdefault("environment", {})
+    env_config.update(evaluation_environment_overrides(eval_config))
     env_config["render_mode"] = "visual" if visual else None
 
     env = make_env(eval_config)

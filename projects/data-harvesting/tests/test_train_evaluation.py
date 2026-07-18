@@ -45,6 +45,7 @@ def test_periodic_evaluation_builds_rl_core_evaluator_with_cpu_policy(monkeypatc
     policy = _FakePolicy()
     algorithm = SimpleNamespace(policy=policy)
     captured = {}
+    environment_configs: list[dict] = []
 
     class _FakeEvaluator:
         def __init__(self, **kwargs) -> None:
@@ -55,10 +56,20 @@ def test_periodic_evaluation_builds_rl_core_evaluator_with_cpu_policy(monkeypatc
             return {"avg_reward": 2.0}
 
     monkeypatch.setattr("data_harvesting.train.Evaluator", _FakeEvaluator)
+    monkeypatch.setattr(
+        "data_harvesting.train.make_env",
+        lambda config: environment_configs.append(config) or _FakeEnv(),
+    )
 
+    source_config = {
+        "environment": {
+            "max_episode_length": 3,
+            "end_when_all_collected": False,
+        }
+    }
     result = _run_periodic_evaluation(
         algorithm,
-        {"environment": {"max_episode_length": 3}},
+        source_config,
         experience_steps=120,
         metrics_spec=(
             ScalarMetricSpec(key="avg_reward", reducer=ScalarReducer.MEAN),
@@ -73,3 +84,7 @@ def test_periodic_evaluation_builds_rl_core_evaluator_with_cpu_policy(monkeypatc
     assert captured["config"].max_steps == 3
     assert captured["policy"] is not policy
     assert next(captured["policy"].parameters()).device.type == "cpu"
+
+    captured["env_factory"]()
+    assert environment_configs[0]["environment"]["end_when_all_collected"] is True
+    assert source_config["environment"]["end_when_all_collected"] is False
