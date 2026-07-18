@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 from copy import deepcopy
 from typing import Any
 
@@ -114,6 +115,41 @@ def _resolve_model_id_from_run(
     candidates = preferred if preferred else models
     candidates.sort(key=lambda item: item.creation_timestamp or 0, reverse=True)
     return candidates[0].model_id
+
+
+def load_config_from_mlflow_run(
+    run_id: str,
+    *,
+    tracking_uri: str | None = None,
+) -> dict[str, Any]:
+    if tracking_uri:
+        mlflow.set_tracking_uri(tracking_uri)
+
+    run = MlflowClient().get_run(run_id)
+    config: dict[str, Any] = {}
+    for key, value in run.data.params.items():
+        try:
+            parsed_value = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            parsed_value = value
+
+        if "." not in key:
+            config[key] = parsed_value
+            continue
+
+        section = config
+        parts = key.split(".")
+        for part in parts[:-1]:
+            section = section.setdefault(part, {})
+        section[parts[-1]] = parsed_value
+
+    if "environment" not in config:
+        raise ValueError(
+            f"Run '{run_id}' does not include a logged environment config; "
+            "pass --params to evaluate with a local file."
+        )
+
+    return config
 
 
 def load_policy_from_mlflow_run(

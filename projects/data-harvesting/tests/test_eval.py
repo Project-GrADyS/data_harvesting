@@ -1,9 +1,11 @@
 import pytest
 import torch
+from types import SimpleNamespace
 from tensordict.nn import TensorDictModule
 from torch import nn
 
 from data_harvesting.eval import eval as run_eval
+from data_harvesting.eval import load_config_from_mlflow_run
 
 
 class ConstantDirectionPolicy(nn.Module):
@@ -72,3 +74,41 @@ def test_eval_summarizes_dynamic_scalar_and_categorical_metrics() -> None:
     assert scenario_results["metrics"]["completion_time"]["mean"] == pytest.approx(3.0)
     assert scenario_results["end_cause_counts"]["STALLED"] == 3
     assert scenario_results["end_cause_rate"]["STALLED"] == pytest.approx(1.0)
+
+
+def test_load_config_from_mlflow_run_parses_nested_and_dotted_params(monkeypatch) -> None:
+    class _FakeClient:
+        def get_run(self, run_id: str):
+            assert run_id == "run-123"
+            return SimpleNamespace(
+                data=SimpleNamespace(
+                    params={
+                        "environment": "{'max_episode_length': 50, 'sequential_obs': True}",
+                        "training.algorithm": "maddpg",
+                        "evaluation.seed": "None",
+                        "label": "experiment-a",
+                    }
+                )
+            )
+
+    monkeypatch.setattr("data_harvesting.eval.MlflowClient", _FakeClient)
+
+    config = load_config_from_mlflow_run("run-123")
+
+    assert config == {
+        "environment": {"max_episode_length": 50, "sequential_obs": True},
+        "training": {"algorithm": "maddpg"},
+        "evaluation": {"seed": None},
+        "label": "experiment-a",
+    }
+
+
+def test_load_config_from_mlflow_run_requires_environment_config(monkeypatch) -> None:
+    class _FakeClient:
+        def get_run(self, run_id: str):
+            return SimpleNamespace(data=SimpleNamespace(params={"training.lr": "0.001"}))
+
+    monkeypatch.setattr("data_harvesting.eval.MlflowClient", _FakeClient)
+
+    with pytest.raises(ValueError, match="pass --params"):
+        load_config_from_mlflow_run("missing-environment")

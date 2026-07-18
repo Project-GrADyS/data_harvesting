@@ -8,8 +8,9 @@ import mlflow
 import yaml
 
 from data_harvesting.eval import eval as run_eval
+from data_harvesting.eval import load_config_from_mlflow_run
 from data_harvesting.eval import load_policy_from_mlflow_run
-from _paths import DEFAULT_PARAMS_PATH, DEFAULT_TRACKING_URI
+from _paths import DEFAULT_TRACKING_URI
 
 
 def _print_summary(results: dict) -> None:
@@ -172,8 +173,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--params",
-        default=str(DEFAULT_PARAMS_PATH),
-        help="Path to YAML params file used to build the environment",
+        default=None,
+        help="Optional YAML params file used to build the environment; defaults to the run's logged config",
     )
     parser.add_argument(
         "--tracking-uri",
@@ -194,8 +195,16 @@ def main() -> None:
 
     mlflow.set_tracking_uri(args.tracking_uri)
 
-    with open(args.params, "r") as handle:
-        config: dict = yaml.safe_load(handle)
+    if args.params:
+        with open(args.params, "r") as handle:
+            config: dict = yaml.safe_load(handle)
+        config_source = args.params
+    else:
+        config = load_config_from_mlflow_run(
+            args.run_id,
+            tracking_uri=args.tracking_uri,
+        )
+        config_source = "MLflow run params"
 
     policy, model_id = load_policy_from_mlflow_run(
         args.run_id,
@@ -205,6 +214,7 @@ def main() -> None:
 
     print(f"Evaluating run_id={args.run_id}")
     print(f"Loaded model_id={model_id}")
+    print(f"Config source={config_source}")
     print(f"Visual mode={'on' if args.visual else 'off'}")
 
     results = run_eval(policy, config, args.num_runs, visual=args.visual)
