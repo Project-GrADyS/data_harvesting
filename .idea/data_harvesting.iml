@@ -2,9 +2,19 @@
 <module type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/packages/flex-marl" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/packages/flex-marl/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/packages/rl-core" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/packages/rl-core/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/packages/validation-core" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/packages/validation-core/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/projects/d-atc" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/projects/d-atc/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/projects/data-harvesting" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/projects/data-harvesting/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.13.7 WSL (Ubuntu22.04): (/home/thlamz/data_harvesting/.venv/bin/python3)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="uv (distributed-rl)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>

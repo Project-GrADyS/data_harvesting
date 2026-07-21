@@ -10,6 +10,30 @@ def _validate_integer_type(name: str, value: object) -> int:
     return value
 
 
+def _validate_real_type(name: str, value: object) -> int | float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError(f"{name} must be a real number, got {type(value).__name__}.")
+    return value
+
+
+def validate_finite_real(name: str, value: object) -> None:
+    real = _validate_real_type(name, value)
+    if not isfinite(real):
+        raise ValueError(f"{name} must be finite, got {real!r}.")
+
+
+def validate_positive_real(name: str, value: object) -> None:
+    real = _validate_real_type(name, value)
+    if not isfinite(real) or real <= 0:
+        raise ValueError(f"{name} must be positive and finite, got {real!r}.")
+
+
+def validate_non_negative_real(name: str, value: object) -> None:
+    real = _validate_real_type(name, value)
+    if not isfinite(real) or real < 0:
+        raise ValueError(f"{name} must be non-negative and finite, got {real!r}.")
+
+
 def validate_positive_integer(name: str, value: object) -> None:
     integer = _validate_integer_type(name, value)
     if integer <= 0:

@@ -10,10 +10,13 @@ import validation_core
 from validation_core import (
     validate_bool,
     validate_callable,
+    validate_finite_real,
     validate_mapping,
     validate_non_empty_string,
     validate_non_negative_integer,
+    validate_non_negative_real,
     validate_positive_integer,
+    validate_positive_real,
     validate_probability,
 )
 
@@ -21,10 +24,13 @@ from validation_core import (
 PUBLIC_API = {
     "validate_bool",
     "validate_callable",
+    "validate_finite_real",
     "validate_mapping",
     "validate_non_empty_string",
     "validate_non_negative_integer",
+    "validate_non_negative_real",
     "validate_positive_integer",
+    "validate_positive_real",
     "validate_probability",
 }
 
@@ -43,6 +49,46 @@ def test_package_source_parses_as_python_3_11() -> None:
             filename=str(source_file),
             feature_version=(3, 11),
         )
+
+
+@pytest.mark.parametrize("value", [-10, -0.5, 0, 0.0, 1.5, 10])
+def test_validate_finite_real_accepts_finite_numbers(value: int | float) -> None:
+    assert validate_finite_real("value", value) is None
+
+
+@pytest.mark.parametrize("value", [float("inf"), float("-inf"), float("nan")])
+def test_validate_finite_real_rejects_non_finite_numbers(value: float) -> None:
+    with pytest.raises(ValueError, match="value"):
+        validate_finite_real("value", value)
+
+
+@pytest.mark.parametrize("value", [True, False, "1", None, object()])
+def test_real_validators_reject_wrong_runtime_types(value: object) -> None:
+    for validator in (validate_finite_real, validate_positive_real, validate_non_negative_real):
+        with pytest.raises(TypeError, match="value"):
+            validator("value", value)
+
+
+@pytest.mark.parametrize("value", [0.1, 1, 10.5])
+def test_validate_positive_real_accepts_positive_finite_numbers(value: int | float) -> None:
+    assert validate_positive_real("rate", value) is None
+
+
+@pytest.mark.parametrize("value", [0, 0.0, -0.1, float("inf"), float("nan")])
+def test_validate_positive_real_rejects_other_numbers(value: int | float) -> None:
+    with pytest.raises(ValueError, match="rate"):
+        validate_positive_real("rate", value)
+
+
+@pytest.mark.parametrize("value", [0, 0.0, 0.1, 10])
+def test_validate_non_negative_real_accepts_finite_numbers(value: int | float) -> None:
+    assert validate_non_negative_real("speed", value) is None
+
+
+@pytest.mark.parametrize("value", [-0.1, -1, float("inf"), float("nan")])
+def test_validate_non_negative_real_rejects_other_numbers(value: int | float) -> None:
+    with pytest.raises(ValueError, match="speed"):
+        validate_non_negative_real("speed", value)
 
 
 @pytest.mark.parametrize("value", [1, 2, 10_000])
