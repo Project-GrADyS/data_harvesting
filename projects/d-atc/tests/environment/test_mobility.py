@@ -195,6 +195,14 @@ def test_command_rejects_invalid_values(
         BlueSkyMobilityCommand(**values)
 
 
+def test_command_accepts_omitted_fields() -> None:
+    command = BlueSkyMobilityCommand()
+
+    assert command.param_1 is None
+    assert command.param_2 is None
+    assert command.param_3 is None
+
+
 def test_handler_initializes_bluesky_and_rejects_duplicate_registration(fake_handler) -> None:
     handler, _, _, stack, init_calls = fake_handler
     node = _node(1)
@@ -281,7 +289,38 @@ def test_descent_command_uses_lower_target_and_positive_rate_magnitude(fake_hand
 
     handler.handle_command(BlueSkyMobilityCommand(180.0, 250.0, -500.0), node)
 
-    assert stack.commands[-1] == "HDG AC1,180.0;SPD AC1,250.0;ALT AC1,500.0,500.0"
+    assert stack.commands[-1] == "HDG AC1,180.0;SPD AC1,250.0;ALT AC1,500.0,500.0;"
+
+
+@pytest.mark.parametrize(
+    ("command", "expected_instruction"),
+    [
+        (BlueSkyMobilityCommand(heading=180.0), "HDG AC1,180.0;"),
+        (BlueSkyMobilityCommand(speed=250.0), "SPD AC1,250.0;"),
+        (BlueSkyMobilityCommand(vertical_speed=500.0), "ALT AC1,1500.0,500.0;"),
+    ],
+)
+def test_handle_command_stacks_only_supplied_fields(fake_handler, command, expected_instruction: str) -> None:
+    handler, _, _, stack, _ = fake_handler
+    node = _node(1)
+    handler.register_node(node)
+    handler.initialize_aircraft(1, "A320", HOME[0], HOME[1], 1_000.0 * ft, 90.0, 120.0)
+
+    handler.handle_command(command, node)
+
+    assert stack.commands[-1] == expected_instruction
+
+
+def test_empty_command_does_not_stack_an_instruction(fake_handler) -> None:
+    handler, _, _, stack, _ = fake_handler
+    node = _node(1)
+    handler.register_node(node)
+    handler.initialize_aircraft(1, "A320", HOME[0], HOME[1], HOME[2], 90.0, 120.0)
+    command_count = len(stack.commands)
+
+    handler.handle_command(BlueSkyMobilityCommand(), node)
+
+    assert len(stack.commands) == command_count
 
 
 def test_step_detects_bluesky_clock_drift(fake_handler) -> None:

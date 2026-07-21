@@ -57,18 +57,21 @@ class _BlueSkyAircraft:
 
 
 class BlueSkyMobilityCommand(MobilityCommand):
-    def __init__(self, heading: float, speed: float, vertical_speed: float):
+    def __init__(self, heading: float | None = None,
+                 speed: float | None = None,
+                 vertical_speed: float | None = None):
         """
         :param heading: Target heading of the aircraft in degrees.
         :param speed: Target speed of the aircraft in knots
         :param vertical_speed: Target vertical speed of the aircraft in feet per minutes.
         """
-        heading = _finite_float("heading", heading)
-        validate_non_negative_real("speed", speed)
-        speed = float(speed)
-        vertical_speed = _finite_float("vertical_speed", vertical_speed)
+        heading = _finite_float("heading", heading) if heading is not None else None
+        if speed is not None:
+            validate_non_negative_real("speed", speed)
 
-        if not 0.0 <= heading < 360.0:
+        vertical_speed = _finite_float("vertical_speed", vertical_speed) if vertical_speed is not None else None
+
+        if heading is not None and not 0.0 <= heading < 360.0:
             raise ValueError("heading must be in the range [0, 360)")
 
         super().__init__(4, heading, speed, vertical_speed)
@@ -224,25 +227,32 @@ class BlueSkyMobilityHandler(INodeHandler):
         if node.id not in self._aircraft:
             raise ValueError(f"Node with ID {node.id} is not initialized as an aircraft.")
 
-        heading = command.param_1
-        speed = command.param_2
-        vertical_speed = command.param_3
+        heading: float | None = command.param_1
+        speed: float | None = command.param_2
+        vertical_speed: float | None = command.param_3
 
         callsign = self._aircraft[node.id].callsign
 
-        # BluSky autopilot requires both vertical speed and altitude to be set. Since altitude is not part of the
-        # command, we set the target altitude based on the current altitude and the vertical speed, with a wide
-        # margin of 1 minute.
-        alt = self.traffic.alt[self.traffic.id2idx(callsign)]
-        alt_ft = alt / ft
-        target_alt_ft = max(alt_ft + vertical_speed * 1.0, 0)
+        instruction = ""
+        if heading is not None:
+            instruction += f"HDG {callsign},{heading};"
+
+        if speed is not None:
+            instruction += f"SPD {callsign},{speed};"
+
+        if vertical_speed is not None:
+            # BluSky autopilot requires both vertical speed and altitude to be set. Since altitude is not part of the
+            # instruction, we set the target altitude based on the current altitude and the vertical speed, with a wide
+            # margin of 1 minute.
+            alt = self.traffic.alt[self.traffic.id2idx(callsign)]
+            alt_ft = alt / ft
+            target_alt_ft = max(alt_ft + vertical_speed * 1.0, 0)
+
+            instruction += f"ALT {callsign},{target_alt_ft},{abs(vertical_speed)};"
 
         # Update the aircraft's heading, speed, vertical speed and altitude in BlueSky
-        bs.stack.stack(
-            f"HDG {callsign},{heading};"
-            f"SPD {callsign},{speed};"
-            f"ALT {callsign},{target_alt_ft},{abs(vertical_speed)}"
-        )
+        if len(instruction) > 0:
+            bs.stack.stack(instruction)
 
 
 def _finite_float(name: str, value: float) -> float:
