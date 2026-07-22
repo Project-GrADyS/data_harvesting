@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module external.system.id="pyproject.toml" type="PYTHON_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/.venv" />
+    </content>
+    <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="module" module-name="d-atc" exported="" />
+    <orderEntry type="module" module-name="data-harvesting" exported="" />
+    <orderEntry type="module" module-name="rl-core" exported="" />
+    <orderEntry type="module" module-name="flex-marl" exported="" />
+    <orderEntry type="module" module-name="validation-core" exported="" />
+    <orderEntry type="jdk" jdkName="uv (distributed-rl)" jdkType="Python SDK" />
+  </component>
+</module>

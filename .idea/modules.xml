@@ -2,7 +2,12 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/data_harvesting.iml" filepath="$PROJECT_DIR$/.idea/data_harvesting.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/d-atc.iml" filepath="$PROJECT_DIR$/.idea/d-atc.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/data-harvesting.iml" filepath="$PROJECT_DIR$/.idea/data-harvesting.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/data-harvesting-workspace.iml" filepath="$PROJECT_DIR$/.idea/data-harvesting-workspace.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/flex-marl.iml" filepath="$PROJECT_DIR$/.idea/flex-marl.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/rl-core.iml" filepath="$PROJECT_DIR$/.idea/rl-core.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/validation-core.iml" filepath="$PROJECT_DIR$/.idea/validation-core.iml" />
     </modules>
   </component>
 </project>
