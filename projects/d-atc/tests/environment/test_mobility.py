@@ -208,6 +208,7 @@ def test_handler_initializes_bluesky_and_rejects_duplicate_registration(fake_han
     node = _node(1)
 
     assert init_calls == [("sim", handler._workdir, True)]
+    assert handler._workdir.is_dir()
     assert stack.commands == ["DT 0.05"]
 
     handler.register_node(node)

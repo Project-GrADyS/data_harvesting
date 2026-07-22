@@ -2,27 +2,20 @@
 
 Reinforcement-learning experiments for distributed air traffic control.
 
-## BlueSky benchmark
+## GrADyS/BlueSky circle simulation
 
-The benchmark runs one headless BlueSky simulator per process, because BlueSky
-uses process-global simulation and traffic state. It measures rollout throughput
-separately from process startup and environment resets.
-
-Run a small smoke benchmark:
+Run a finite integration scenario with aircraft randomly placed near a geographic
+center and controlled by `AircraftCircleProtocol`:
 
 ```powershell
-uv run --package d-atc python projects/d-atc/scripts/benchmark_bsky.py `
-  --aircraft 10 --workers 1 --steps 10 --episodes 1
+uv run --package d-atc circle-simulation `
+  --latitude -23.5505 --longitude -46.6333 --altitude-m 1500 `
+  --aircraft 5 --radius-m 5000 --altitude-spread-m 250 `
+  --speed-mps 120 --duration-s 120 --seed 42
 ```
 
-Sweep traffic scale and parallelism, recording machine-readable results:
-
-```powershell
-uv run --package d-atc python projects/d-atc/scripts/benchmark_bsky.py `
-  --aircraft 100 1000 5000 --workers 1 2 4 8 --steps 200 --episodes 3 `
-  --json-output projects/d-atc/benchmark-results.json
-```
-
-Observation copying is enabled by default to resemble an RL environment. Use
-`--no-observe` to isolate simulator throughput. BlueSky navigation data is cached
-under `projects/d-atc/.bluesky/`; the first run will therefore take longer.
+Placement is uniform over the configured disk and deterministic for a given
+seed. Altitudes and speeds use meters and meters per second; headings generated
+for BlueSky use degrees. Use `--real-time` to pace the simulation against wall
+clock time and `--verbose` to enable GrADyS event logging. Run
+`uv run --package d-atc circle-simulation --help` for every option.
