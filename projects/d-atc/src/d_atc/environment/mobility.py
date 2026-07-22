@@ -299,6 +299,10 @@ class BlueSkyMobilityHandler(INodeHandler):
             bs.stack.stack(instruction)
 
     def finalize(self) -> None:
+        # Remove working directory
+        self._workdir.rmdir()
+
+        # Quit simulator
         try:
             bs.sim.quit()
             if self._visualization is not None:
