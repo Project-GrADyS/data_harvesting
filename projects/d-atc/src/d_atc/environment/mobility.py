@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import bluesky as bs
+from bluesky.core.walltime import Timer
 from bluesky.simulation import Simulation
 from bluesky.tools.aero import ft
 from bluesky.traffic import Traffic
@@ -12,6 +13,7 @@ from gradysim.simulator.event import EventLoop
 from gradysim.simulator.handler.interface import INodeHandler
 from gradysim.simulator.node import Node
 from validation_core import (
+    validate_bool,
     validate_finite_real,
     validate_non_empty_string,
     validate_non_negative_real,
@@ -19,6 +21,7 @@ from validation_core import (
 )
 
 from d_atc.environment.coordinates import HomeCoordinateFrame
+from d_atc.environment.visualization import BlueSkyVisualization
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -31,7 +34,7 @@ class BlueSkyMobilityConfiguration:
     update_rate: float = 0.05
     """How often to update the mobility."""
     visualization: bool = False
-    """Enable BlueSky visualization."""
+    """Enable BlueSky's interactive, read-only QtGL visualization."""
 
 
 def validate_bluesky_mobility_config(config: BlueSkyMobilityConfiguration) -> None:
@@ -48,6 +51,7 @@ def validate_bluesky_mobility_config(config: BlueSkyMobilityConfiguration) -> No
         raise ValueError("base_workdir must refer to a directory")
 
     validate_positive_real("update_rate", config.update_rate)
+    validate_bool("visualization", config.visualization)
 
     HomeCoordinateFrame(config.home)
 
@@ -101,17 +105,41 @@ class BlueSkyMobilityHandler(INodeHandler):
         self._uninitialized_nodes: list[Node] = []
         self._aircraft: dict[int, _BlueSkyAircraft] = {}
         self._coord_frame = HomeCoordinateFrame(self._config.home)
+        self._visualization: BlueSkyVisualization | None = None
 
         # Initialize bluesky simulation
-        bs.init("sim", workdir=self._workdir, detached=True,
-                gui="pygame" if self._config.visualization else None)
-        if self._config.visualization:
-            bs.scr.init()
+        try:
+            if self._config.visualization:
+                self._visualization = BlueSkyVisualization.start(
+                    workdir=self._workdir,
+                )
+            bs.init(
+                "sim",
+                workdir=self._workdir,
+                detached=self._visualization is None,
+                group_id=(
+                    self._visualization.group_id
+                    if self._visualization is not None
+                    else None
+                ),
+            )
+            if self._visualization is not None:
+                bs.net.connect(
+                    hostname="127.0.0.1",
+                    recv_port=self._visualization.recv_port,
+                    send_port=self._visualization.send_port,
+                )
+        except BaseException:
+            if self._visualization is not None:
+                self._visualization.close()
+            raise
 
         # Set update rate
         bs.stack.stack(f"DT {self._config.update_rate}")
-
-
+        if self._visualization is not None:
+            bs.stack.stack(
+                f"PAN {self._config.home[0]},{self._config.home[1]};ZOOM 1"
+            )
 
     @staticmethod
     def get_label() -> str:
@@ -166,6 +194,10 @@ class BlueSkyMobilityHandler(INodeHandler):
         self._uninitialized_nodes.remove(node)
 
     def _step(self):
+        if self._visualization is not None:
+            Timer.update_timers()
+            bs.net.update()
+
         self.simulation.step()
 
         if abs(self._event_loop.current_time - self.simulation.simt) > 0.01:
@@ -173,7 +205,7 @@ class BlueSkyMobilityHandler(INodeHandler):
 
         self._update_nodes()
 
-        if self._config.visualization:
+        if self._visualization is not None:
             bs.scr.update()
 
         self._event_loop.schedule_event(self._event_loop.current_time + self._config.update_rate, self._step)
@@ -267,7 +299,13 @@ class BlueSkyMobilityHandler(INodeHandler):
             bs.stack.stack(instruction)
 
     def finalize(self) -> None:
-        bs.sim.quit()
+        try:
+            bs.sim.quit()
+            if self._visualization is not None:
+                bs.net.close()
+        finally:
+            if self._visualization is not None:
+                self._visualization.close()
 
 
 def _finite_float(name: str, value: float) -> float:

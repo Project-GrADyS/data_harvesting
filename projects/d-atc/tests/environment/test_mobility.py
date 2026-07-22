@@ -32,9 +32,13 @@ class _FakeSimulation:
     def __init__(self, update_rate: float) -> None:
         self.simt = 0.0
         self._update_rate = update_rate
+        self.quit_calls = 0
 
     def step(self) -> None:
         self.simt += self._update_rate
+
+    def quit(self) -> None:
+        self.quit_calls += 1
 
 
 class _FakeTraffic:
@@ -100,12 +104,14 @@ def fake_handler(monkeypatch: pytest.MonkeyPatch, tmp_path):
     stack = _FakeStack()
     simulation = _FakeSimulation(update_rate)
     traffic = _FakeTraffic()
-    init_calls: list[tuple[str, object, bool]] = []
+    init_calls: list[tuple[str, object, bool, object]] = []
 
     monkeypatch.setattr(
         mobility.bs,
         "init",
-        lambda mode, *, workdir, detached: init_calls.append((mode, workdir, detached)),
+        lambda mode, *, workdir, detached, group_id: init_calls.append(
+            (mode, workdir, detached, group_id)
+        ),
     )
     monkeypatch.setattr(mobility.bs, "stack", stack)
     monkeypatch.setattr(mobility.bs, "sim", simulation, raising=False)
@@ -144,6 +150,17 @@ def test_configuration_is_passive_and_explicit_validator_accepts_valid_config(tm
 
     assert config.base_workdir == tmp_path
     assert validate_bluesky_mobility_config(config) is None
+
+
+@pytest.mark.parametrize("visualization", [None, 0, 1, "yes"])
+def test_configuration_rejects_non_boolean_visualization(visualization) -> None:
+    config = BlueSkyMobilityConfiguration(
+        home=HOME,
+        visualization=visualization,
+    )
+
+    with pytest.raises(TypeError, match="visualization"):
+        BlueSkyMobilityHandler(config)
 
 
 def test_handler_validates_path_and_home_when_consuming_configuration(tmp_path) -> None:
@@ -207,7 +224,7 @@ def test_handler_initializes_bluesky_and_rejects_duplicate_registration(fake_han
     handler, _, _, stack, init_calls = fake_handler
     node = _node(1)
 
-    assert init_calls == [("sim", handler._workdir, True)]
+    assert init_calls == [("sim", handler._workdir, True, None)]
     assert handler._workdir.is_dir()
     assert stack.commands == ["DT 0.05"]
 
@@ -332,6 +349,83 @@ def test_step_detects_bluesky_clock_drift(fake_handler) -> None:
 
     with pytest.raises(RuntimeError, match="not synchronized"):
         event_loop.pop_event().callback()
+
+
+def test_visualization_connects_updates_and_cleans_up(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    calls: list[object] = []
+    stack = _FakeStack()
+    simulation = _FakeSimulation(0.05)
+    traffic = _FakeTraffic()
+    visualization = SimpleNamespace(
+        group_id=b"Sabc",
+        recv_port=21000,
+        send_port=21001,
+        close=lambda: calls.append("visualization.close"),
+    )
+    network = SimpleNamespace(
+        connect=lambda **kwargs: calls.append(("net.connect", kwargs)),
+        update=lambda: calls.append("net.update"),
+        close=lambda: calls.append("net.close"),
+    )
+    screen = SimpleNamespace(update=lambda: calls.append("screen.update"))
+
+    monkeypatch.setattr(
+        mobility.BlueSkyVisualization,
+        "start",
+        lambda **kwargs: calls.append(("visualization.start", kwargs)) or visualization,
+    )
+    monkeypatch.setattr(
+        mobility.bs,
+        "init",
+        lambda mode, **kwargs: calls.append(("bs.init", mode, kwargs)),
+    )
+    monkeypatch.setattr(mobility.bs, "stack", stack)
+    monkeypatch.setattr(mobility.bs, "sim", simulation, raising=False)
+    monkeypatch.setattr(mobility.bs, "traf", traffic, raising=False)
+    monkeypatch.setattr(mobility.bs, "net", network, raising=False)
+    monkeypatch.setattr(mobility.bs, "scr", screen, raising=False)
+    monkeypatch.setattr(
+        mobility.Timer,
+        "update_timers",
+        lambda: calls.append("timer.update"),
+    )
+
+    handler = BlueSkyMobilityHandler(
+        BlueSkyMobilityConfiguration(
+            base_workdir=tmp_path,
+            home=HOME,
+            visualization=True,
+        )
+    )
+    event_loop = EventLoop()
+    handler.inject(event_loop)
+    event_loop.pop_event().callback()
+    handler.finalize()
+
+    assert calls[0][0] == "visualization.start"
+    assert calls[1] == (
+        "bs.init",
+        "sim",
+        {
+            "workdir": handler._workdir,
+            "detached": False,
+            "group_id": b"Sabc",
+        },
+    )
+    assert calls[2] == (
+        "net.connect",
+        {"hostname": "127.0.0.1", "recv_port": 21000, "send_port": 21001},
+    )
+    assert stack.commands == [
+        "DT 0.05",
+        f"PAN {HOME[0]},{HOME[1]};ZOOM 1",
+    ]
+    assert calls[3:6] == ["timer.update", "net.update", "screen.update"]
+    assert calls[-2:] == ["net.close", "visualization.close"]
+    assert simulation.quit_calls == 1
 
 
 def test_handle_command_rejects_wrong_command_and_uninitialized_node(fake_handler) -> None:

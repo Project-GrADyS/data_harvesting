@@ -19,3 +19,10 @@ seed. Altitudes and speeds use meters and meters per second; headings generated
 for BlueSky use degrees. Use `--real-time` to pace the simulation against wall
 clock time and `--verbose` to enable GrADyS event logging. Run
 `uv run --package d-atc circle-simulation --help` for every option.
+
+Add `--visualization` to open BlueSky's interactive QtGL traffic view. The
+view supports navigation, zoom, labels, and map layers, but does not forward
+commands that would change the GrADyS-owned simulation. Pair it with
+`--real-time` for comfortable interactive viewing; without real-time pacing,
+the simulation is allowed to run as fast as possible. Closing the view does
+not stop the simulation.

@@ -49,6 +49,7 @@ def test_generated_aircraft_are_deterministic_and_within_configured_volume() -> 
         ({"update_rate_s": float("nan")}, "update_rate_s"),
         ({"seed": -1}, "seed"),
         ({"center": (91.0, 0.0, 0.0)}, "latitude"),
+        ({"visualization": "yes"}, "visualization"),
     ],
 )
 def test_circle_configuration_rejects_invalid_values(overrides, message: str) -> None:
