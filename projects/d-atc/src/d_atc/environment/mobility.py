@@ -30,6 +30,8 @@ class BlueSkyMobilityConfiguration:
     """Geographic coordinates of the home location (latitude, longitude, altitude) in degrees and meters."""
     update_rate: float = 0.05
     """How often to update the mobility."""
+    visualization: bool = False
+    """Enable BlueSky visualization."""
 
 
 def validate_bluesky_mobility_config(config: BlueSkyMobilityConfiguration) -> None:
@@ -93,6 +95,7 @@ class BlueSkyMobilityHandler(INodeHandler):
         validate_bluesky_mobility_config(config)
         # Create a unique working directory for this simulation instance
         self._workdir = config.base_workdir.resolve() / uuid.uuid4().hex
+        self._workdir.mkdir(parents=True)
 
         self._config = config
         self._uninitialized_nodes: list[Node] = []
@@ -100,9 +103,15 @@ class BlueSkyMobilityHandler(INodeHandler):
         self._coord_frame = HomeCoordinateFrame(self._config.home)
 
         # Initialize bluesky simulation
-        bs.init("sim", workdir=self._workdir, detached=True)
+        bs.init("sim", workdir=self._workdir, detached=True,
+                gui="pygame" if self._config.visualization else None)
+        if self._config.visualization:
+            bs.scr.init()
+
         # Set update rate
         bs.stack.stack(f"DT {self._config.update_rate}")
+
+
 
     @staticmethod
     def get_label() -> str:
@@ -163,6 +172,9 @@ class BlueSkyMobilityHandler(INodeHandler):
             raise RuntimeError("Event loop time is not synchronized with BlueSky update rate.")
 
         self._update_nodes()
+
+        if self._config.visualization:
+            bs.scr.update()
 
         self._event_loop.schedule_event(self._event_loop.current_time + self._config.update_rate, self._step)
 
@@ -253,6 +265,9 @@ class BlueSkyMobilityHandler(INodeHandler):
         # Update the aircraft's heading, speed, vertical speed and altitude in BlueSky
         if len(instruction) > 0:
             bs.stack.stack(instruction)
+
+    def finalize(self) -> None:
+        bs.sim.quit()
 
 
 def _finite_float(name: str, value: float) -> float:
