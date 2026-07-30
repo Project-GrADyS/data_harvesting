@@ -1,0 +1,28 @@
+[project]
+name = "kaz-training"
+version = "0.1.0"
+description = "Lean MADDPG training for PettingZoo Knights Archers Zombies"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "flex-marl>=0.1.0",
+    "hyperopt>=0.2.7",
+    "mlflow>=3.4.0",
+    # The 1.24.3 butterfly extra pins pygame 2.3.0, which has no Python 3.13
+    # wheel. These are the same runtime dependencies with a compatible pygame.
+    "pettingzoo==1.24.3",
+    "pygame>=2.6.1",
+    "pymunk>=6.2.1",
+    "pyyaml>=6.0.2",
+    "rl-core[mlflow]>=0.1.0",
+    "torch>=2.9.1",
+    "torchrl>=0.10.1",
+    "tqdm>=4.67.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.8.18,<0.9.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = ["pytest>=9.0.2"]

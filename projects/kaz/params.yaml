@@ -1,0 +1,71 @@
+environment:
+  spawn_rate: 20
+  num_archers: 2
+  num_knights: 2
+  max_zombies: 10
+  max_arrows: 10
+  killable_knights: true
+  killable_archers: true
+  pad_observation: true
+  line_death: false
+  max_cycles: 900
+
+actor:
+  entity_embed_dim: 64
+  role_embed_dim: 16
+
+critic:
+  entity_embed_dim: 64
+  role_embed_dim: 16
+  action_embed_dim: 16
+
+encoder:
+  num_heads: 4
+  ff_dim: 128
+  depth: 2
+  dropout: 0.0
+  mix_layer_depth: 2
+  mix_layer_num_cells: 128
+  activation_function: ReLU
+  compile: false
+
+training:
+  total_timesteps: 500000
+  warmup_steps: 5000
+  batch_size: 256
+  seed: 0
+  device: auto
+  exploration_epsilon_init: 1.0
+  exploration_epsilon_end: 0.05
+  exploration_annealing_steps: 100000
+
+collector:
+  num_collectors: 1
+  frames_per_batch: 512
+  device: cpu
+
+replay_buffer:
+  buffer_size: 100000
+  prefetch: 0
+  device: cpu
+
+optimization:
+  gamma: 0.99
+  lr: 0.0003
+  tau: 0.005
+  updates_per_batch: 1
+  grad_clip: 5.0
+
+metrics:
+  log_every_n_steps: 5000
+
+evaluation:
+  enabled: true
+  eval_every_n_steps: 25000
+  num_episodes: 10
+  seed: 10000
+
+checkpoint:
+  enabled: true
+  every_n_steps: 100000
+  save_final_model: true

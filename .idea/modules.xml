@@ -6,6 +6,7 @@
       <module fileurl="file://$PROJECT_DIR$/.idea/data-harvesting.iml" filepath="$PROJECT_DIR$/.idea/data-harvesting.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/data-harvesting-workspace.iml" filepath="$PROJECT_DIR$/.idea/data-harvesting-workspace.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/flex-marl.iml" filepath="$PROJECT_DIR$/.idea/flex-marl.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/kaz-training.iml" filepath="$PROJECT_DIR$/.idea/kaz-training.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/rl-core.iml" filepath="$PROJECT_DIR$/.idea/rl-core.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/validation-core.iml" filepath="$PROJECT_DIR$/.idea/validation-core.iml" />
     </modules>
