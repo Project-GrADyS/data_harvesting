@@ -17,6 +17,7 @@ members = [
     "data-harvesting-workspace",
     "flex-marl",
     "rl-core",
+    "sushigo",
     "validation-core",
 ]
 
@@ -604,6 +605,7 @@ dev = [
     { name = "flex-marl" },
     { name = "pytest" },
     { name = "rl-core" },
+    { name = "sushigo" },
     { name = "validation-core" },
 ]
 
@@ -616,6 +618,7 @@ dev = [
     { name = "flex-marl", editable = "packages/flex-marl" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "rl-core", editable = "packages/rl-core" },
+    { name = "sushigo", editable = "projects/sushigo" },
     { name = "validation-core", editable = "packages/validation-core" },
 ]
 
@@ -3550,6 +3553,47 @@ sdist = { url = "https://files.pythonhosted.org/packages/a7/a5/d6f429d43394057b6
 wheels = [
     { url = "https://files.pythonhosted.org/packages/be/72/2db2f49247d0a18b4f1bb9a5a39a0162869acf235f3a96418363947b3d46/starlette-0.48.0-py3-none-any.whl", hash = "sha256:0764ca97b097582558ecb498132ed0c7d942f233f365b86ba37770e026510659", size = 73736, upload-time = "2025-09-13T08:41:03.869Z" },
 ]
+
+[[package]]
+name = "sushigo"
+version = "0.1.0"
+source = { editable = "projects/sushigo" }
+dependencies = [
+    { name = "flex-marl" },
+    { name = "gymnasium" },
+    { name = "mlflow" },
+    { name = "numpy" },
+    { name = "pettingzoo" },
+    { name = "pyyaml" },
+    { name = "rl-core", extra = ["mlflow"] },
+    { name = "tensordict" },
+    { name = "torch", version = "2.9.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux' and sys_platform != 'win32'" },
+    { name = "torch", version = "2.9.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "torchrl" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "flex-marl", editable = "packages/flex-marl" },
+    { name = "gymnasium", specifier = ">=1.2.0" },
+    { name = "mlflow", specifier = ">=3.4.0" },
+    { name = "numpy", specifier = ">=2.2.6" },
+    { name = "pettingzoo", specifier = "==1.24.3" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "rl-core", extras = ["mlflow"], editable = "packages/rl-core" },
+    { name = "tensordict", specifier = ">=0.10.0" },
+    { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32'", specifier = ">=2.9.1" },
+    { name = "torch", marker = "sys_platform == 'linux' or sys_platform == 'win32'", specifier = ">=2.9.1", index = "https://download.pytorch.org/whl/cu128" },
+    { name = "torchrl", specifier = ">=0.10.1" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.2" }]
 
 [[package]]
 name = "sympy"

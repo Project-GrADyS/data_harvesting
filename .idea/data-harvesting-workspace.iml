@@ -7,6 +7,7 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="d-atc" exported="" />
     <orderEntry type="module" module-name="data-harvesting" exported="" />
+    <orderEntry type="module" module-name="sushigo" exported="" />
     <orderEntry type="module" module-name="rl-core" exported="" />
     <orderEntry type="module" module-name="flex-marl" exported="" />
     <orderEntry type="module" module-name="validation-core" exported="" />
