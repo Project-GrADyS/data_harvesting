@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <module external.system.id="pyproject.toml" type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
-    <content url="file://$MODULE_DIR$/projects/data-harvesting">
-      <sourceFolder url="file://$MODULE_DIR$/projects/data-harvesting/src" isTestSource="false" />
+    <content url="file://$MODULE_DIR$/projects/sushigo">
+      <sourceFolder url="file://$MODULE_DIR$/projects/sushigo" />
+      <sourceFolder url="file://$MODULE_DIR$/projects/sushigo/src" />
+      <sourceFolder url="file://$MODULE_DIR$/projects/sushigo/src" isTestSource="false" />
     </content>
     <orderEntry type="jdk" jdkName="uv (distributed-rl)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

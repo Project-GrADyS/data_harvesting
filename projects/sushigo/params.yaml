@@ -1,0 +1,77 @@
+environment:
+  # Set n_players for a fixed table, or set it to null and provide both bounds.
+  n_players: null
+  min_n_players: 2
+  max_n_players: 4
+  history_len: null
+  include_opponent_tableaus: true
+  reward_scale: 0.1
+
+model:
+  use_encoder: true
+  q_head:
+    depth: 2
+    num_cells: 128
+    activation: Tanh
+  encoder:
+    output_dim: 128
+    compile: false
+    sequential:
+      embed_dim: 64
+      num_heads: 4
+      ff_dim: 128
+      depth: 2
+      dropout: 0.0
+      encode_agent_identity: true
+    flat:
+      embed_dim: 64
+      depth: 1
+      num_cells: 128
+      activation: Tanh
+    mix_depth: 1
+    mix_cells: 128
+    mix_activation: Tanh
+
+training:
+  total_frames: 2500000
+  device: auto
+
+exploration:
+  eps_init: 1.0
+  eps_end: 0.05
+  annealing_steps: 1250000
+
+collector:
+  frames_per_batch: 5000
+  num_workers: 4
+  async: false
+
+replay_buffer:
+  capacity: 100000
+  batch_size: 512
+  prefetch: 0
+  device: cpu
+
+optimization:
+  lr: 0.00025
+  gamma: 0.99
+  target_eps: 0.995
+  max_grad_norm: 10.0
+  updates_per_batch: 16
+
+metrics:
+  log_every_frames: 5000
+
+evaluation:
+  enabled: true
+  every_frames: 100000
+  num_episodes: 25
+  max_steps: 40
+
+checkpoint:
+  every_frames: 500000
+  save_final: true
+
+mlflow:
+  experiment: sushigo
+  tracking_uri: null
