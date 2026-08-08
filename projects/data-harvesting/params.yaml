@@ -163,7 +163,7 @@ flex_encoder:
     embed_dim: 128 # Output embedding size of this head
     num_heads: 8 # Number of attention heads
     ff_dim: 256 # Feed-forward (Transformer MLP) inner dim
-    depth: 6 # Number of Transformer layers
+    depth: 2 # Number of Transformer layers
     dropout: 0.1 # Dropout probability inside Transformer
     critic_agent_embedding: true # Enrich observation encoding with agent ID embeddings
 
@@ -171,7 +171,7 @@ flex_encoder:
   # tensor shape is (batch, n_agents, input_dim) (no temporal dimension).
   flat_heads:
     embed_dim: 128 # Output embedding size of this flat head
-    depth: 3 # Hidden layer count inside this head MLP
+    depth: 2 # Hidden layer count inside this head MLP
     num_cells: 128 # Hidden layer width of this head MLP
     activation_function: Tanh # One of: Tanh, ReLU, LeakyReLU
 
