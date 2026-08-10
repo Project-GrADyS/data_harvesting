@@ -100,15 +100,15 @@ replay_buffer:
 
 optimization:
   # Discount factor for future rewards.
-  gamma: 0.954
+  gamma: 0.963
   # Learning rate for optimizers.
-  lr: 0.00016
+  lr: 0.00024
   # Tau for the soft-update of the target network.
-  tau: 0.007
+  tau: 0.001
   # Number of optimizer steps per batch.
-  num_optimizer_steps: 40
+  num_optimizer_steps: 20
   # Gradient clipping value (0 disables clipping).
-  grad_clip: 5.0
+  grad_clip: 0.5
   # Whether to use automatic mixed precision (AMP) during training.
   use_amp: true
 
