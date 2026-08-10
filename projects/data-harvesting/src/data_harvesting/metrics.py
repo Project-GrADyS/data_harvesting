@@ -31,5 +31,4 @@ def extract_selected_terminal_metric_values(
     """Extract metrics after rl-core Evaluator has selected terminal rows."""
 
     info = terminal_transitions.get(("next", "agents", "info"))
-    info = info[..., 0]
-    return {spec.key: info.get(spec.key) for spec in specs}
+    return {spec.key: info.get(spec.key)[..., 0] for spec in specs}

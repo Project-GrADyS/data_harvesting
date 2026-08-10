@@ -77,3 +77,49 @@ def test_evaluator_extractor_accepts_preselected_terminal_transitions() -> None:
     assert values["avg_reward"].tolist() == [3.0]
     assert values["completion_time"].tolist() == [9.0]
     assert values["cause"].tolist() == [2.0]
+
+
+def test_evaluator_extractor_selects_one_agent_slot_per_terminal_transition() -> None:
+    specs = make_metrics_spec()
+    num_transitions = 2
+    num_agent_slots = 8
+    info_tensors = {
+        key: torch.zeros(num_transitions, num_agent_slots, dtype=torch.float32)
+        for key in METRIC_KEYS
+    }
+    info_tensors["avg_reward"] = torch.tensor(
+        [
+            [3.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0],
+            [7.0, 201.0, 202.0, 203.0, 204.0, 205.0, 206.0, 207.0],
+        ]
+    )
+    info_tensors["cause"] = torch.tensor(
+        [
+            [2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        ]
+    )
+    terminal = TensorDict(
+        {
+            "next": TensorDict(
+                {
+                    "agents": TensorDict(
+                        {
+                            "info": TensorDict(
+                                info_tensors,
+                                batch_size=[num_transitions],
+                            )
+                        },
+                        batch_size=[num_transitions],
+                    )
+                },
+                batch_size=[num_transitions],
+            )
+        },
+        batch_size=[num_transitions],
+    )
+
+    values = extract_selected_terminal_metric_values(terminal, specs)
+
+    assert values["avg_reward"].tolist() == [3.0, 7.0]
+    assert values["cause"].tolist() == [2.0, 3.0]
