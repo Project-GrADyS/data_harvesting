@@ -102,11 +102,11 @@ optimization:
   # Discount factor for future rewards.
   gamma: 0.963
   # Learning rate for optimizers.
-  lr: 0.00024
+  lr: 0.0001
   # Tau for the soft-update of the target network.
   tau: 0.001
   # Number of optimizer steps per batch.
-  num_optimizer_steps: 20
+  num_optimizer_steps: 10
   # Gradient clipping value (0 disables clipping).
   grad_clip: 0.5
   # Whether to use automatic mixed precision (AMP) during training.
@@ -137,7 +137,7 @@ evaluation:
   # Evaluate every N collected timesteps.
   eval_every_n_steps: 250000
   # Number of evaluation episodes per periodic evaluation.
-  num_runs: 50
+  num_runs: 100
   # Base seed for evaluation episodes. Use null to leave evaluation stochastic.
   seed: null
 
