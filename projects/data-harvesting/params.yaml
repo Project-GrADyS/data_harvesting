@@ -56,7 +56,7 @@ actor:
 
 training:
   # Total number of training timesteps.
-  total_timesteps: 15000000
+  total_timesteps: 25000000
   # Initial sigma for exploration noise (AdditiveGaussianModule).
   exploration_sigma_init: 0.1
   # Final sigma for exploration noise (AdditiveGaussianModule).
@@ -102,11 +102,11 @@ optimization:
   # Discount factor for future rewards.
   gamma: 0.963
   # Learning rate for optimizers.
-  lr: 0.0001
+  lr: 0.00006
   # Tau for the soft-update of the target network.
   tau: 0.001
   # Number of optimizer steps per batch.
-  num_optimizer_steps: 10
+  num_optimizer_steps: 8
   # Gradient clipping value (0 disables clipping).
   grad_clip: 0.5
   # Whether to use automatic mixed precision (AMP) during training.
