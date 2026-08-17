@@ -36,7 +36,7 @@ environment:
   # If true, episode ends when all sensors are collected.
   end_when_all_collected: false
   # Probability that each active agent dies after a step.
-  agent_death_probability: 0.0005
+  agent_death_probability: 0.0
   # If true, random death cannot remove the final active agent in an episode.
   prevent_last_agent_death: true
   # If true, the observations are shaped as a sequence, if false it is a flat vector.
@@ -102,11 +102,11 @@ optimization:
   # Discount factor for future rewards.
   gamma: 0.963
   # Learning rate for optimizers.
-  lr: 0.00006
+  lr: 0.0001
   # Tau for the soft-update of the target network.
   tau: 0.001
   # Number of optimizer steps per batch.
-  num_optimizer_steps: 8
+  num_optimizer_steps: 10
   # Gradient clipping value (0 disables clipping).
   grad_clip: 0.5
   # Whether to use automatic mixed precision (AMP) during training.
