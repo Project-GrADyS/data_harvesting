@@ -7,7 +7,12 @@ from data_harvesting.environment.data_collection import make_data_collection_env
 RIGHT = 0.0
 
 
-def _reward_config(*, num_sensors: int, communication_range: float = 2.0) -> dict:
+def _reward_config(
+    *,
+    num_sensors: int,
+    communication_range: float = 2.0,
+    reward: str = "punish",
+) -> dict:
     return {
         "environment": {
             "sequential_obs": True,
@@ -23,7 +28,7 @@ def _reward_config(*, num_sensors: int, communication_range: float = 2.0) -> dic
             "state_num_closest_sensors": max(1, num_sensors),
             "state_num_closest_drones": 1,
             "id_on_state": True,
-            "reward": "punish",
+            "reward": reward,
             "speed_action": True,
             "end_when_all_collected": True,
         }
@@ -128,5 +133,80 @@ def test_reward_penalty_ceases_when_all_sensors_already_collected() -> None:
         _, reward = _step_and_get_reward(env, td, speed=0.0)
 
         assert reward == pytest.approx(0.0)
+    finally:
+        env.close()
+
+
+@pytest.mark.parametrize("num_sensors", [1, 2, 10])
+def test_completion_aligned_total_collection_reward_is_sensor_count_independent(
+    num_sensors: int,
+) -> None:
+    env = make_data_collection_env(
+        _reward_config(
+            num_sensors=num_sensors,
+            communication_range=3.0,
+            reward="completion_aligned",
+        )
+    )
+    try:
+        td = env.reset(seed=35)
+        _prepare_scenario(
+            env,
+            drone_pos=(0.0, 0.0),
+            sensor_positions=[(0.0, 0.0)] * num_sensors,
+            collected_flags=[False] * num_sensors,
+        )
+
+        _, reward = _step_and_get_reward(env, td, speed=0.0)
+
+        assert reward == pytest.approx(11.0)
+    finally:
+        env.close()
+
+
+def test_completion_aligned_rewards_progress_and_penalizes_remaining_fraction() -> None:
+    env = make_data_collection_env(
+        _reward_config(
+            num_sensors=4,
+            communication_range=3.0,
+            reward="completion_aligned",
+        )
+    )
+    try:
+        td = env.reset(seed=36)
+        _prepare_scenario(
+            env,
+            drone_pos=(0.0, 0.0),
+            sensor_positions=[(0.0, 0.0), (9.0, 0.0), (9.0, 1.0), (9.0, 2.0)],
+            collected_flags=[False] * 4,
+        )
+
+        _, reward = _step_and_get_reward(env, td, speed=0.0)
+
+        assert reward == pytest.approx(10.0 * 0.25 - 0.75)
+    finally:
+        env.close()
+
+
+def test_completion_aligned_rewards_post_completion_transition() -> None:
+    env = make_data_collection_env(
+        _reward_config(
+            num_sensors=2,
+            communication_range=0.0,
+            reward="completion_aligned",
+        )
+    )
+    try:
+        td = env.reset(seed=37)
+        _prepare_scenario(
+            env,
+            drone_pos=(0.0, 0.0),
+            sensor_positions=[(9.0, 0.0), (9.0, 1.0)],
+            collected_flags=[True, True],
+        )
+
+        _, reward = _step_and_get_reward(env, td, speed=0.0)
+
+        assert reward == pytest.approx(1.0)
     finally:
         env.close()
