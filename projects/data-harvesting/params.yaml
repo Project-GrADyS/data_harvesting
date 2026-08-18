@@ -36,7 +36,7 @@ environment:
   # If true, episode ends when all sensors are collected.
   end_when_all_collected: false
   # Probability that each active agent dies after a step.
-  agent_death_probability: 0.0
+  agent_death_probability: 0.0005
   # If true, random death cannot remove the final active agent in an episode.
   prevent_last_agent_death: true
   # If true, the observations are shaped as a sequence, if false it is a flat vector.
@@ -56,7 +56,7 @@ actor:
 
 training:
   # Total number of training timesteps.
-  total_timesteps: 25000000
+  total_timesteps: 1000000
   # Initial sigma for exploration noise (AdditiveGaussianModule).
   exploration_sigma_init: 0.1
   # Final sigma for exploration noise (AdditiveGaussianModule).
