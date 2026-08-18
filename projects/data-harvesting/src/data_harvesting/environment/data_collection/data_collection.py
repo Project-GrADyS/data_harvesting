@@ -60,10 +60,7 @@ class DataCollectionEnvironmentConfig:
     min_sensor_priority: float = 0.1
     max_sensor_priority: float = 1
     full_random_drone_position: bool = False
-    reward: str = "completion_aligned"
-    collection_reward_scale: float = 10.0
-    remaining_penalty_scale: float = 1.0
-    completion_reward: float = 1.0
+    reward: str = 'punish'  # Fixed reward mode: punish
     speed_action: bool = True
     end_when_all_collected: bool = True
     agent_death_probability: float = 0.0
@@ -106,20 +103,8 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         self.min_sensor_priority = config.min_sensor_priority
         self.max_sensor_priority = config.max_sensor_priority
         self.full_random_drone_position = config.full_random_drone_position
-        if config.reward not in {"punish", "completion_aligned"}:
-            raise ValueError("reward must be either 'punish' or 'completion_aligned'.")
-        reward_parameters = {
-            "collection_reward_scale": config.collection_reward_scale,
-            "remaining_penalty_scale": config.remaining_penalty_scale,
-            "completion_reward": config.completion_reward,
-        }
-        for name, value in reward_parameters.items():
-            if not math.isfinite(value) or value < 0:
-                raise ValueError(f"{name} must be a finite non-negative number.")
-        self.reward_mode = config.reward
-        self.collection_reward_scale = config.collection_reward_scale
-        self.remaining_penalty_scale = config.remaining_penalty_scale
-        self.completion_reward = config.completion_reward
+        if config.reward != "punish":
+            raise ValueError("Only reward='punish' is supported.")
         if not 0.0 <= config.agent_death_probability <= 1.0:
             raise ValueError("agent_death_probability must be in [0, 1].")
         self.speed_action = config.speed_action
@@ -544,21 +529,10 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
     def _compute_reward(self, collected_before: list[bool], collected_after: list[bool]) -> float:
         before = sum(collected_before)
         after = sum(collected_after)
-        if self.reward_mode == "punish":
-            if after > before:
-                return float((after - before) * 10)
-            remaining = self.active_num_sensors - after
-            return float(-(remaining) / max(1, self.active_num_sensors))
-
-        sensor_count = max(1, self.active_num_sensors)
-        newly_collected_fraction = (after - before) / sensor_count
+        if after > before:
+            return float((after - before) * 10)
         remaining = self.active_num_sensors - after
-        remaining_fraction = remaining / sensor_count
-        reward = self.collection_reward_scale * newly_collected_fraction
-        reward -= self.remaining_penalty_scale * remaining_fraction
-        if remaining == 0:
-            reward += self.completion_reward
-        return float(reward)
+        return float(-(remaining) / max(1, self.active_num_sensors))
 
     def _update_collection_times(self, collected_after: list[bool]) -> None:
         current_timestamp = self.episode_duration * self.algorithm_iteration_interval
