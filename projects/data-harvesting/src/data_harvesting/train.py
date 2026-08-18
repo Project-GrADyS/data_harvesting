@@ -184,7 +184,7 @@ def train(config: dict[str, Any], run_name: str | None = None, profiler=None) ->
         device=device,
     )
     final_performance_metrics = MetricsCollector(
-        specs=(ScalarMetricSpec(key="avg_reward", reducer=ScalarReducer.MEAN),),
+        specs=(ScalarMetricSpec(key="all_collected", reducer=ScalarReducer.MEAN),),
         device=device,
     )
     learning_metrics = MetricsCollector(
@@ -260,6 +260,6 @@ def train(config: dict[str, Any], run_name: str | None = None, profiler=None) ->
         sample_env.close()
 
     final_metrics = final_performance_metrics.peek()
-    if "avg_reward" not in final_metrics:
-        raise RuntimeError("An avg_reward metric is required to report training results.")
-    return final_metrics["avg_reward"]
+    if "all_collected" not in final_metrics:
+        raise RuntimeError("An all_collected metric is required to report training results.")
+    return final_metrics["all_collected"]
