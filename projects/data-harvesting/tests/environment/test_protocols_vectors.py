@@ -113,6 +113,14 @@ class TestProjectVectorOntoEdge:
         assert_tuple_close(project_vector_onto_edge((0.0, 10.0), (0.6, 0.8), 10.0), (10.0, 0.0))
         assert_tuple_close(project_vector_onto_edge((0.0, -10.0), (0.6, -0.8), 10.0), (10.0, 0.0))
 
+    def test_preserves_inward_component_when_at_x_edge(self) -> None:
+        assert_tuple_close(project_vector_onto_edge((10.0, 0.0), (-0.6, 0.8), 10.0), (-20.0, 10.0))
+        assert_tuple_close(project_vector_onto_edge((-10.0, 0.0), (0.6, 0.8), 10.0), (20.0, 10.0))
+
+    def test_preserves_inward_component_when_at_y_edge(self) -> None:
+        assert_tuple_close(project_vector_onto_edge((0.0, 10.0), (0.6, -0.8), 10.0), (10.0, -20.0))
+        assert_tuple_close(project_vector_onto_edge((0.0, -10.0), (0.6, 0.8), 10.0), (10.0, 20.0))
+
     def test_projects_both_components_when_at_corner(self) -> None:
         assert_tuple_close(project_vector_onto_edge((10.0, 10.0), (0.6, 0.8), 10.0), (0.0, 0.0))
 
@@ -124,6 +132,10 @@ class TestProjectVectorOntoEdge:
         unit_vector = (0.5, 0.5)
         projected = project_vector_onto_edge(position, unit_vector, 10.0)
         assert_tuple_close(projected, (0.0, 0.0))
+
+    def test_can_escape_corner_when_pointing_inward(self) -> None:
+        projected = project_vector_onto_edge((10.0, 10.0), (-0.6, -0.8), 10.0)
+        assert_tuple_close(projected, (-20.0, -20.0))
 
     @pytest.mark.parametrize("position,unit_vector", _edge_tests)
     def test_correct_projection_at_edges(self, position, unit_vector) -> None:
@@ -148,3 +160,11 @@ class TestPreventVectorEscape:
         angle_input = math.atan2(unit_vector[1], unit_vector[0])
         angle_result = math.atan2(result[1], result[0])
         assert angle_input == pytest.approx(angle_result, abs=1e-9)
+
+    def test_can_return_from_edge_to_scenario_interior(self) -> None:
+        result = prevent_vector_escape((10.0, 0.0), (-1.0, 0.0), 10.0)
+        assert_tuple_close(result, (-20.0, 0.0))
+
+    def test_can_return_from_corner_to_scenario_interior(self) -> None:
+        result = prevent_vector_escape((10.0, 10.0), (-0.6, -0.8), 10.0)
+        assert_tuple_close(result, (-20.0, -20.0))

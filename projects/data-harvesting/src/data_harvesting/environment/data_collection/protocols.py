@@ -109,9 +109,19 @@ def project_vector_onto_edge(current_position: tuple[float, float],
         unit_vector[1] * coordinate_limit * 2 * _sqrt_2
     ]
 
-    # Now clamp the vector components to not exceed the distance to the edge from current position
-    max_x_size = coordinate_limit - abs(current_position[0])
-    max_y_size = coordinate_limit - abs(current_position[1])
+    # Clamp each component against the edge in the requested direction. Using
+    # ``limit - abs(position)`` here traps an agent at an edge even when its
+    # action points back into the scenario.
+    max_x_size = (
+        coordinate_limit - current_position[0]
+        if unit_vector[0] >= 0
+        else coordinate_limit + current_position[0]
+    )
+    max_y_size = (
+        coordinate_limit - current_position[1]
+        if unit_vector[1] >= 0
+        else coordinate_limit + current_position[1]
+    )
     if abs(coord_limit_vector[0]) > max_x_size:
         coord_limit_vector[0] = math.copysign(max_x_size, coord_limit_vector[0])
     if abs(coord_limit_vector[1]) > max_y_size:
