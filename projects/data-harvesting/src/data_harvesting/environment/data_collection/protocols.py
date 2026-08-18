@@ -91,7 +91,6 @@ def extend_unit_vector_to_edge(current_position: tuple[float, float],
 
     return unit_vector[0] * scale, unit_vector[1] * scale
 
-_sqrt_2 = math.sqrt(2)
 def project_vector_onto_edge(current_position: tuple[float, float],
                              unit_vector: tuple[float, float],
                              coordinate_limit: float) -> tuple[float, float]:
@@ -105,8 +104,8 @@ def project_vector_onto_edge(current_position: tuple[float, float],
     """
     # Start by extending the vector to a size large enough to reach the edge in any direction
     coord_limit_vector = [
-        unit_vector[0] * coordinate_limit * 2 * _sqrt_2,
-        unit_vector[1] * coordinate_limit * 2 * _sqrt_2
+        unit_vector[0] * 1e5,
+        unit_vector[1] * 1e5
     ]
 
     # Clamp each component against the edge in the requested direction. Using
