@@ -46,6 +46,8 @@ class DataCollectionEnvironmentConfig:
     # To fix the number, set min_num_agents == max_num_agents.
     min_num_agents: int = 1
     max_num_agents: int = 1
+    # How to sample the number of agents: uniformly, or with probability proportional to 1 / n.
+    agent_count_sampling: str = "uniform"
     # Number of sensors is always sampled each reset from [min_num_sensors, max_num_sensors].
     # To fix the number, set min_num_sensors == max_num_sensors.
     min_num_sensors: int = 2
@@ -92,6 +94,13 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         self.max_num_sensors = config.max_num_sensors
         self.min_num_agents = config.min_num_agents
         self.max_num_agents = config.max_num_agents
+        if self.min_num_agents < 1:
+            raise ValueError("min_num_agents must be at least 1.")
+        if self.min_num_agents > self.max_num_agents:
+            raise ValueError("min_num_agents cannot be greater than max_num_agents.")
+        if config.agent_count_sampling not in {"uniform", "inverse"}:
+            raise ValueError("agent_count_sampling must be either 'uniform' or 'inverse'.")
+        self.agent_count_sampling = config.agent_count_sampling
 
         self.scenario_size = config.scenario_size
         self.max_episode_length = config.max_episode_length
@@ -421,7 +430,15 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
     def _reset(self, tensordict: TensorDictBase, **kwargs) -> TensorDictBase:
         # Picking number of sensors and drones for this episode
         self.active_num_sensors = random.randint(self.min_num_sensors, self.max_num_sensors)
-        num_active_agents = random.randint(self.min_num_agents, self.max_num_agents)
+        agent_counts = range(self.min_num_agents, self.max_num_agents + 1)
+        if self.agent_count_sampling == "inverse":
+            num_active_agents = random.choices(
+                agent_counts,
+                weights=[1.0 / count for count in agent_counts],
+                k=1,
+            )[0]
+        else:
+            num_active_agents = random.randint(self.min_num_agents, self.max_num_agents)
         self.episode_agents = [
             EpisodeAgentState(
                 slot_index=i,

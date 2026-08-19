@@ -5,7 +5,10 @@ from .data_collection import DataCollectionEnvironmentConfig
 
 def evaluation_environment_overrides(config: dict) -> dict:
     """Return data-collection environment overrides used only during evaluation."""
-    return {"end_when_all_collected": True}
+    return {
+        "end_when_all_collected": True,
+        "agent_count_sampling": "uniform",
+    }
 
 
 def requires_masking(config: DataCollectionEnvironmentConfig) -> bool:
