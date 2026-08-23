@@ -39,9 +39,13 @@ environment:
   speed_action: true
   # If true, episode ends when all sensors are collected.
   end_when_all_collected: false
-  # Probability that each active agent dies after a step.
-  agent_death_probability: 0.0005
-  # If true, random death cannot remove the final active agent in an episode.
+  # Death scheduler used after each environment step.
+  # stochastic: independently samples each active agent using probability.
+  # scheduled: causes one random active-agent death per matching timestep entry.
+  death_scheduler:
+    type: stochastic
+    probability: 0.0005
+  # If true, a death scheduler cannot remove the final active agent in an episode.
   prevent_last_agent_death: true
   # If true, the observations are shaped as a sequence, if false it is a flat vector.
   sequential_obs: true

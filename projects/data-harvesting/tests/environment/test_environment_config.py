@@ -5,6 +5,8 @@ from data_harvesting.environment.data_collection.data_collection import (
     DataCollectionEnvironment,
     DataCollectionEnvironmentConfig,
 )
+from data_harvesting.environment.data_collection.config import make_death_scheduler
+from data_harvesting.environment.data_collection.death import StochasticDeathScheduler
 
 
 def test_evaluation_environment_overrides_force_end_when_all_collected() -> None:
@@ -39,7 +41,8 @@ def test_inverse_agent_count_sampling_uses_reciprocal_weights(monkeypatch) -> No
             min_num_agents=1,
             max_num_agents=4,
             agent_count_sampling="inverse",
-        )
+        ),
+        death_scheduler=StochasticDeathScheduler(),
     )
     try:
         env.reset(seed=0)
@@ -56,7 +59,8 @@ def test_inverse_agent_count_sampling_uses_reciprocal_weights(monkeypatch) -> No
 def test_agent_count_sampling_rejects_unknown_strategy() -> None:
     with pytest.raises(ValueError, match="agent_count_sampling"):
         DataCollectionEnvironment(
-            DataCollectionEnvironmentConfig(agent_count_sampling="unsupported")
+            DataCollectionEnvironmentConfig(agent_count_sampling="unsupported"),
+            death_scheduler=StochasticDeathScheduler(),
         )
 
 
@@ -67,5 +71,38 @@ def test_inverse_agent_count_sampling_requires_positive_agent_counts() -> None:
                 min_num_agents=0,
                 max_num_agents=4,
                 agent_count_sampling="inverse",
-            )
+            ),
+            death_scheduler=StochasticDeathScheduler(),
+        )
+
+
+def test_make_death_scheduler_parses_unified_stochastic_config() -> None:
+    environment_config = {
+        "death_scheduler": {"type": "stochastic", "probability": 0.25}
+    }
+
+    scheduler = make_death_scheduler(environment_config)
+
+    assert isinstance(scheduler, StochasticDeathScheduler)
+    assert scheduler.probability == pytest.approx(0.25)
+    assert environment_config == {}
+
+
+def test_make_death_scheduler_adapts_legacy_probability() -> None:
+    environment_config = {"agent_death_probability": 0.0005}
+
+    scheduler = make_death_scheduler(environment_config)
+
+    assert isinstance(scheduler, StochasticDeathScheduler)
+    assert scheduler.probability == pytest.approx(0.0005)
+    assert environment_config == {}
+
+
+def test_make_death_scheduler_rejects_unified_and_legacy_config_together() -> None:
+    with pytest.raises(ValueError, match="either death_scheduler"):
+        make_death_scheduler(
+            {
+                "death_scheduler": {"type": "stochastic", "probability": 0.1},
+                "agent_death_probability": 0.1,
+            }
         )

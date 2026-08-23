@@ -12,6 +12,7 @@ from data_harvesting.environment.data_collection.config import (
     requires_masking as requires_data_collection_masking,
 )
 from data_harvesting.environment.data_collection.data_collection import DataCollectionEnvironmentConfig
+from data_harvesting.environment.data_collection.death import StochasticDeathScheduler
 from data_harvesting.algorithm import MADDPGAlgorithm
 from data_harvesting.optimization import create_ppo_loss
 
@@ -22,7 +23,7 @@ def _base_env_config(
     max_num_agents: int,
     sequential_obs: bool = False,
     reward: str = "punish",
-    agent_death_probability: float = 0.0,
+    death_scheduler: dict | None = None,
     prevent_last_agent_death: bool = True,
 ) -> dict:
     return {
@@ -45,7 +46,11 @@ def _base_env_config(
         "reward": reward,
         "speed_action": True,
         "end_when_all_collected": False,
-        "agent_death_probability": agent_death_probability,
+        "death_scheduler": (
+            death_scheduler
+            if death_scheduler is not None
+            else {"type": "stochastic", "probability": 0.0}
+        ),
         "prevent_last_agent_death": prevent_last_agent_death,
     }
 
@@ -57,7 +62,7 @@ def _base_config(
     sequential_obs: bool = False,
     flex_enabled: bool = False,
     algorithm: str = "maddpg",
-    agent_death_probability: float = 0.0,
+    death_scheduler: dict | None = None,
     prevent_last_agent_death: bool = True,
 ) -> dict:
     return {
@@ -65,7 +70,7 @@ def _base_config(
             min_num_agents=min_num_agents,
             max_num_agents=max_num_agents,
             sequential_obs=sequential_obs,
-            agent_death_probability=agent_death_probability,
+            death_scheduler=death_scheduler,
             prevent_last_agent_death=prevent_last_agent_death,
         ),
         "actor": {
@@ -183,7 +188,10 @@ def test_requires_masking_helpers_match_environment_config(
         }
     }
 
-    assert requires_data_collection_masking(data_collection_config) is expected
+    assert requires_data_collection_masking(
+        data_collection_config,
+        StochasticDeathScheduler(0.0),
+    ) is expected
     assert requires_environment_masking(full_config) is expected
 
 
@@ -208,7 +216,6 @@ def test_requires_masking_when_mid_episode_death_is_enabled() -> None:
         reward="punish",
         speed_action=True,
         end_when_all_collected=False,
-        agent_death_probability=0.1,
         prevent_last_agent_death=True,
     )
     full_config = {
@@ -217,13 +224,16 @@ def test_requires_masking_when_mid_episode_death_is_enabled() -> None:
                 min_num_agents=2,
                 max_num_agents=2,
                 sequential_obs=True,
-                agent_death_probability=0.1,
+                death_scheduler={"type": "stochastic", "probability": 0.1},
                 prevent_last_agent_death=True,
             )
         }
     }
 
-    assert requires_data_collection_masking(data_collection_config) is True
+    assert requires_data_collection_masking(
+        data_collection_config,
+        StochasticDeathScheduler(0.1),
+    ) is True
     assert requires_environment_masking(full_config) is True
 
 
@@ -248,7 +258,6 @@ def test_requires_masking_is_true_for_single_agent_when_death_is_enabled() -> No
         reward="punish",
         speed_action=True,
         end_when_all_collected=False,
-        agent_death_probability=0.1,
         prevent_last_agent_death=True,
     )
     full_config = {
@@ -257,14 +266,35 @@ def test_requires_masking_is_true_for_single_agent_when_death_is_enabled() -> No
                 min_num_agents=1,
                 max_num_agents=1,
                 sequential_obs=True,
-                agent_death_probability=0.1,
+                death_scheduler={"type": "stochastic", "probability": 0.1},
                 prevent_last_agent_death=True,
             )
         }
     }
 
-    assert requires_data_collection_masking(data_collection_config) is True
+    assert requires_data_collection_masking(
+        data_collection_config,
+        StochasticDeathScheduler(0.1),
+    ) is True
     assert requires_environment_masking(full_config) is True
+
+
+@pytest.mark.parametrize(
+    ("timesteps", "expected"),
+    [([], False), ([5], True)],
+)
+def test_requires_masking_reflects_scheduled_deaths(
+    timesteps: list[int],
+    expected: bool,
+) -> None:
+    config = _base_config(
+        min_num_agents=2,
+        max_num_agents=2,
+        sequential_obs=True,
+        death_scheduler={"type": "scheduled", "timesteps": timesteps},
+    )
+
+    assert requires_environment_masking(config) is expected
 
 
 def test_mlp_actor_and_critic_reject_masking_required_environments() -> None:

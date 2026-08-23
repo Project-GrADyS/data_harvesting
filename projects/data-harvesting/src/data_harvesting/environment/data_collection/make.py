@@ -1,6 +1,7 @@
 from torchrl.envs import EnvBase
 
 from .data_collection import DataCollectionEnvironment, DataCollectionEnvironmentConfig
+from .config import make_death_scheduler
 from .metrics import make_data_collection_metrics_spec
 
 
@@ -10,10 +11,11 @@ def make_data_collection_env(config: dict) -> EnvBase:
     """
     env_config = config["environment"].copy()
     is_sequential = env_config.pop('sequential_obs')
+    death_scheduler = make_death_scheduler(env_config)
 
     # Pass through directly; GrADySEnvironmentConfig handles validation and sampling
     gradys_config = DataCollectionEnvironmentConfig(**env_config)
-    env = DataCollectionEnvironment(gradys_config)
+    env = DataCollectionEnvironment(gradys_config, death_scheduler=death_scheduler)
 
     # If the environment is not sequential, we flatten and concatenate the observation components
     if not is_sequential:
