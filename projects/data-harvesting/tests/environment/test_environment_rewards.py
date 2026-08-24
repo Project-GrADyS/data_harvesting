@@ -9,8 +9,8 @@ RIGHT = 0.0
 
 def _reward_config(*, num_sensors: int, communication_range: float = 2.0) -> dict:
     return {
+        "flex_encoder": {"enabled": True},
         "environment": {
-            "sequential_obs": True,
             "algorithm_iteration_interval": 1.0,
             "min_num_agents": 1,
             "max_num_agents": 1,

@@ -12,7 +12,6 @@ from data_harvesting.environment.data_collection.death import StochasticDeathSch
 def test_evaluation_environment_overrides_force_end_when_all_collected() -> None:
     config = {
         "environment": {
-            "sequential_obs": True,
             "end_when_all_collected": False,
         }
     }

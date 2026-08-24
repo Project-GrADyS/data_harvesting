@@ -9,7 +9,6 @@ from data_harvesting.environment.data_collection import make_data_collection_env
 def _maddpg_test_config() -> dict:
     return {
         "environment": {
-            "sequential_obs": False,
             "algorithm_iteration_interval": 1.0,
             "min_num_agents": 2,
             "max_num_agents": 2,
@@ -128,6 +127,27 @@ def test_maddpg_learn_returns_finite_losses_and_updates_models() -> None:
 
         assert _any_changed(actor_before, actor_after)
         assert _any_changed(critic_before, critic_after)
+    finally:
+        env.close()
+
+
+def test_variable_agent_mlp_maddpg_learns_with_finite_losses() -> None:
+    config = _maddpg_test_config_with_overrides(
+        **{
+            "environment.min_num_agents": 1,
+            "environment.max_num_agents": 3,
+        }
+    )
+    env = make_data_collection_env(config)
+    try:
+        algorithm = MADDPGAlgorithm(env, torch.device("cpu"), config)
+        batch = _collect_training_batch(algorithm, config)
+
+        losses = algorithm.learn(batch)
+
+        assert torch.isfinite(losses["loss_actor"])
+        assert torch.isfinite(losses["loss_value"])
+        assert batch.get(("agents", "mask")).shape[-1] == 3
     finally:
         env.close()
 

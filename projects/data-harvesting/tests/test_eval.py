@@ -35,8 +35,8 @@ def _make_policy() -> TensorDictModule:
 
 def _eval_config() -> dict:
     return {
+        "flex_encoder": {"enabled": True},
         "environment": {
-            "sequential_obs": True,
             "algorithm_iteration_interval": 1.0,
             "min_num_agents": 1,
             "max_num_agents": 1,

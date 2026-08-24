@@ -74,6 +74,8 @@ def create_updater(loss_module: MaskedDDPGLoss, config: Dict[str, Any]) -> SoftU
 
 def create_ppo_loss(policy: torch.nn.Module, value_net: torch.nn.Module, config: Dict[str, Any]) -> ClipPPOLoss:
     """Create a PPO loss with GAE value estimator and proper key bindings."""
+    if config["flex_encoder"]["enabled"]:
+        raise ValueError("MAPPO requires flex_encoder.enabled to be false.")
     if requires_masking(config):
         raise NotImplementedError("PPO Loss does not support environments that require masking.")
 

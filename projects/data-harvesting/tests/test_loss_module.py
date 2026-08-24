@@ -9,7 +9,6 @@ from data_harvesting.loss import _reduce
 def _loss_test_config() -> dict:
     return {
         "environment": {
-            "sequential_obs": False,
             "algorithm_iteration_interval": 1.0,
             "min_num_agents": 2,
             "max_num_agents": 2,

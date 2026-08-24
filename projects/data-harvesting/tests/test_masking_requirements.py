@@ -14,6 +14,7 @@ from data_harvesting.environment.data_collection.config import (
 from data_harvesting.environment.data_collection.data_collection import DataCollectionEnvironmentConfig
 from data_harvesting.environment.data_collection.death import StochasticDeathScheduler
 from data_harvesting.algorithm import MADDPGAlgorithm
+from data_harvesting.encoding import MaskedMultiAgentMLP
 from data_harvesting.optimization import create_ppo_loss
 
 
@@ -21,13 +22,11 @@ def _base_env_config(
     *,
     min_num_agents: int,
     max_num_agents: int,
-    sequential_obs: bool = False,
     reward: str = "punish",
     death_scheduler: dict | None = None,
     prevent_last_agent_death: bool = True,
 ) -> dict:
     return {
-        "sequential_obs": sequential_obs,
         "algorithm_iteration_interval": 1.0,
         "min_num_agents": min_num_agents,
         "max_num_agents": max_num_agents,
@@ -59,7 +58,6 @@ def _base_config(
     *,
     min_num_agents: int,
     max_num_agents: int,
-    sequential_obs: bool = False,
     flex_enabled: bool = False,
     algorithm: str = "maddpg",
     death_scheduler: dict | None = None,
@@ -69,7 +67,6 @@ def _base_config(
         "environment": _base_env_config(
             min_num_agents=min_num_agents,
             max_num_agents=max_num_agents,
-            sequential_obs=sequential_obs,
             death_scheduler=death_scheduler,
             prevent_last_agent_death=prevent_last_agent_death,
         ),
@@ -183,7 +180,6 @@ def test_requires_masking_helpers_match_environment_config(
             **_base_env_config(
                 min_num_agents=min_num_agents,
                 max_num_agents=max_num_agents,
-                sequential_obs=True,
             )
         }
     }
@@ -223,7 +219,6 @@ def test_requires_masking_when_mid_episode_death_is_enabled() -> None:
             **_base_env_config(
                 min_num_agents=2,
                 max_num_agents=2,
-                sequential_obs=True,
                 death_scheduler={"type": "stochastic", "probability": 0.1},
                 prevent_last_agent_death=True,
             )
@@ -265,7 +260,6 @@ def test_requires_masking_is_true_for_single_agent_when_death_is_enabled() -> No
             **_base_env_config(
                 min_num_agents=1,
                 max_num_agents=1,
-                sequential_obs=True,
                 death_scheduler={"type": "stochastic", "probability": 0.1},
                 prevent_last_agent_death=True,
             )
@@ -290,22 +284,102 @@ def test_requires_masking_reflects_scheduled_deaths(
     config = _base_config(
         min_num_agents=2,
         max_num_agents=2,
-        sequential_obs=True,
         death_scheduler={"type": "scheduled", "timesteps": timesteps},
     )
 
     assert requires_environment_masking(config) is expected
 
 
-def test_mlp_actor_and_critic_reject_masking_required_environments() -> None:
-    config = _base_config(min_num_agents=1, max_num_agents=3, sequential_obs=False, flex_enabled=False)
+def test_mlp_actor_and_critic_support_masking_required_environments() -> None:
+    config = _base_config(min_num_agents=1, max_num_agents=3, flex_enabled=False)
     env = make_data_collection_env(config)
     try:
-        with pytest.raises(NotImplementedError, match="masking"):
-            create_actor(env, torch.device("cpu"), config)
+        actor = create_actor(env, torch.device("cpu"), config)
+        critic = create_critic(env, torch.device("cpu"), config)
+        td = actor(env.reset(seed=0).unsqueeze(0))
+        td = critic(td)
 
-        with pytest.raises(NotImplementedError, match="masking"):
-            create_critic(env, torch.device("cpu"), config)
+        assert td.get(("agents", "action")).shape == (1, 3, 2)
+        assert td.get(("agents", "state_action_value")).shape == (1, 3, 1)
+        assert torch.isfinite(td.get(("agents", "state_action_value"))).all()
+    finally:
+        env.close()
+
+
+def test_masked_mlp_replaces_only_inactive_agent_inputs() -> None:
+    class _Capture(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.inputs = None
+
+        def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+            self.inputs = inputs
+            return inputs
+
+    capture = _Capture()
+    module = MaskedMultiAgentMLP(capture)
+    inputs = torch.arange(12, dtype=torch.float32).reshape(2, 3, 2)
+    mask = torch.tensor([[True, False, True], [False, True, False]])
+
+    output = module(inputs, mask)
+    expected = inputs.masked_fill(~mask.unsqueeze(-1), -1.0)
+
+    torch.testing.assert_close(output, expected)
+    torch.testing.assert_close(capture.inputs, expected)
+
+
+def test_centralized_mlp_critic_ignores_inactive_observations_and_actions() -> None:
+    config = _base_config(
+        min_num_agents=1,
+        max_num_agents=3,
+        flex_enabled=False,
+    )
+    env = make_data_collection_env(config)
+    try:
+        critic = create_critic(env, torch.device("cpu"), config)
+        base = env.reset(seed=0).unsqueeze(0)
+        mask = torch.tensor([[True, False, True]])
+        base.set(("agents", "mask"), mask)
+        base.set(("agents", "action"), torch.zeros(1, 3, 2))
+
+        clean = base.clone()
+        clean_values = critic(clean).get(("agents", "state_action_value")).clone()
+
+        corrupt = base.clone()
+        corrupt.get(("agents", "observation", "flat"))[:, 1].fill_(10_000.0)
+        corrupt.get(("agents", "action"))[:, 1].fill_(-10_000.0)
+        corrupt_values = critic(corrupt).get(("agents", "state_action_value"))
+
+        torch.testing.assert_close(clean_values, corrupt_values)
+
+        active = corrupt.clone()
+        active_mask = active.get(("agents", "mask")).clone()
+        active_mask[:, 1] = True
+        active.set(("agents", "mask"), active_mask)
+        active_values = critic(active).get(("agents", "state_action_value"))
+
+        assert not torch.allclose(clean_values, active_values)
+    finally:
+        env.close()
+
+
+def test_mappo_rejects_flex_encoder() -> None:
+    config = _base_config(
+        min_num_agents=2,
+        max_num_agents=2,
+        flex_enabled=True,
+        algorithm="mappo",
+    )
+    env = make_data_collection_env(config)
+    try:
+        with pytest.raises(ValueError, match=r"flex_encoder\.enabled.*false"):
+            create_ppo_actor(env, torch.device("cpu"), config)
+
+        with pytest.raises(ValueError, match=r"flex_encoder\.enabled.*false"):
+            create_ppo_value_net(env, torch.device("cpu"), config)
+
+        with pytest.raises(ValueError, match=r"flex_encoder\.enabled.*false"):
+            create_ppo_loss(nn.Identity(), nn.Identity(), config)
     finally:
         env.close()
 
@@ -314,7 +388,6 @@ def test_mappo_components_reject_masking_required_environments() -> None:
     config = _base_config(
         min_num_agents=1,
         max_num_agents=3,
-        sequential_obs=False,
         flex_enabled=False,
         algorithm="mappo",
     )
@@ -333,7 +406,7 @@ def test_mappo_components_reject_masking_required_environments() -> None:
 
 
 def test_maddpg_loss_binds_mask_when_environment_requires_it() -> None:
-    config = _base_config(min_num_agents=1, max_num_agents=3, sequential_obs=True, flex_enabled=True)
+    config = _base_config(min_num_agents=1, max_num_agents=3, flex_enabled=True)
     env = make_data_collection_env(config)
     try:
         algorithm = MADDPGAlgorithm(env, torch.device("cpu"), config)
