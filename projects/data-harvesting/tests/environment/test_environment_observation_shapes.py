@@ -6,15 +6,15 @@ from data_harvesting.environment.data_collection import make_data_collection_env
 
 def _shape_config(
     *,
-    sequential_obs: bool,
+    flex_enabled: bool,
     id_on_state: bool,
     num_drones: int,
     closest_sensors: int,
     closest_drones: int,
 ) -> dict:
     return {
+        "flex_encoder": {"enabled": flex_enabled},
         "environment": {
-            "sequential_obs": sequential_obs,
             "algorithm_iteration_interval": 1.0,
             "min_num_agents": num_drones,
             "max_num_agents": num_drones,
@@ -39,7 +39,7 @@ def test_sequential_observation_and_spec_shapes_with_agent_id(closest_sensors: i
     num_drones = 3
     env = make_data_collection_env(
         _shape_config(
-            sequential_obs=True,
+            flex_enabled=True,
             id_on_state=True,
             num_drones=num_drones,
             closest_sensors=closest_sensors,
@@ -80,7 +80,7 @@ def test_sequential_observation_and_spec_shapes_without_agent_id() -> None:
     closest_drones = 4
     env = make_data_collection_env(
         _shape_config(
-            sequential_obs=True,
+            flex_enabled=True,
             id_on_state=False,
             num_drones=num_drones,
             closest_sensors=closest_sensors,
@@ -103,7 +103,7 @@ def test_flat_observation_and_spec_shapes_with_agent_id(closest_sensors: int, cl
     num_drones = 2
     env = make_data_collection_env(
         _shape_config(
-            sequential_obs=False,
+            flex_enabled=False,
             id_on_state=True,
             num_drones=num_drones,
             closest_sensors=closest_sensors,
@@ -135,7 +135,7 @@ def test_flat_observation_and_spec_shapes_without_agent_id() -> None:
     closest_drones = 4
     env = make_data_collection_env(
         _shape_config(
-            sequential_obs=False,
+            flex_enabled=False,
             id_on_state=False,
             num_drones=num_drones,
             closest_sensors=closest_sensors,
@@ -154,5 +154,32 @@ def test_flat_observation_and_spec_shapes_without_agent_id() -> None:
         assert tuple(env.observation_spec["agents", "observation", "flat"].shape) == (num_drones, expected_dim)
         assert tuple(env.observation_spec["agents", "observation_flat", "sensors"].shape) == (num_drones, closest_sensors * 2)
         assert tuple(env.observation_spec["agents", "observation_flat", "drones"].shape) == (num_drones, closest_drones * 2)
+    finally:
+        env.close()
+
+
+@pytest.mark.parametrize(
+    ("flex_enabled", "legacy_sequential_obs", "expects_flat"),
+    [(True, False, False), (False, True, True)],
+)
+def test_flex_encoder_switch_controls_observation_representation(
+    flex_enabled: bool,
+    legacy_sequential_obs: bool,
+    expects_flat: bool,
+) -> None:
+    config = _shape_config(
+        flex_enabled=flex_enabled,
+        id_on_state=True,
+        num_drones=2,
+        closest_sensors=2,
+        closest_drones=1,
+    )
+    config["environment"]["sequential_obs"] = legacy_sequential_obs
+    env = make_data_collection_env(config)
+    try:
+        td = env.reset(seed=25)
+        has_flat = ("agents", "observation", "flat") in td.keys(True, True)
+
+        assert has_flat is expects_flat
     finally:
         env.close()

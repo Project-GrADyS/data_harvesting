@@ -4,6 +4,7 @@ from .data_collection.config import (
     evaluation_environment_overrides as _data_collection_evaluation_environment_overrides,
 )
 from .data_collection.config import requires_masking as _requires_data_collection_masking
+from .data_collection.config import make_death_scheduler
 from .data_collection.data_collection import DataCollectionEnvironmentConfig
 
 
@@ -16,4 +17,8 @@ def requires_masking(config: dict) -> bool:
     """Return whether the active environment configuration requires agent masking."""
     env_config = config["environment"].copy()
     env_config.pop("sequential_obs", None)
-    return _requires_data_collection_masking(DataCollectionEnvironmentConfig(**env_config))
+    death_scheduler = make_death_scheduler(env_config)
+    return _requires_data_collection_masking(
+        DataCollectionEnvironmentConfig(**env_config),
+        death_scheduler,
+    )

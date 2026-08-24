@@ -10,7 +10,6 @@ from data_harvesting.environment.data_collection import make_data_collection_env
 def _exploration_test_config(*, sigma_init: float = 0.2, sigma_end: float = 0.1, anneal_steps: int = 5) -> dict:
     return {
         "environment": {
-            "sequential_obs": False,
             "algorithm_iteration_interval": 1.0,
             "min_num_agents": 2,
             "max_num_agents": 2,

@@ -17,6 +17,7 @@ from torchrl.envs import EnvBase
 
 from data_harvesting.environment import EndCause
 from data_harvesting.environment.gradys_env import BaseGrADySEnvironment
+from .death import DeathScheduler
 from .metrics import make_data_collection_metrics_spec
 from .protocols import DroneProtocol, SensorProtocol
 
@@ -65,7 +66,6 @@ class DataCollectionEnvironmentConfig:
     reward: str = 'punish'  # Fixed reward mode: punish
     speed_action: bool = True
     end_when_all_collected: bool = True
-    agent_death_probability: float = 0.0
     prevent_last_agent_death: bool = True
 
 
@@ -80,7 +80,13 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
 
     batch_locked: bool = True
 
-    def __init__(self, config: DataCollectionEnvironmentConfig, *, device=None):
+    def __init__(
+        self,
+        config: DataCollectionEnvironmentConfig,
+        *,
+        death_scheduler: DeathScheduler,
+        device=None,
+    ):
         BaseGrADySEnvironment.__init__(self, config.algorithm_iteration_interval, visual_mode=(config.render_mode == "visual"))
         EnvBase.__init__(self, device=device)
 
@@ -114,11 +120,9 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
         self.full_random_drone_position = config.full_random_drone_position
         if config.reward != "punish":
             raise ValueError("Only reward='punish' is supported.")
-        if not 0.0 <= config.agent_death_probability <= 1.0:
-            raise ValueError("agent_death_probability must be in [0, 1].")
         self.speed_action = config.speed_action
         self.end_when_all_collected = config.end_when_all_collected
-        self.agent_death_probability = config.agent_death_probability
+        self.death_scheduler = death_scheduler
         self.prevent_last_agent_death = config.prevent_last_agent_death
 
         self.possible_agents = [f"drone{i}" for i in range(self.max_num_agents)]
@@ -395,7 +399,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
 
         reward = self._compute_reward(collected_before, collected_after)
         self._update_collection_times(collected_after)
-        dying_agents = self._sample_dying_agents(stepped_agents)
+        dying_agents = self._get_dying_agents(stepped_agents)
         self._deactivate_agents(dying_agents)
         self._reward_sum_update(reward, stepped_agents)
 
@@ -448,6 +452,7 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
             )
             for i in range(self.max_num_agents)
         ]
+        self.death_scheduler.reset()
 
         self._reset_statistics()
 
@@ -507,17 +512,37 @@ class DataCollectionEnvironment(BaseGrADySEnvironment, EnvBase):
             action = actions_cpu[agent.slot_index].tolist()
             agent_node.protocol_encapsulator.protocol.act(action, self.scenario_size)
 
-    def _sample_dying_agents(self, stepped_agents: list[EpisodeAgentState]) -> list[EpisodeAgentState]:
-        if self.agent_death_probability <= 0.0:
+    def _get_dying_agents(
+        self,
+        stepped_agents: list[EpisodeAgentState],
+    ) -> list[EpisodeAgentState]:
+        active_slots = [agent.slot_index for agent in stepped_agents]
+        scheduled_slots = self.death_scheduler.get_deaths(
+            self.episode_duration,
+            active_slots,
+        )
+        if scheduled_slots is None:
             return []
-        if self.prevent_last_agent_death and len(stepped_agents) <= 1:
-            return []
-        dying_agents = [
-            agent for agent in stepped_agents
-            if random.random() < self.agent_death_probability
-        ]
+        if not isinstance(scheduled_slots, list):
+            raise TypeError("DeathScheduler.get_deaths() must return a list or None.")
+        if any(
+            isinstance(slot, bool) or not isinstance(slot, int)
+            for slot in scheduled_slots
+        ):
+            raise TypeError("Death scheduler slot IDs must be integers.")
+        if len(scheduled_slots) != len(set(scheduled_slots)):
+            raise ValueError("Death scheduler returned duplicate agent slot IDs.")
+
+        active_by_slot = {agent.slot_index: agent for agent in stepped_agents}
+        invalid_slots = [slot for slot in scheduled_slots if slot not in active_by_slot]
+        if invalid_slots:
+            raise ValueError(
+                f"Death scheduler returned non-active agent slot IDs: {invalid_slots}"
+            )
+
+        dying_agents = [active_by_slot[slot] for slot in scheduled_slots]
         if self.prevent_last_agent_death and len(dying_agents) == len(stepped_agents):
-            # Keep one active slot alive to avoid ending episodes solely from random deaths.
+            # Keep one active slot alive to avoid ending episodes solely from scheduled deaths.
             return dying_agents[:-1]
         return dying_agents
 

@@ -73,6 +73,8 @@ class MADDPGAlgorithm:
 
 class MAPPOAlgorithm:
     def __init__(self, env: EnvBase, device: torch.device, config: dict):
+        if config["flex_encoder"]["enabled"]:
+            raise ValueError("MAPPO requires flex_encoder.enabled to be false.")
         self.config = config
         self.device = device
         self.env = env

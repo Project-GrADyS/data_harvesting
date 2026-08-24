@@ -19,8 +19,8 @@ def _metrics_config(
     max_num_agents: int = 1,
 ) -> dict:
     return {
+        "flex_encoder": {"enabled": True},
         "environment": {
-            "sequential_obs": True,
             "algorithm_iteration_interval": 1.0,
             "min_num_agents": min_num_agents,
             "max_num_agents": max_num_agents,

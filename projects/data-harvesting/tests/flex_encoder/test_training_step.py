@@ -8,7 +8,6 @@ from data_harvesting.environment.data_collection import make_data_collection_env
 def _flex_maddpg_config() -> dict:
     return {
         "environment": {
-            "sequential_obs": True,
             "algorithm_iteration_interval": 1.0,
             "min_num_agents": 3,
             "max_num_agents": 3,

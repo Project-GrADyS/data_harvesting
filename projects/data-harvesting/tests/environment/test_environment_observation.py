@@ -7,8 +7,8 @@ from data_harvesting.environment.data_collection import make_data_collection_env
 
 def _two_drone_config() -> dict:
     return {
+        "flex_encoder": {"enabled": True},
         "environment": {
-            "sequential_obs": True,
             "algorithm_iteration_interval": 1.0,
             "min_num_agents": 2,
             "max_num_agents": 2,
@@ -30,8 +30,8 @@ def _two_drone_config() -> dict:
 
 def _many_entities_config() -> dict:
     return {
+        "flex_encoder": {"enabled": True},
         "environment": {
-            "sequential_obs": True,
             "algorithm_iteration_interval": 1.0,
             "min_num_agents": 5,
             "max_num_agents": 5,
@@ -53,6 +53,7 @@ def _many_entities_config() -> dict:
 
 def _config_with_overrides(base_config: dict, **env_overrides) -> dict:
     config = {
+        "flex_encoder": base_config["flex_encoder"].copy(),
         "environment": base_config["environment"].copy(),
     }
     config["environment"].update(env_overrides)

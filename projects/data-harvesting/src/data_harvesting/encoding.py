@@ -16,6 +16,7 @@ from flex_marl import (
 from tensordict.nn import TensorDictModule
 from torch import nn
 from torchrl.envs import EnvBase
+from torchrl.modules import MultiAgentMLP
 
 from data_harvesting.utils import get_activation_class
 
@@ -29,6 +30,27 @@ class _TensorDictEncoderRouter(nn.Module):
 
     def forward(self, **inputs: torch.Tensor) -> torch.Tensor:
         return self.encoder(inputs)
+
+
+class MaskedMultiAgentMLP(nn.Module):
+    """Apply fixed padding to inactive agent slots before an MLP forward pass."""
+
+    padding_value = -1.0
+
+    def __init__(self, mlp: MultiAgentMLP) -> None:
+        super().__init__()
+        self.mlp = mlp
+
+    def forward(
+        self,
+        inputs: torch.Tensor,
+        agent_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        padded_inputs = inputs.masked_fill(
+            ~agent_mask.unsqueeze(-1),
+            self.padding_value,
+        )
+        return self.mlp(padded_inputs)
 
 
 def _encoder_mode(network_config: Mapping[str, Any]) -> MultiAgentMode:
@@ -73,41 +95,26 @@ def make_flex_encoder_module(
         "agent_mask": ("agents", "mask"),
     }
 
-    if bool(environment_config["sequential_obs"]):
-        for key in ("drones", "sensors"):
-            path = ("agents", "observation", key)
-            mask_key = f"{key}_mask"
-            fields.append(
-                SequentialFieldConfig(
-                    key=key,
-                    mask_key=mask_key,
-                    input_size=env.observation_spec[path].shape[-1],
-                    output_size=int(sequential_config["embed_dim"]),
-                    sequential_options=sequential_options,
-                )
+    for key in ("drones", "sensors"):
+        path = ("agents", "observation", key)
+        mask_key = f"{key}_mask"
+        fields.append(
+            SequentialFieldConfig(
+                key=key,
+                mask_key=mask_key,
+                input_size=env.observation_spec[path].shape[-1],
+                output_size=int(sequential_config["embed_dim"]),
+                sequential_options=sequential_options,
             )
-            in_keys[key] = path
-            in_keys[mask_key] = ("agents", "observation", mask_key)
+        )
+        in_keys[key] = path
+        in_keys[mask_key] = ("agents", "observation", mask_key)
 
-        if bool(environment_config["id_on_state"]):
-            path = ("agents", "observation", "agent_id")
-            fields.append(
-                FlatFieldConfig(
-                    key="agent_id",
-                    input_size=env.observation_spec[path].shape[-1],
-                    output_size=int(flat_config["embed_dim"]),
-                    depth=int(flat_config["depth"]),
-                    hidden_layer_size=int(flat_config["num_cells"]),
-                    activation_class=get_activation_class(flat_config["activation_function"]),
-                    sequential_options=sequential_options,
-                )
-            )
-            in_keys["agent_id"] = path
-    else:
-        path = ("agents", "observation", "flat")
+    if bool(environment_config["id_on_state"]):
+        path = ("agents", "observation", "agent_id")
         fields.append(
             FlatFieldConfig(
-                key="observation",
+                key="agent_id",
                 input_size=env.observation_spec[path].shape[-1],
                 output_size=int(flat_config["embed_dim"]),
                 depth=int(flat_config["depth"]),
@@ -116,7 +123,7 @@ def make_flex_encoder_module(
                 sequential_options=sequential_options,
             )
         )
-        in_keys["observation"] = path
+        in_keys["agent_id"] = path
 
     if include_action:
         path = ("agents", "action")

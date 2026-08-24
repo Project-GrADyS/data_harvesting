@@ -4,10 +4,10 @@ import torch
 from data_harvesting.environment.data_collection import make_data_collection_env
 
 
-def _masking_config(*, sequential_obs: bool = True) -> dict:
+def _masking_config(*, flex_enabled: bool = True) -> dict:
     return {
+        "flex_encoder": {"enabled": flex_enabled},
         "environment": {
-            "sequential_obs": sequential_obs,
             "algorithm_iteration_interval": 1.0,
             "min_num_agents": 1,
             "max_num_agents": 4,
@@ -112,7 +112,7 @@ def test_mask_all_true_when_active_equals_max() -> None:
 
 
 def test_mask_spec_shape_matches_max_drones() -> None:
-    env = make_data_collection_env(_masking_config(sequential_obs=False))
+    env = make_data_collection_env(_masking_config(flex_enabled=False))
     try:
         assert tuple(env.observation_spec["agents", "mask"].shape) == (4,)
     finally:

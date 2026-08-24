@@ -39,13 +39,14 @@ environment:
   speed_action: true
   # If true, episode ends when all sensors are collected.
   end_when_all_collected: false
-  # Probability that each active agent dies after a step.
-  agent_death_probability: 0
-  # If true, random death cannot remove the final active agent in an episode.
+  # Death scheduler used after each environment step.
+  # stochastic: independently samples each active agent using probability.
+  # scheduled: causes one random active-agent death per matching timestep entry.
+  death_scheduler:
+    type: stochastic
+    probability: 0
+  # If true, a death scheduler cannot remove the final active agent in an episode.
   prevent_last_agent_death: true
-  # If true, the observations are shaped as a sequence, if false it is a flat vector.
-  sequential_obs: true
-
 actor:
   # All actor networks will share the same parameters if true.
   share_parameters: true
@@ -151,11 +152,12 @@ checkpoint:
   # Save model at the end of training.
   save_final_model: true
 
-# Flexible multi-head encoder configuration (optional replacement for MultiAgentMLP)
+# Encoder architecture and representation configuration
 flex_encoder:
-  # Master switch: when true, actor/critic construction logic should instantiate
-  # MultiAgentFlexEncoder instead of the standard MultiAgentMLP backbones.
-  enabled: true
+  # Master switch for both observation representation and model architecture.
+  # When true, retain structured observations and use MultiAgentFlexEncoder.
+  # When false, flatten observations and use fixed-width MultiAgentMLP backbones.
+  enabled: false
   # Compile the encoder and omit per-forward tensor contract checks. Constructor
   # configuration validation remains enabled.
   compile: true

@@ -9,36 +9,29 @@ from torchrl.modules import (
     NormalParamExtractor,
 )
 from torchrl.modules.distributions import TanhNormal
-from data_harvesting.encoding import make_flex_encoder_module
+from data_harvesting.encoding import MaskedMultiAgentMLP, make_flex_encoder_module
 from data_harvesting.environment import requires_masking
 from data_harvesting.utils import get_faster_tanh_delta, get_activation_class
 
 def create_mlp_module(env: EnvBase, config: Dict[str, Any], device: torch.device) -> TensorDictModule:
-    if requires_masking(config):
-        raise NotImplementedError(
-            "MLP Actor does not support environments that require masking. "
-            "Enable the flex encoder backend instead."
-        )
-
-    if config["environment"]["sequential_obs"]:
-        raise NotImplementedError("MLP Actor not implemented for sequential observations.")
-
     activation_class = get_activation_class(config["actor"]["activation_function"])
-    policy_net = MultiAgentMLP(
-        n_agent_inputs=env.observation_spec[("agents", "observation", "flat")].shape[-1],
-        n_agent_outputs=env.full_action_spec[("agents", "action")].shape[-1],
-        n_agents=config["environment"]["min_num_agents"],
-        centralised=config["actor"]["centralized"],
-        share_params=config["actor"]["share_parameters"],
-        device=device,
-        depth=config["actor"]["network_depth"],
-        num_cells=config["actor"]["network_width"],
-        activation_class=activation_class
+    policy_net = MaskedMultiAgentMLP(
+        MultiAgentMLP(
+            n_agent_inputs=env.observation_spec[("agents", "observation", "flat")].shape[-1],
+            n_agent_outputs=env.full_action_spec[("agents", "action")].shape[-1],
+            n_agents=config["environment"]["max_num_agents"],
+            centralised=config["actor"]["centralized"],
+            share_params=config["actor"]["share_parameters"],
+            device=device,
+            depth=config["actor"]["network_depth"],
+            num_cells=config["actor"]["network_width"],
+            activation_class=activation_class,
+        )
     )
 
     policy_module = TensorDictModule(
         policy_net,
-        in_keys=[("agents", "observation", "flat")],
+        in_keys=[("agents", "observation", "flat"), ("agents", "mask")],
         out_keys=[("agents", "param")],
     )
     return policy_module
@@ -131,6 +124,8 @@ def create_ppo_actor(
     Returns a ProbabilisticActor that emits actions within the environment bounds and stores
     the log probability under the key ("agents", "sample_log_prob") for PPO updates.
     """
+    if config["flex_encoder"]["enabled"]:
+        raise ValueError("MAPPO requires flex_encoder.enabled to be false.")
     if requires_masking(config):
         raise NotImplementedError("PPO Actor does not support environments that require masking.")
 

@@ -65,6 +65,14 @@ if __name__ == "__main__":
     mlflow.set_experiment(experiment_name)
 
     space = {
+        "actor": {
+            "network_depth": hp.choice("actor_network_depth", [1, 2, 3]),
+            "network_width": hp.choice("actor_network_width", [128, 256, 512]),
+        },
+        "critic": {
+            "network_depth": hp.choice("critic_network_depth", [1, 2, 3]),
+            "network_width": hp.choice("critic_network_width", [256, 512, 1024]),
+        },
         "optimization": {
             "num_optimizer_steps": hp.choice("num_optimizer_steps", [1, 2, 5, 10, 20, 40]),
             "lr": hp.loguniform("lr", math.log(1e-5), math.log(3e-3)),
