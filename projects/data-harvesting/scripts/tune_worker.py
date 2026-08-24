@@ -36,7 +36,9 @@ def main(argv: list[str] | None = None) -> int:
 
     # Parse before creating a process group so informational exits such as
     # --help complete normally instead of being reported as SIGKILL failures.
-    os.setpgrp()  # create new process group, become its leader
+    process_groups_supported = hasattr(os, "setpgrp") and hasattr(os, "killpg")
+    if process_groups_supported:
+        getattr(os, "setpgrp")()  # create new process group, become its leader
     try:
         mlflow.set_tracking_uri(args.tracking_uri)
         if args.experiment_name:
@@ -57,7 +59,8 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write("\n")
         sys.stdout.flush()
     finally:
-        os.killpg(0, signal.SIGKILL)  # kill all processes in my group
+        if process_groups_supported:
+            getattr(os, "killpg")(0, signal.SIGKILL)  # kill all processes in my group
 
     return 0
 

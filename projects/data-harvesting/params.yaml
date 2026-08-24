@@ -157,7 +157,7 @@ flex_encoder:
   # Master switch for both observation representation and model architecture.
   # When true, retain structured observations and use MultiAgentFlexEncoder.
   # When false, flatten observations and use fixed-width MultiAgentMLP backbones.
-  enabled: true
+  enabled: false
   # Compile the encoder and omit per-forward tensor contract checks. Constructor
   # configuration validation remains enabled.
   compile: true
