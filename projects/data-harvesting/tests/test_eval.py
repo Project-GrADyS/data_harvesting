@@ -183,6 +183,9 @@ def test_list_policy_models_from_mlflow_run_returns_deterministic_order(monkeypa
         "checkpoint-b",
         "final",
     ]
+    assert models[-1].kind == "final"
+    assert models[-1].step is None
+    assert not models[-1].step_inferred
 
 
 def test_list_policy_models_from_mlflow_run_rejects_empty_run(monkeypatch) -> None:

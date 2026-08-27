@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 from copy import deepcopy
 from dataclasses import dataclass
+import re
 from typing import Any
 
 import mlflow
@@ -24,6 +25,53 @@ class LoggedPolicyModel:
     name: str
     model_id: str
     creation_timestamp: int | None = None
+    step: int | None = None
+    kind: str = "other"
+    step_inferred: bool = False
+
+
+_CHECKPOINT_MODEL_NAME = re.compile(r"policy_checkpoint_step_(\d+)")
+
+
+def _logged_policy_model_metadata(
+    *,
+    name: str,
+    model_id: str,
+    creation_timestamp: int | None,
+    final_step: int | None,
+) -> LoggedPolicyModel:
+    checkpoint_match = _CHECKPOINT_MODEL_NAME.fullmatch(name)
+    if checkpoint_match is not None:
+        return LoggedPolicyModel(
+            name=name,
+            model_id=model_id,
+            creation_timestamp=creation_timestamp,
+            step=int(checkpoint_match.group(1)),
+            kind="checkpoint",
+        )
+    if name == "policy_model":
+        return LoggedPolicyModel(
+            name=name,
+            model_id=model_id,
+            creation_timestamp=creation_timestamp,
+            step=final_step,
+            kind="final",
+            step_inferred=final_step is not None,
+        )
+    return LoggedPolicyModel(
+        name=name,
+        model_id=model_id,
+        creation_timestamp=creation_timestamp,
+    )
+
+
+def _latest_metric_step(client: MlflowClient, run) -> int | None:
+    metric_names = sorted(getattr(getattr(run, "data", None), "metrics", {}))
+    latest_step: int | None = None
+    for metric_name in metric_names:
+        for point in client.get_metric_history(run.info.run_id, metric_name):
+            latest_step = point.step if latest_step is None else max(latest_step, point.step)
+    return latest_step
 
 
 def _scalar_specs(metrics_spec):
@@ -184,11 +232,17 @@ def list_policy_models_from_mlflow_run(
     if not models:
         raise ValueError(f"No logged models were found for run '{run_id}'.")
 
+    final_step = (
+        _latest_metric_step(client, run)
+        if any(model.name == "policy_model" for model in models)
+        else None
+    )
     policy_models = [
-        LoggedPolicyModel(
+        _logged_policy_model_metadata(
             name=model.name,
             model_id=model.model_id,
             creation_timestamp=model.creation_timestamp,
+            final_step=final_step,
         )
         for model in models
     ]
@@ -217,7 +271,9 @@ def load_policy_from_mlflow_run(
     return policy, model_id
 
 
-def load_policy_from_model_id(model_id: str):
+def load_policy_from_model_id(model_id: str, *, tracking_uri: str | None = None):
+    if tracking_uri:
+        mlflow.set_tracking_uri(tracking_uri)
     return mlflow_pytorch.load_model(f"models:/{model_id}")
 
 

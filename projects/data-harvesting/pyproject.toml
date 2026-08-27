@@ -14,6 +14,7 @@ dependencies = [
     "matplotlib>=3.10.6",
     "mlflow>=3.4.0",
     "numpy>=2.2.6",
+    "pandas>=2.3.2",
     "pettingzoo==1.24.3",
     "pyyaml>=6.0.2",
     "rl-core[mlflow]>=0.1.0",

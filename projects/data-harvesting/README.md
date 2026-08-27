@@ -51,3 +51,43 @@ project. The default MLflow tracking location is
 
 Older MLflow policies saved as pickled full modules before the `flex-marl`
 migration are not compatible with this project layout.
+
+## Notebook analysis
+
+`data_harvesting.analysis` provides a pandas-oriented interface for inspecting
+training runs and evaluating their logged policies:
+
+```python
+from data_harvesting.analysis import ExperimentRun
+
+run = ExperimentRun.from_name(
+    "death",
+    "6_mlp",
+    tracking_uri="http://localhost:5000",
+)
+
+run.metric_names
+metrics = run.metrics(["eval/all_collected", "eval/avg_reward"])
+models = run.models_with_metrics()
+
+checkpoint = run.checkpoint(1_000_448)
+policy = checkpoint.load()
+episodes = checkpoint.evaluate(
+    100,
+    config_overrides={
+        "environment": {
+            "min_num_agents": 4,
+            "max_num_agents": 4,
+        }
+    },
+    seed=1000,
+)
+```
+
+Run names must be unique within their experiment. Use
+`ExperimentRun.from_id(...)` when names are duplicated. Model/metric tables use
+exact MLflow steps; the final `policy_model` is assigned the run's maximum
+logged metric step and marked with `step_inferred=True`.
+
+A clean starter notebook is available at
+`analysis/mlflow_analysis.ipynb`.
