@@ -44,7 +44,7 @@ environment:
   # scheduled: causes one random active-agent death per matching timestep entry.
   death_scheduler:
     type: stochastic
-    probability: 0
+    probability: 0.002
   # If true, a death scheduler cannot remove the final active agent in an episode.
   prevent_last_agent_death: true
 actor:
@@ -157,7 +157,7 @@ flex_encoder:
   # Master switch for both observation representation and model architecture.
   # When true, retain structured observations and use MultiAgentFlexEncoder.
   # When false, flatten observations and use fixed-width MultiAgentMLP backbones.
-  enabled: false
+  enabled: true
   # Compile the encoder and omit per-forward tensor contract checks. Constructor
   # configuration validation remains enabled.
   compile: true
