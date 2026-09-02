@@ -239,8 +239,8 @@ def test_model_load_and_evaluation_return_episode_dataframe(monkeypatch) -> None
         or "policy",
     )
 
-    def _evaluate(policy, config, num_runs, *, visual, seed):
-        evaluated.append((policy, config, num_runs, visual, seed))
+    def _evaluate(policy, config, num_runs, *, visual, seed, num_workers):
+        evaluated.append((policy, config, num_runs, visual, seed, num_workers))
         return {
             "episodes": [
                 {
@@ -261,6 +261,7 @@ def test_model_load_and_evaluation_return_episode_dataframe(monkeypatch) -> None
         3,
         config_overrides=overrides,
         seed=42,
+        num_workers=4,
     )
 
     assert loaded == [("checkpoint-100", "http://localhost:5000")]
@@ -271,7 +272,7 @@ def test_model_load_and_evaluation_return_episode_dataframe(monkeypatch) -> None
     }
     assert evaluated[0][1]["evaluation"]["seed"] is None
     assert evaluated[0][1]["label"] == "scenario-a"
-    assert evaluated[0][2:] == (3, False, 42)
+    assert evaluated[0][2:] == (3, False, 42, 4)
     assert table.loc[0, "source_run_id"] == "run-123"
     assert table.loc[0, "model_step"] == 100
     assert table.loc[0, "avg_reward"] == 2.5

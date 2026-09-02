@@ -117,6 +117,7 @@ class RunModel:
         config_overrides: Mapping[str, Any] | None = None,
         seed: int | None = None,
         visual: bool = False,
+        num_workers: int = 1,
     ) -> pd.DataFrame:
         """Evaluate this model and return one row per episode."""
         config = self.run.config
@@ -129,6 +130,7 @@ class RunModel:
             num_runs,
             visual=visual,
             seed=seed,
+            num_workers=num_workers,
         )
         episodes = pd.DataFrame(results.get("episodes", []))
         provenance = {

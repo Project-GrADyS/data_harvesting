@@ -241,6 +241,12 @@ def main() -> None:
         help="Run environment in visual mode during evaluation",
     )
     parser.add_argument(
+        "--num-workers",
+        type=int,
+        default=1,
+        help="Number of parallel evaluation workers (default: 1)",
+    )
+    parser.add_argument(
         "--params",
         default=None,
         help="Optional YAML params file used to build the environment; defaults to the run's logged config",
@@ -283,6 +289,7 @@ def main() -> None:
     print(f"Evaluating run_id={args.run_id}")
     print(f"Config source={config_source}")
     print(f"Visual mode={'on' if args.visual else 'off'}")
+    print(f"Evaluation workers={args.num_workers}")
 
     if args.all_models:
         models = list_policy_models_from_mlflow_run(
@@ -305,7 +312,13 @@ def main() -> None:
         )
         if args.all_models:
             policy = load_policy_from_model_id(model.model_id)
-        results = run_eval(policy, config, args.num_runs, visual=args.visual)
+        results = run_eval(
+            policy,
+            config,
+            args.num_runs,
+            visual=args.visual,
+            num_workers=args.num_workers,
+        )
         _tag_results_with_model(results, model)
         _print_summary(results)
         model_results.append(results)
