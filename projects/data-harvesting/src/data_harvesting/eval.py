@@ -9,6 +9,7 @@ from typing import Any
 
 import mlflow
 import torch
+from tensordict.nn import ProbabilisticTensorDictModule
 from rl_core import CategoricalMetricSpec, ScalarMetricSpec
 from mlflow import pytorch as mlflow_pytorch
 from mlflow import MlflowClient
@@ -316,6 +317,20 @@ def list_policy_models_from_mlflow_run(
     return policy_models
 
 
+def _repair_legacy_probabilistic_modules(policy):
+    """Populate generator fields absent from older pickled TensorDict modules."""
+
+    modules = policy.modules() if hasattr(policy, "modules") else ()
+    for module in modules:
+        if not isinstance(module, ProbabilisticTensorDictModule):
+            continue
+        if not hasattr(module, "_generator"):
+            module._generator = None
+        if not hasattr(module, "_generator_key"):
+            module._generator_key = None
+    return policy
+
+
 def load_policy_from_mlflow_run(
     run_id: str,
     *,
@@ -327,14 +342,18 @@ def load_policy_from_mlflow_run(
 
     model_id = _resolve_model_id_from_run(run_id, model_name=model_name)
     model_uri = f"models:/{model_id}"
-    policy = mlflow_pytorch.load_model(model_uri)
+    policy = _repair_legacy_probabilistic_modules(
+        mlflow_pytorch.load_model(model_uri)
+    )
     return policy, model_id
 
 
 def load_policy_from_model_id(model_id: str, *, tracking_uri: str | None = None):
     if tracking_uri:
         mlflow.set_tracking_uri(tracking_uri)
-    return mlflow_pytorch.load_model(f"models:/{model_id}")
+    return _repair_legacy_probabilistic_modules(
+        mlflow_pytorch.load_model(f"models:/{model_id}")
+    )
 
 
 def _episode_row(episode_info, *, run_index: int, metrics_spec) -> dict[str, Any]:

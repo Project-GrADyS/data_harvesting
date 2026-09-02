@@ -4,7 +4,11 @@ from types import SimpleNamespace
 import pytest
 import torch
 from tensordict import TensorDict
-from tensordict.nn import TensorDictModule, TensorDictSequential
+from tensordict.nn import (
+    ProbabilisticTensorDictModule,
+    TensorDictModule,
+    TensorDictSequential,
+)
 from torch import nn
 
 from data_harvesting.eval import eval as run_eval
@@ -262,3 +266,23 @@ def test_load_policy_from_model_id_uses_mlflow_model_uri(monkeypatch) -> None:
 
     assert policy is expected_policy
     assert loaded_uris == ["models:/model-123"]
+
+
+def test_load_policy_repairs_legacy_probabilistic_module(monkeypatch) -> None:
+    legacy_policy = ProbabilisticTensorDictModule(
+        in_keys=["loc", "scale"],
+        out_keys=["action"],
+        distribution_class=torch.distributions.Normal,
+    )
+    del legacy_policy._generator
+    del legacy_policy._generator_key
+    monkeypatch.setattr(
+        "data_harvesting.eval.mlflow_pytorch.load_model",
+        lambda uri: legacy_policy,
+    )
+
+    policy = load_policy_from_model_id("legacy-model")
+
+    assert policy is legacy_policy
+    assert policy._generator is None
+    assert policy._generator_key is None
