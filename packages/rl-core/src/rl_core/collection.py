@@ -10,11 +10,11 @@ import torch
 from tensordict import TensorDictBase
 from torch import nn
 from torchrl.collectors import (
-    DataCollectorBase,
-    MultiaSyncDataCollector,
-    MultiSyncDataCollector,
-    SyncDataCollector,
-    aSyncDataCollector,
+    BaseCollector,
+    MultiAsyncCollector,
+    MultiSyncCollector,
+    Collector,
+    AsyncCollector,
 )
 from torchrl.envs import EnvBase
 from validation_core import (
@@ -95,7 +95,7 @@ def _build_collector(
     config: CollectorConfig,
     env_factory: EnvironmentFactory,
     policy: Policy,
-) -> DataCollectorBase:
+) -> BaseCollector:
     common_kwargs = {
         "policy": policy,
         "frames_per_batch": config.frames_per_batch,
@@ -108,10 +108,10 @@ def _build_collector(
     }
 
     if config.num_workers == 1:
-        collector_type = aSyncDataCollector if config.mode is CollectionMode.ASYNC else SyncDataCollector
+        collector_type = AsyncCollector if config.mode is CollectionMode.ASYNC else Collector
         return collector_type(create_env_fn=env_factory, **common_kwargs)
 
-    collector_type = MultiaSyncDataCollector if config.mode is CollectionMode.ASYNC else MultiSyncDataCollector
+    collector_type = MultiAsyncCollector if config.mode is CollectionMode.ASYNC else MultiSyncCollector
     env_factories = [env_factory] * config.num_workers
     return collector_type(create_env_fn=env_factories, **common_kwargs)
 
@@ -122,7 +122,7 @@ def make_collector(
     config: CollectorConfig,
     env_factory: EnvironmentFactory,
     policy: Policy = None,
-) -> Iterator[DataCollectorBase]:
+) -> Iterator[BaseCollector]:
     """Construct and reliably shut down the configured TorchRL collector.
 
     Multi-worker collectors must be created under Python's ``if __name__ == "__main__"`` guard.

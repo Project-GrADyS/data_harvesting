@@ -14,7 +14,7 @@ dependencies = [
     "rl-core[mlflow]>=0.1.0",
     "tensordict>=0.10.0",
     "torch>=2.9.1",
-    "torchrl>=0.10.1",
+    "torchrl>=0.13.3",
 ]
 
 [build-system]
