@@ -9,6 +9,7 @@ from .death import (
     StochasticDeathScheduler,
     scheduler_requires_masking,
 )
+import logging
 
 
 def make_death_scheduler(environment_config: dict[str, Any]) -> DeathScheduler:
@@ -20,11 +21,8 @@ def make_death_scheduler(environment_config: dict[str, Any]) -> DeathScheduler:
     has_scheduler = "death_scheduler" in environment_config
     has_legacy_probability = "agent_death_probability" in environment_config
     if has_scheduler and has_legacy_probability:
-        raise ValueError(
-            "Configure either death_scheduler or legacy agent_death_probability, not both."
-        )
-
-    if has_legacy_probability:
+        environment_config.pop("agent_death_probability")
+    elif has_legacy_probability:
         return StochasticDeathScheduler(
             environment_config.pop("agent_death_probability")
         )

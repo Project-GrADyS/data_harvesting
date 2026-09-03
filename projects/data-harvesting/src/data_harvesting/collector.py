@@ -7,7 +7,7 @@ from typing import Any
 import torch
 from rl_core import CollectionMode, CollectorConfig, make_collector
 from tensordict.nn import TensorDictModule
-from torchrl.collectors import DataCollectorBase
+from torchrl.collectors import BaseCollector
 from torchrl.envs import EnvBase
 
 
@@ -34,7 +34,7 @@ def create_collector(
     device: torch.device | str,
     env_creator: Callable[[], EnvBase],
     config: Mapping[str, Any],
-) -> Iterator[DataCollectorBase]:
+) -> Iterator[BaseCollector]:
     with make_collector(
         config=make_collector_config(config, device),
         env_factory=env_creator,

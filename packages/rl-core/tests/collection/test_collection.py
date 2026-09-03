@@ -37,10 +37,10 @@ def install_fake_collectors(monkeypatch: pytest.MonkeyPatch) -> list[FakeCollect
 
         return build
 
-    monkeypatch.setattr(collection, "SyncDataCollector", factory("sync-single"))
-    monkeypatch.setattr(collection, "aSyncDataCollector", factory("async-single"))
-    monkeypatch.setattr(collection, "MultiSyncDataCollector", factory("sync-multi"))
-    monkeypatch.setattr(collection, "MultiaSyncDataCollector", factory("async-multi"))
+    monkeypatch.setattr(collection, "Collector", factory("sync-single"))
+    monkeypatch.setattr(collection, "AsyncCollector", factory("async-single"))
+    monkeypatch.setattr(collection, "MultiSyncCollector", factory("sync-multi"))
+    monkeypatch.setattr(collection, "MultiAsyncCollector", factory("async-multi"))
     return created
 
 

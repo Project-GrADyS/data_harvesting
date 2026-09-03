@@ -1,9 +1,14 @@
+from functools import partial
 from types import SimpleNamespace
 
 import pytest
 import torch
 from tensordict import TensorDict
-from tensordict.nn import TensorDictModule
+from tensordict.nn import (
+    ProbabilisticTensorDictModule,
+    TensorDictModule,
+    TensorDictSequential,
+)
 from torch import nn
 
 from data_harvesting.eval import eval as run_eval
@@ -12,24 +17,24 @@ from data_harvesting.eval import load_config_from_mlflow_run
 from data_harvesting.eval import load_policy_from_model_id
 
 
-class ConstantDirectionPolicy(nn.Module):
-    def __init__(self, direction: float = 0.0, speed: float = 0.0):
-        super().__init__()
-        self.direction = float(direction)
-        self.speed = float(speed)
-
-    def forward(self, mask: torch.Tensor) -> torch.Tensor:
-        action = torch.zeros(mask.shape + (2,), dtype=torch.float32, device=mask.device)
-        action[..., 0] = self.direction
-        action[..., 1] = self.speed
-        return action
-
-
-def _make_policy() -> TensorDictModule:
-    return TensorDictModule(
-        module=ConstantDirectionPolicy(direction=0.0, speed=0.0),
-        in_keys=[("agents", "mask")],
-        out_keys=[("agents", "action")],
+def _make_policy() -> TensorDictSequential:
+    zero_key = ("agents", "zero_action_component")
+    return TensorDictSequential(
+        TensorDictModule(
+            module=partial(torch.zeros_like, dtype=torch.float32),
+            in_keys=[("agents", "mask")],
+            out_keys=[zero_key],
+        ),
+        TensorDictModule(
+            module=partial(torch.repeat_interleave, repeats=2, dim=-1),
+            in_keys=[zero_key],
+            out_keys=[zero_key],
+        ),
+        TensorDictModule(
+            module=nn.Unflatten(-1, (-1, 2)),
+            in_keys=[zero_key],
+            out_keys=[("agents", "action")],
+        ),
     )
 
 
@@ -78,6 +83,53 @@ def test_eval_summarizes_dynamic_scalar_and_categorical_metrics() -> None:
     assert scenario_results["metrics"]["completion_time"]["mean"] == pytest.approx(3.0)
     assert scenario_results["end_cause_counts"]["STALLED"] == 3
     assert scenario_results["end_cause_rate"]["STALLED"] == pytest.approx(1.0)
+
+
+def test_parallel_eval_matches_serial_seeded_episodes() -> None:
+    config = _eval_config()
+    config["environment"].update(
+        max_num_agents=2,
+        max_num_sensors=2,
+    )
+
+    serial = run_eval(
+        _make_policy(),
+        config,
+        num_runs=5,
+        seed=200,
+        num_workers=1,
+    )
+    parallel = run_eval(
+        _make_policy(),
+        config,
+        num_runs=5,
+        seed=200,
+        num_workers=2,
+    )
+
+    assert parallel == serial
+
+
+@pytest.mark.parametrize("num_workers", [0, -1])
+def test_eval_rejects_non_positive_worker_count(num_workers: int) -> None:
+    with pytest.raises(ValueError, match="num_workers must be greater than 0"):
+        run_eval(
+            _make_policy(),
+            _eval_config(),
+            num_runs=1,
+            num_workers=num_workers,
+        )
+
+
+def test_eval_rejects_parallel_visual_evaluation() -> None:
+    with pytest.raises(ValueError, match="visual evaluation requires num_workers=1"):
+        run_eval(
+            _make_policy(),
+            _eval_config(),
+            num_runs=2,
+            visual=True,
+            num_workers=2,
+        )
 
 
 def test_eval_applies_environment_overrides_without_mutating_source(monkeypatch) -> None:
@@ -183,6 +235,9 @@ def test_list_policy_models_from_mlflow_run_returns_deterministic_order(monkeypa
         "checkpoint-b",
         "final",
     ]
+    assert models[-1].kind == "final"
+    assert models[-1].step is None
+    assert not models[-1].step_inferred
 
 
 def test_list_policy_models_from_mlflow_run_rejects_empty_run(monkeypatch) -> None:
@@ -211,3 +266,23 @@ def test_load_policy_from_model_id_uses_mlflow_model_uri(monkeypatch) -> None:
 
     assert policy is expected_policy
     assert loaded_uris == ["models:/model-123"]
+
+
+def test_load_policy_repairs_legacy_probabilistic_module(monkeypatch) -> None:
+    legacy_policy = ProbabilisticTensorDictModule(
+        in_keys=["loc", "scale"],
+        out_keys=["action"],
+        distribution_class=torch.distributions.Normal,
+    )
+    del legacy_policy._generator
+    del legacy_policy._generator_key
+    monkeypatch.setattr(
+        "data_harvesting.eval.mlflow_pytorch.load_model",
+        lambda uri: legacy_policy,
+    )
+
+    policy = load_policy_from_model_id("legacy-model")
+
+    assert policy is legacy_policy
+    assert policy._generator is None
+    assert policy._generator_key is None
